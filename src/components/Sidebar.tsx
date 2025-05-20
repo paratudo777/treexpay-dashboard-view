@@ -6,10 +6,7 @@ import { useState } from 'react';
 import { 
   LayoutDashboard, 
   FileText, 
-  CreditCard, 
   Wallet, 
-  User, 
-  Bell, 
   ShoppingCart, 
   LogOut 
 } from 'lucide-react';
@@ -24,12 +21,9 @@ type NavItem = {
 const navItems: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Transações', href: '/transactions', icon: FileText },
-  { name: 'TEF', href: '/tef', icon: CreditCard },
+  { name: 'Depósitos', href: '/depositos', icon: Wallet },
   { name: 'Financeiro', href: '/financeiro', icon: Wallet },
-  { name: 'Perfil', href: '/perfil', icon: User },
-  { name: 'Minhas Taxas', href: '/taxas', icon: FileText },
   { name: 'Checkouts', href: '/checkouts', icon: ShoppingCart },
-  { name: 'Notificações', href: '/notificações', icon: Bell },
 ];
 
 export function Sidebar() {

@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Depositos from "./pages/Depositos";
+import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -46,10 +48,10 @@ const App = () => (
                 } 
               />
               <Route 
-                path="/tef" 
+                path="/depositos" 
                 element={
                   <ProtectedRoute>
-                    <PlaceholderPage title="Página de TEF" />
+                    <Depositos />
                   </ProtectedRoute>
                 } 
               />
@@ -65,15 +67,7 @@ const App = () => (
                 path="/perfil" 
                 element={
                   <ProtectedRoute>
-                    <PlaceholderPage title="Página de Perfil" />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/taxas" 
-                element={
-                  <ProtectedRoute>
-                    <PlaceholderPage title="Página de Minhas Taxas" />
+                    <Perfil />
                   </ProtectedRoute>
                 } 
               />
@@ -82,14 +76,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <PlaceholderPage title="Página de Checkouts" />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/notificações" 
-                element={
-                  <ProtectedRoute>
-                    <PlaceholderPage title="Página de Notificações" />
                   </ProtectedRoute>
                 } 
               />

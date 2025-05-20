@@ -1,5 +1,6 @@
 
 import { Sidebar } from './Sidebar';
+import { Header } from './Header';
 import { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -36,7 +37,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Mobile header with menu button */}
-        {isMobile && (
+        {isMobile ? (
           <header className="h-16 border-b border-border flex items-center px-4">
             <button 
               onClick={() => setSidebarOpen(true)}
@@ -45,7 +46,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <Menu className="h-5 w-5 text-foreground" />
             </button>
             <div className="ml-4 text-xl font-semibold text-treexpay-medium">TreexPay</div>
+            <div className="ml-auto">
+              <Header />
+            </div>
           </header>
+        ) : (
+          <Header />
         )}
         
         {/* Page content */}
