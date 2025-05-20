@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Depositos from "./pages/Depositos";
 import Perfil from "./pages/Perfil";
+import Financeiro from "./pages/Financeiro";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -59,7 +60,7 @@ const App = () => (
                 path="/financeiro" 
                 element={
                   <ProtectedRoute>
-                    <PlaceholderPage title="Página Financeira" />
+                    <Financeiro />
                   </ProtectedRoute>
                 } 
               />
