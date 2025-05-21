@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Transactions from "./pages/Transactions";
 import Depositos from "./pages/Depositos";
 import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
@@ -44,7 +45,7 @@ const App = () => (
                 path="/transactions" 
                 element={
                   <ProtectedRoute>
-                    <PlaceholderPage title="Página de Transações" />
+                    <Transactions />
                   </ProtectedRoute>
                 } 
               />
