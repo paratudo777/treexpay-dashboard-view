@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
 import { z } from 'zod';
-import { MessageSquareHelp } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 const registerSchema = z.object({
   login: z.string().min(3, "Login deve ter pelo menos 3 caracteres"),
@@ -155,7 +155,7 @@ export default function Register() {
               className="w-full"
               onClick={openWhatsApp}
             >
-              <MessageSquareHelp className="mr-2 h-4 w-4" />
+              <MessageSquare className="mr-2 h-4 w-4" />
               Falar com o Suporte
             </Button>
           </CardFooter>

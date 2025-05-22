@@ -4,7 +4,7 @@ import { Header } from './Header';
 import { useState } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
-import { Menu, MessageSquareHelp } from 'lucide-react';
+import { Menu, MessageSquare } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface DashboardLayoutProps {
@@ -69,7 +69,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={openWhatsApp}
               className="bg-treexpay-dark hover:bg-treexpay-medium shadow-lg flex items-center gap-2"
             >
-              <MessageSquareHelp className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4" />
               <span>Falar com o Suporte</span>
             </Button>
           </div>
