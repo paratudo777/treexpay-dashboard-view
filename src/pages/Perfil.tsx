@@ -1,8 +1,7 @@
-
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Bell, FileText, Shield, Key } from "lucide-react";
+import { User, Bell, FileText, Shield, Key, Book } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { toast } from "@/components/ui/use-toast";
@@ -89,10 +88,25 @@ export default function Perfil() {
     }
   };
 
+  const openDocumentation = () => {
+    window.open('https://docs.treexpay.com', '_blank');
+  };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto max-w-4xl">
         <h1 className="text-2xl font-bold text-treexpay-medium mb-6">Perfil</h1>
+        
+        {/* Documentation API Button */}
+        <div className="mb-6">
+          <Button 
+            onClick={openDocumentation}
+            className="flex items-center gap-2 bg-treexpay-dark hover:bg-treexpay-medium"
+          >
+            <Book className="h-4 w-4" />
+            <span>Documentação da API</span>
+          </Button>
+        </div>
         
         <Tabs defaultValue="info">
           <TabsList className="grid grid-cols-4 mb-4">
