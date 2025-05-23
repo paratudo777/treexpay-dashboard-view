@@ -50,13 +50,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             >
               <Menu className="h-5 w-5 text-foreground" />
             </button>
-            <div className="ml-4 flex items-center">
-              <img 
-                src="https://i.ibb.co/ZBxxyJv/treexpaylogo.png" 
-                alt="TreexPay Logo" 
-                className="h-8 w-auto object-contain max-h-[60px]"
-              />
-            </div>
+            <div className="ml-4 text-xl font-semibold text-treexpay-medium">TreexPay</div>
             <div className="ml-auto">
               <Header />
             </div>

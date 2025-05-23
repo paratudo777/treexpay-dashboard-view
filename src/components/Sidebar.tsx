@@ -7,6 +7,7 @@ import {
   LayoutDashboard, 
   FileText, 
   Wallet, 
+  ShoppingCart, 
   LogOut 
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -22,6 +23,7 @@ const navItems: NavItem[] = [
   { name: 'Transações', href: '/transactions', icon: FileText },
   { name: 'Depósitos', href: '/depositos', icon: Wallet },
   { name: 'Financeiro', href: '/financeiro', icon: Wallet },
+  { name: 'Checkouts', href: '/checkouts', icon: ShoppingCart },
 ];
 
 export function Sidebar() {
@@ -43,17 +45,9 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-4 flex items-center justify-center h-16 border-b border-sidebar-border">
         {collapsed ? (
-          <img 
-            src="https://i.ibb.co/ZBxxyJv/treexpaylogo.png" 
-            alt="TreexPay Logo" 
-            className="h-8 w-auto object-contain"
-          />
+          <div className="text-treexpay-medium font-bold text-2xl">T</div>
         ) : (
-          <img 
-            src="https://i.ibb.co/ZBxxyJv/treexpaylogo.png" 
-            alt="TreexPay Logo" 
-            className="h-12 w-auto object-contain max-h-[60px]"
-          />
+          <div className="text-treexpay-medium font-bold text-2xl">TreexPay</div>
         )}
       </div>
 
