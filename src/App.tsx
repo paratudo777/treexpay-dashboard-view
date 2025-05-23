@@ -15,13 +15,6 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
-// Create empty placeholder pages for sidebar navigation
-const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
-    <h1 className="text-2xl font-bold text-treexpay-medium">{title}</h1>
-  </div>
-);
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -72,14 +65,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Perfil />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/checkouts" 
-                element={
-                  <ProtectedRoute>
-                    <PlaceholderPage title="Página de Checkouts" />
                   </ProtectedRoute>
                 } 
               />
