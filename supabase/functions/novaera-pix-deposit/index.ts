@@ -23,6 +23,22 @@ interface NovaEraPixResponse {
   };
 }
 
+// Função para validar CPF
+function isValidCpf(cpf: string): boolean {
+  cpf = cpf.replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+  let sum = 0, rest;
+  for (let i = 1; i <= 9; i++) sum += parseInt(cpf[i-1]) * (11 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf[9])) return false;
+  sum = 0;
+  for (let i = 1; i <= 10; i++) sum += parseInt(cpf[i-1]) * (12 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  return rest === parseInt(cpf[10]);
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -42,6 +58,12 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
+    // Validate CPF
+    const cpfToValidate = userCpf || "11144477735"; // Use test CPF if not provided
+    if (!isValidCpf(cpfToValidate)) {
+      throw new Error('CPF inválido');
+    }
+
     // Create Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -54,7 +76,7 @@ Deno.serve(async (req) => {
     // Generate external reference
     const externalRef = `deposit_${Date.now()}_${userId.substring(0, 8)}`;
 
-    // Create PIX transaction
+    // Create PIX transaction with required fields
     const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
@@ -64,8 +86,13 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         "paymentMethod": "pix",
         "amount": amount * 100, // Convert to centavos
-        "ip": "192.168.0.1",
-        "pix": { "expiresInDays": 1 },
+        "externalRef": externalRef,
+        "postbackUrl": `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`,
+        "pix": {
+          "pixKey": "treex@tecnologia.com.br",
+          "pixKeyType": "email",
+          "expiresInSeconds": 3600
+        },
         "items": [
           { 
             "title": "Depósito TreexPay", 
@@ -77,13 +104,14 @@ Deno.serve(async (req) => {
         "customer": {
           "name": userName,
           "email": userEmail,
-          "phone": userPhone || "11999999999",
-          "document": { "type": "cpf", "number": userCpf || "12345678900" }
+          "phone": userPhone || "5511999999999",
+          "document": { 
+            "type": "cpf", 
+            "number": cpfToValidate
+          }
         },
         "metadata": "{\"origin\":\"3Peaks App\"}",
-        "traceable": false,
-        "externalRef": externalRef,
-        "postbackUrl": `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`
+        "traceable": false
       }),
     });
 
@@ -98,12 +126,6 @@ Deno.serve(async (req) => {
     const pixData: NovaEraPixResponse = await pixResponse.json();
     console.log('PIX created successfully:', pixData);
 
-    // Extract PIX key from QR code text (simplified extraction)
-    const extractPixKey = (qrcodeText: string) => {
-      // This is a simplified extraction - in a real scenario you'd parse the PIX payload
-      return "treex@tecnologia.com.br";
-    };
-
     // Save deposit to Supabase
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
@@ -111,7 +133,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         amount: amount,
         qr_code: pixData.data.pix.qrcodeText,
-        pix_key: extractPixKey(pixData.data.pix.qrcodeText),
+        pix_key: "treex@tecnologia.com.br",
         receiver_name: "Treex Tecnologia",
         status: 'waiting'
       })
