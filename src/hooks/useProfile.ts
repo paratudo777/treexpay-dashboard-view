@@ -28,7 +28,7 @@ interface Settings {
 interface Notification {
   id: string;
   user_id: string;
-  type: 'deposit' | 'withdrawal' | 'transaction';
+  type: 'sale_pending' | 'sale_approved' | 'login' | 'password_change';
   content: string;
   read: boolean;
   sent_date: string;
