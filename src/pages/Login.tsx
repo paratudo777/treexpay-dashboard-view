@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { CreateAdminButton } from '@/components/CreateAdminButton';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAdminCreator, setShowAdminCreator] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,8 +28,8 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark">
-      <div className="w-full max-w-md p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background dark p-4">
+      <div className="w-full max-w-md space-y-6">
         <Card className="bg-card border-border shadow-lg">
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold text-treexpay-medium">TreexPay</CardTitle>
@@ -68,12 +70,22 @@ const Login = () => {
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="flex flex-col">
+          <CardFooter className="flex flex-col space-y-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowAdminCreator(!showAdminCreator)}
+              className="w-full"
+            >
+              {showAdminCreator ? 'Ocultar' : 'Criar Administrador'}
+            </Button>
+            
             <p className="text-sm text-muted-foreground text-center">
               © 2025 TreexPay. Todos os direitos reservados.
             </p>
           </CardFooter>
         </Card>
+
+        {showAdminCreator && <CreateAdminButton />}
       </div>
     </div>
   );
