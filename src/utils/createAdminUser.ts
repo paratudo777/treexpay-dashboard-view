@@ -28,6 +28,7 @@ export const createAdminUser = async (request: CreateAdminUserRequest): Promise<
       console.error('Error calling create-admin-user function:', error);
       return {
         success: false,
+        message: 'Failed to create admin user',
         error: 'Failed to create admin user',
         details: error.message
       };
@@ -40,6 +41,7 @@ export const createAdminUser = async (request: CreateAdminUserRequest): Promise<
     console.error('Unexpected error creating admin user:', error);
     return {
       success: false,
+      message: 'Unexpected error occurred',
       error: 'Unexpected error',
       details: error.message
     };
