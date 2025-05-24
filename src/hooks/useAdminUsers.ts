@@ -18,6 +18,8 @@ export interface CreateUserData {
   email: string;
   password: string;
   profile: 'admin' | 'user';
+  depositFee: number;
+  withdrawalFee: number;
 }
 
 export const useAdminUsers = () => {
@@ -68,6 +70,25 @@ export const useAdminUsers = () => {
 
   const createUser = async (userData: CreateUserData) => {
     try {
+      // Validar taxas
+      if (userData.depositFee < 0 || userData.depositFee > 100) {
+        toast({
+          variant: "destructive",
+          title: "Taxa inválida",
+          description: "A taxa de depósito deve estar entre 0% e 100%.",
+        });
+        return false;
+      }
+
+      if (userData.withdrawalFee < 0 || userData.withdrawalFee > 100) {
+        toast({
+          variant: "destructive",
+          title: "Taxa inválida",
+          description: "A taxa de saque deve estar entre 0% e 100%.",
+        });
+        return false;
+      }
+
       console.log('Creating user:', userData.email);
       
       const { data, error } = await supabase.functions.invoke('admin-user-management', {
@@ -85,7 +106,7 @@ export const useAdminUsers = () => {
       if (data.success) {
         toast({
           title: "Usuário criado com sucesso",
-          description: `${userData.name} foi criado e está aguardando ativação.`,
+          description: `${userData.name} foi criado com taxa de depósito ${userData.depositFee}% e taxa de saque ${userData.withdrawalFee}%.`,
         });
         await fetchUsers(); // Refresh the list
         return true;

@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -11,6 +10,8 @@ interface CreateUserRequest {
   email: string;
   password: string;
   profile: 'admin' | 'user';
+  depositFee: number;
+  withdrawalFee: number;
 }
 
 interface UpdateUserRequest {
@@ -90,90 +91,164 @@ Deno.serve(async (req) => {
       const { action } = body;
 
       if (action === 'create-user') {
-        const { name, email, password, profile }: CreateUserRequest = body;
+        const { name, email, password, profile, depositFee, withdrawalFee }: CreateUserRequest = body;
 
-        console.log('Creating new user:', email);
+        // Validar taxas
+        if (depositFee < 0 || depositFee > 100 || withdrawalFee < 0 || withdrawalFee > 100) {
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'Invalid fee values. Fees must be between 0 and 100.' 
+            }),
+            { 
+              status: 400, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
 
-        // Create user in Supabase Auth
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: password,
-          email_confirm: true,
-          user_metadata: {
-            name: name
+        console.log('Creating new user:', email, 'with deposit fee:', depositFee, '% and withdrawal fee:', withdrawalFee, '%');
+
+        let createdUserId: string;
+
+        try {
+          // Create user in Supabase Auth
+          const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: email,
+            password: password,
+            email_confirm: true,
+            user_metadata: {
+              name: name
+            }
+          });
+
+          if (authError) {
+            console.error('Error creating auth user:', authError);
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'Failed to create user in Auth', 
+                details: authError.message 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
           }
-        });
 
-        if (authError) {
-          console.error('Error creating auth user:', authError);
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: 'Failed to create user in Auth', 
-              details: authError.message 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        if (!authUser.user) {
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: 'No user returned from auth creation' 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        // Wait for trigger to create profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Update profile with selected role and keep inactive
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            profile: profile,
-            active: false, // Start inactive as requested
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', authUser.user.id);
-
-        if (updateError) {
-          console.error('Error updating profile:', updateError);
-          return new Response(
-            JSON.stringify({ 
-              success: false,
-              error: 'Failed to update user profile', 
-              details: updateError.message 
-            }),
-            { 
-              status: 400, 
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-            }
-          );
-        }
-
-        console.log('User created successfully:', authUser.user.id);
-
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'User created successfully',
-            user_id: authUser.user.id,
-            email: authUser.user.email
-          }),
-          { 
-            status: 200, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          if (!authUser.user) {
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'No user returned from auth creation' 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
           }
-        );
+
+          createdUserId = authUser.user.id;
+
+          // Wait for trigger to create profile
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Update profile with selected role and set as active
+          const { error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({
+              profile: profile,
+              active: true, // Set as active by default
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', createdUserId);
+
+          if (updateError) {
+            console.error('Error updating profile:', updateError);
+            // Rollback: delete the created user
+            await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'Failed to update user profile', 
+                details: updateError.message 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+
+          // Create settings with fees
+          const { error: settingsError } = await supabaseAdmin
+            .from('settings')
+            .upsert({
+              user_id: createdUserId,
+              deposit_fee: depositFee,
+              withdrawal_fee: withdrawalFee,
+              created_at: new Date().toISOString()
+            });
+
+          if (settingsError) {
+            console.error('Error creating user settings:', settingsError);
+            // Rollback: delete the created user
+            await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'Failed to create user settings', 
+                details: settingsError.message 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+
+          console.log('User created successfully with settings:', createdUserId);
+
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: 'User created successfully with custom fees',
+              user_id: createdUserId,
+              email: authUser.user.email,
+              deposit_fee: depositFee,
+              withdrawal_fee: withdrawalFee
+            }),
+            { 
+              status: 200, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+
+        } catch (error) {
+          console.error('Error in user creation process:', error);
+          // Attempt rollback if we have a user ID
+          if (createdUserId) {
+            try {
+              await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+            } catch (rollbackError) {
+              console.error('Error during rollback:', rollbackError);
+            }
+          }
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false,
+              error: 'User creation failed', 
+              details: error.message 
+            }),
+            { 
+              status: 500, 
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
       }
 
       if (action === 'update-user') {
