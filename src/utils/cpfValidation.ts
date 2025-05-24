@@ -2,17 +2,34 @@
 export function isValidCpf(cpf: string): boolean {
   if (!cpf) return false;
   
+  // Remove caracteres não numéricos
   cpf = cpf.replace(/\D/g, '');
-  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
   
-  const calc = (len: number) => {
-    let sum = 0;
-    for (let i = 1; i <= len; i++) sum += parseInt(cpf[i-1]) * (len + 1 - i);
-    let rest = (sum * 10) % 11;
-    return rest === 10 ? 0 : rest;
-  };
+  // Verifica se tem 11 dígitos
+  if (cpf.length !== 11) return false;
   
-  return calc(9) === parseInt(cpf[9]) && calc(10) === parseInt(cpf[10]);
+  // Verifica se todos os dígitos são iguais (CPFs inválidos como 111.111.111-11)
+  if (/^(\d)\1+$/.test(cpf)) return false;
+  
+  // Validação do primeiro dígito verificador
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cpf[i]) * (10 - i);
+  }
+  let remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cpf[9])) return false;
+  
+  // Validação do segundo dígito verificador
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cpf[i]) * (11 - i);
+  }
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cpf[10])) return false;
+  
+  return true;
 }
 
 export function formatCpf(cpf: string): string {
