@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -50,88 +51,120 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     lastLogin: supabaseUser.last_sign_in_at || undefined,
   });
 
+  // Create profile if it doesn't exist
+  const createMissingProfile = async (supabaseUser: SupabaseUser): Promise<Profile | null> => {
+    try {
+      console.log('Creating missing profile for user:', supabaseUser.id);
+      
+      const newProfile = {
+        id: supabaseUser.id,
+        email: supabaseUser.email!,
+        name: supabaseUser.user_metadata?.name || supabaseUser.email!,
+        profile: 'user' as const,
+        active: true,
+        balance: 0.00,
+        notifications_enabled: true,
+        two_fa_enabled: false
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([newProfile])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating profile:', error);
+        return null;
+      }
+
+      console.log('Profile created successfully:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in createMissingProfile:', error);
+      return null;
+    }
+  };
+
   // Load user profile from Supabase with improved error handling
   const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
-    const MAX_RETRIES = 2; // Reduced from 3
-    const TIMEOUT_MS = 5000; // Reduced from 15 seconds to 5 seconds
+    const MAX_RETRIES = 1;
 
     try {
       console.log('Loading profile for user:', supabaseUser.id, 'Retry:', retryCount);
       
-      // Create a timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile loading timeout')), TIMEOUT_MS);
-      });
-
-      // Race between the actual query and timeout - using maybeSingle() instead of single()
-      const profilePromise = supabase
+      // Simple query without artificial timeout
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', supabaseUser.id)
         .maybeSingle();
 
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-
       if (error) {
         console.error('Error loading user profile:', error);
-        
-        // Profile not found - this might be a new user without a profile created yet
-        if (error.code === 'PGRST116') {
-          console.error('Profile not found for user:', supabaseUser.id);
-          toast({
-            variant: "destructive",
-            title: "Perfil não encontrado",
-            description: "Seu perfil não foi encontrado no sistema. Fazendo logout para tentar novamente.",
-          });
-          await supabase.auth.signOut();
-          setUser(null);
-          return;
-        }
         
         // Only retry on specific errors (network issues, temporary failures)
         if (retryCount < MAX_RETRIES && (error.message?.includes('timeout') || error.message?.includes('network'))) {
           console.log(`Retrying profile load... (${retryCount + 1}/${MAX_RETRIES})`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Reduced backoff time
+          await new Promise(resolve => setTimeout(resolve, 1000));
           return loadUserProfile(supabaseUser, retryCount + 1);
         }
         
         throw error;
       }
 
-      if (profile) {
-        // Verify profile data integrity
-        if (!profile.email || !profile.name) {
-          console.error('Profile data incomplete:', profile);
+      if (!profile) {
+        console.log('No profile found for user:', supabaseUser.id, 'attempting to create one...');
+        
+        // Try to create the missing profile
+        const createdProfile = await createMissingProfile(supabaseUser);
+        
+        if (createdProfile) {
+          const userData = mapProfileToUser(createdProfile, supabaseUser);
+          console.log('Setting user data from created profile:', userData);
+          setUser(userData);
+          
+          toast({
+            title: "Perfil criado",
+            description: "Seu perfil foi criado automaticamente. Bem-vindo!",
+          });
+          return;
+        } else {
+          // Profile creation failed, show error and logout
+          console.error('Failed to create profile for user:', supabaseUser.id);
           toast({
             variant: "destructive",
-            title: "Dados do perfil incompletos",
-            description: "Perfil encontrado mas dados estão incompletos. Entre em contato com o suporte.",
+            title: "Erro ao criar perfil",
+            description: "Não foi possível criar seu perfil. Entre em contato com o suporte.",
           });
+          await supabase.auth.signOut();
           setUser(null);
           return;
         }
+      }
 
-        const userData = mapProfileToUser(profile, supabaseUser);
-        console.log('Setting user data:', userData);
-        setUser(userData);
-      } else {
-        // Profile doesn't exist - this could be a new user
-        console.log('No profile found for user:', supabaseUser.id);
+      // Verify profile data integrity
+      if (!profile.email || !profile.name) {
+        console.error('Profile data incomplete:', profile);
         toast({
           variant: "destructive",
-          title: "Perfil não encontrado",
-          description: "Não foi possível encontrar seu perfil. Fazendo logout para tentar novamente.",
+          title: "Dados do perfil incompletos",
+          description: "Perfil encontrado mas dados estão incompletos. Entre em contato com o suporte.",
         });
-        await supabase.auth.signOut();
         setUser(null);
+        return;
       }
+
+      const userData = mapProfileToUser(profile, supabaseUser);
+      console.log('Setting user data:', userData);
+      setUser(userData);
     } catch (error) {
       console.error('Error loading user profile:', error);
       
       // Only retry on timeout errors, not on other types of errors
       if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('timeout')) {
         console.log(`Retrying profile load after timeout... (${retryCount + 1}/${MAX_RETRIES})`);
-        await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         return loadUserProfile(supabaseUser, retryCount + 1);
       }
       

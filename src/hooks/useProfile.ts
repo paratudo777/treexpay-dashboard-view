@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,26 +30,15 @@ export const useProfile = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .maybeSingle(); // Using maybeSingle instead of single
+        .maybeSingle();
 
       if (error) {
         console.error('Profile fetch error:', error);
-        // Check if it's an RLS error or missing profile
-        if (error.code === 'PGRST116') {
-          console.error('Profile not found for user:', user.id);
-          toast({
-            variant: "destructive",
-            title: "Perfil não encontrado",
-            description: "Seu perfil não foi encontrado. Entre em contato com o suporte.",
-          });
-        } else {
-          console.error('RLS or permission error:', error);
-          toast({
-            variant: "destructive",
-            title: "Erro ao carregar perfil",
-            description: "Não foi possível carregar suas informações. Tente fazer login novamente.",
-          });
-        }
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar perfil",
+          description: "Não foi possível carregar suas informações.",
+        });
         throw error;
       }
       
@@ -61,13 +51,7 @@ export const useProfile = () => {
       return data;
     },
     enabled: !!user?.id,
-    retry: (failureCount, error: any) => {
-      // Don't retry on RLS errors or missing profile
-      if (error?.code === 'PGRST116' || error?.code === '42501') {
-        return false;
-      }
-      return failureCount < 1; // Reduced retry count
-    },
+    retry: 1,
   });
 
   // Get user settings
@@ -81,27 +65,20 @@ export const useProfile = () => {
         .from('settings')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle(); // Using maybeSingle instead of single
+        .maybeSingle();
 
       if (error) {
         console.error('Settings fetch error:', error);
-        // Settings might not exist yet, which is ok
-        if (error.code === 'PGRST116') {
-          console.log('Settings not found for user, this is ok');
-          return null;
+        if (error.code !== 'PGRST116') {
+          throw error;
         }
-        throw error;
+        return null;
       }
       console.log('Settings data:', data);
       return data;
     },
     enabled: !!user?.id,
-    retry: (failureCount, error: any) => {
-      if (error?.code === 'PGRST116') {
-        return false;
-      }
-      return failureCount < 1; // Reduced retry count
-    },
+    retry: 1,
   });
 
   // Get user notifications
@@ -126,7 +103,7 @@ export const useProfile = () => {
       return data || [];
     },
     enabled: !!user?.id,
-    retry: 1, // Reduced retry count
+    retry: 1,
   });
 
   // Update notifications preference
