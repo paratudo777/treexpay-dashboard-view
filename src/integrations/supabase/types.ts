@@ -89,11 +89,13 @@ export type Database = {
         Row: {
           active: boolean
           balance: number
+          cpf: string | null
           created_at: string
           email: string
           id: string
           name: string
           notifications_enabled: boolean
+          phone: string | null
           profile: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled: boolean
           updated_at: string
@@ -101,11 +103,13 @@ export type Database = {
         Insert: {
           active?: boolean
           balance?: number
+          cpf?: string | null
           created_at?: string
           email: string
           id: string
           name: string
           notifications_enabled?: boolean
+          phone?: string | null
           profile?: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled?: boolean
           updated_at?: string
@@ -113,11 +117,13 @@ export type Database = {
         Update: {
           active?: boolean
           balance?: number
+          cpf?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
           notifications_enabled?: boolean
+          phone?: string | null
           profile?: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled?: boolean
           updated_at?: string
