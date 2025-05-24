@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -51,10 +50,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     lastLogin: supabaseUser.last_sign_in_at || undefined,
   });
 
-  // Load user profile from Supabase with improved error handling and timeout
+  // Load user profile from Supabase with improved error handling
   const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
-    const MAX_RETRIES = 3;
-    const TIMEOUT_MS = 15000; // 15 seconds timeout
+    const MAX_RETRIES = 2; // Reduced from 3
+    const TIMEOUT_MS = 5000; // Reduced from 15 seconds to 5 seconds
 
     try {
       console.log('Loading profile for user:', supabaseUser.id, 'Retry:', retryCount);
@@ -64,34 +63,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setTimeout(() => reject(new Error('Profile loading timeout')), TIMEOUT_MS);
       });
 
-      // Race between the actual query and timeout
+      // Race between the actual query and timeout - using maybeSingle() instead of single()
       const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', supabaseUser.id)
-        .single();
+        .maybeSingle();
 
       const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Error loading user profile:', error);
         
+        // Profile not found - this might be a new user without a profile created yet
         if (error.code === 'PGRST116') {
           console.error('Profile not found for user:', supabaseUser.id);
           toast({
             variant: "destructive",
             title: "Perfil não encontrado",
-            description: "Seu perfil não foi encontrado no sistema. Entre em contato com o suporte.",
+            description: "Seu perfil não foi encontrado no sistema. Fazendo logout para tentar novamente.",
           });
           await supabase.auth.signOut();
           setUser(null);
           return;
         }
         
-        // Retry logic for other errors
-        if (retryCount < MAX_RETRIES) {
+        // Only retry on specific errors (network issues, temporary failures)
+        if (retryCount < MAX_RETRIES && (error.message?.includes('timeout') || error.message?.includes('network'))) {
           console.log(`Retrying profile load... (${retryCount + 1}/${MAX_RETRIES})`);
-          await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1))); // Exponential backoff
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Reduced backoff time
           return loadUserProfile(supabaseUser, retryCount + 1);
         }
         
@@ -115,30 +115,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('Setting user data:', userData);
         setUser(userData);
       } else {
-        console.error('No profile data returned');
+        // Profile doesn't exist - this could be a new user
+        console.log('No profile found for user:', supabaseUser.id);
         toast({
           variant: "destructive",
-          title: "Erro no perfil",
-          description: "Não foi possível carregar os dados do perfil.",
+          title: "Perfil não encontrado",
+          description: "Não foi possível encontrar seu perfil. Fazendo logout para tentar novamente.",
         });
+        await supabase.auth.signOut();
         setUser(null);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
       
-      if (retryCount < MAX_RETRIES) {
-        console.log(`Retrying profile load after error... (${retryCount + 1}/${MAX_RETRIES})`);
-        await new Promise(resolve => setTimeout(resolve, 3000 * (retryCount + 1))); // Exponential backoff
+      // Only retry on timeout errors, not on other types of errors
+      if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('timeout')) {
+        console.log(`Retrying profile load after timeout... (${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1)));
         return loadUserProfile(supabaseUser, retryCount + 1);
       }
       
-      // After all retries failed, clear user state
+      // After all retries failed or non-retryable error, clear user state
       setUser(null);
       toast({
         variant: "destructive",
         title: "Erro ao carregar perfil",
-        description: "Não foi possível carregar suas informações após várias tentativas. Tente fazer login novamente.",
+        description: "Não foi possível carregar suas informações. Fazendo logout para tentar novamente.",
       });
+      await supabase.auth.signOut();
     }
   };
 
@@ -197,9 +201,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(null);
           setIsLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('Token refreshed, updating user data if needed');
-          // Only reload profile if we don't have user data
+          console.log('Token refreshed');
+          // Don't reload profile on token refresh if we already have user data
           if (!user) {
+            console.log('No user data, loading profile after token refresh...');
             await loadUserProfile(session.user);
           }
         }
@@ -235,7 +240,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           .from('profiles')
           .select('active, profile')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError) {
           console.error('Error checking user status:', profileError);
@@ -244,6 +249,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             variant: "destructive",
             title: "Erro de autenticação",
             description: "Não foi possível verificar o status da conta.",
+          });
+          return;
+        }
+
+        if (!profile) {
+          await supabase.auth.signOut();
+          setUser(null);
+          toast({
+            variant: "destructive",
+            title: "Perfil não encontrado",
+            description: "Seu perfil não foi encontrado no sistema.",
           });
           return;
         }

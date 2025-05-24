@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +29,7 @@ export const useProfile = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle(); // Using maybeSingle instead of single
 
       if (error) {
         console.error('Profile fetch error:', error);
@@ -52,6 +51,12 @@ export const useProfile = () => {
         }
         throw error;
       }
+      
+      if (!data) {
+        console.log('No profile data found for user:', user.id);
+        return null;
+      }
+      
       console.log('Profile data:', data);
       return data;
     },
@@ -61,7 +66,7 @@ export const useProfile = () => {
       if (error?.code === 'PGRST116' || error?.code === '42501') {
         return false;
       }
-      return failureCount < 2;
+      return failureCount < 1; // Reduced retry count
     },
   });
 
@@ -76,7 +81,7 @@ export const useProfile = () => {
         .from('settings')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle(); // Using maybeSingle instead of single
 
       if (error) {
         console.error('Settings fetch error:', error);
@@ -95,7 +100,7 @@ export const useProfile = () => {
       if (error?.code === 'PGRST116') {
         return false;
       }
-      return failureCount < 2;
+      return failureCount < 1; // Reduced retry count
     },
   });
 
@@ -121,6 +126,7 @@ export const useProfile = () => {
       return data || [];
     },
     enabled: !!user?.id,
+    retry: 1, // Reduced retry count
   });
 
   // Update notifications preference
