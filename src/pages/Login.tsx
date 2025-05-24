@@ -26,7 +26,7 @@ const Login = () => {
     }
   };
 
-  const handleMockLogin = (userType: 'admin' | 'user') => {
+  const handleQuickLogin = (userType: 'admin' | 'user') => {
     if (userType === 'admin') {
       setEmail('admin@treexpay.com');
       setPassword('1@2s3D');
@@ -42,8 +42,8 @@ const Login = () => {
         <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
           <Info className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            <strong>Modo de Desenvolvimento</strong><br />
-            Autenticação simulada ativa. Use as credenciais abaixo para teste.
+            <strong>Ambiente de Desenvolvimento</strong><br />
+            Use as credenciais de teste abaixo para acessar a plataforma.
           </AlertDescription>
         </Alert>
 
@@ -94,7 +94,7 @@ const Login = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleMockLogin('admin')}
+                  onClick={() => handleQuickLogin('admin')}
                   className="text-xs"
                 >
                   Admin
@@ -103,7 +103,7 @@ const Login = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => handleMockLogin('user')}
+                  onClick={() => handleQuickLogin('user')}
                   className="text-xs"
                 >
                   Usuário

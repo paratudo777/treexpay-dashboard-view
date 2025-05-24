@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
   id: string;
@@ -40,113 +41,101 @@ export const useProfile = () => {
 
   console.log('useProfile hook - user:', user);
 
-  // Mock profile data
-  const mockProfile: Profile = user ? {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    profile: user.profile,
-    active: user.status === 'active',
-    balance: user.balance,
-    notifications_enabled: true,
-    two_fa_enabled: false,
-    created_at: user.createdAt,
-    updated_at: new Date().toISOString(),
-  } : null;
-
-  // Mock settings data
-  const mockSettings: Settings = user ? {
-    id: 'mock-settings-id',
-    user_id: user.id,
-    deposit_fee: 2.50,
-    withdrawal_fee: 1.50,
-    created_at: user.createdAt,
-  } : null;
-
-  // Mock notifications data
-  const mockNotifications: Notification[] = user ? [
-    {
-      id: 'mock-notification-1',
-      user_id: user.id,
-      type: 'deposit',
-      content: 'Depósito de R$ 100,00 processado com sucesso',
-      read: false,
-      sent_date: new Date().toISOString(),
-    },
-    {
-      id: 'mock-notification-2',
-      user_id: user.id,
-      type: 'transaction',
-      content: 'Nova transação realizada',
-      read: true,
-      sent_date: new Date(Date.now() - 86400000).toISOString(),
-    }
-  ] : [];
-
-  // Get user profile data (mock)
+  // Get user profile data
   const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
-      console.log('Fetching mock profile for user:', user?.id);
+      console.log('Fetching profile for user:', user?.id);
       if (!user?.id) {
         console.log('No user ID available, returning null');
         return null;
       }
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
       
-      console.log('Mock profile data:', mockProfile);
-      return mockProfile;
+      if (error) {
+        console.error('Error fetching profile:', error);
+        throw error;
+      }
+      
+      console.log('Profile data:', data);
+      return data as Profile;
     },
     enabled: !!user?.id,
     retry: 1,
   });
 
-  // Get user settings (mock)
+  // Get user settings
   const { data: settings, isLoading: settingsLoading, error: settingsError } = useQuery({
     queryKey: ['settings', user?.id],
     queryFn: async () => {
-      console.log('Fetching mock settings for user:', user?.id);
+      console.log('Fetching settings for user:', user?.id);
       if (!user?.id) return null;
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
       
-      console.log('Mock settings data:', mockSettings);
-      return mockSettings;
+      if (error) {
+        console.error('Error fetching settings:', error);
+        throw error;
+      }
+      
+      console.log('Settings data:', data);
+      return data as Settings;
     },
     enabled: !!user?.id,
     retry: 1,
   });
 
-  // Get user notifications (mock)
+  // Get user notifications
   const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
-      console.log('Fetching mock notifications for user:', user?.id);
+      console.log('Fetching notifications for user:', user?.id);
       if (!user?.id) return [];
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 400));
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('sent_date', { ascending: false });
       
-      console.log('Mock notifications data:', mockNotifications);
-      return mockNotifications;
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        throw error;
+      }
+      
+      console.log('Notifications data:', data);
+      return data as Notification[];
     },
     enabled: !!user?.id,
     retry: 1,
   });
 
-  // Update notifications preference (mock)
+  // Update notifications preference
   const updateNotificationsMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      console.log('Mock updating notifications preference to:', enabled);
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('Updating notifications preference to:', enabled);
       
-      // In a real implementation, this would update the database
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notifications_enabled: enabled })
+        .eq('id', user.id);
+      
+      if (error) {
+        console.error('Error updating notifications:', error);
+        throw error;
+      }
+      
       return enabled;
     },
     onSuccess: (_, enabled) => {
@@ -154,26 +143,34 @@ export const useProfile = () => {
       toast({
         title: enabled ? "Notificações ativadas" : "Notificações desativadas",
         description: enabled 
-          ? "Você receberá notificações sobre suas vendas. (Mock)" 
-          : "Você não receberá notificações sobre suas vendas. (Mock)",
+          ? "Você receberá notificações sobre suas vendas." 
+          : "Você não receberá notificações sobre suas vendas.",
       });
     },
     onError: (error) => {
-      console.error('Mock update notifications error:', error);
+      console.error('Update notifications error:', error);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar configurações",
-        description: "Tente novamente mais tarde. (Mock)",
+        description: "Tente novamente mais tarde.",
       });
     },
   });
 
-  // Mark notification as read (mock)
+  // Mark notification as read
   const markNotificationAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
-      console.log('Mock marking notification as read:', notificationId);
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log('Marking notification as read:', notificationId);
+      
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', notificationId);
+      
+      if (error) {
+        console.error('Error marking notification as read:', error);
+        throw error;
+      }
       
       return notificationId;
     },
@@ -181,11 +178,11 @@ export const useProfile = () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
     onError: (error) => {
-      console.error('Mock mark notification as read error:', error);
+      console.error('Mark notification as read error:', error);
     },
   });
 
-  console.log('useProfile hook results (mock):', {
+  console.log('useProfile hook results:', {
     profile,
     settings,
     notifications,
