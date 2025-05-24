@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useTransactions, TransactionStatus } from "@/hooks/useTransactions";
 import { StatusBadge } from "@/components/transactions/StatusBadge";
 
 export default function Transactions() {
@@ -58,8 +58,8 @@ export default function Transactions() {
       description: `Mostrando ${filterName}.`
     });
 
-    // Fetch transactions with new filter
-    const supabaseFilter = filter === "todos" ? undefined : filter;
+    // Convert filter to proper type and fetch transactions
+    const supabaseFilter = filter === "todos" ? undefined : filter as TransactionStatus;
     fetchTransactions(supabaseFilter);
   };
 

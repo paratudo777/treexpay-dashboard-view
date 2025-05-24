@@ -21,7 +21,7 @@ export const useTransactions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchTransactions = async (statusFilter?: string) => {
+  const fetchTransactions = async (statusFilter?: TransactionStatus) => {
     if (!user) {
       setLoading(false);
       return;
@@ -37,7 +37,7 @@ export const useTransactions = () => {
         .order('transaction_date', { ascending: false });
 
       // Apply status filter if specified
-      if (statusFilter && statusFilter !== 'todos') {
+      if (statusFilter) {
         query = query.eq('status', statusFilter);
       }
 
