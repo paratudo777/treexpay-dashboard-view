@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -37,7 +36,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  console.log('AuthProvider - current user:', user);
+  console.log('AuthProvider - current user:', user, 'isLoading:', isLoading);
 
   // Convert Supabase profile to our User type
   const mapProfileToUser = (profile: Profile, supabaseUser: SupabaseUser): User => ({
@@ -115,13 +114,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await loadUserProfile(session.user);
         } else {
           console.log('No existing session found');
+          setUser(null);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
         setUser(null);
       } finally {
         if (mounted) {
-          console.log('Auth initialization complete');
+          console.log('Auth initialization complete, setting isLoading to false');
           setIsLoading(false);
         }
       }
@@ -137,13 +137,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('Auth state change:', event, session?.user?.id);
 
         if (event === 'SIGNED_IN' && session?.user) {
+          setIsLoading(true); // Set loading when starting to load profile
           await loadUserProfile(session.user);
+          setIsLoading(false); // Clear loading after profile is loaded
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
+          setIsLoading(false);
         }
-        
-        // Ensure loading is false after any auth state change
-        setIsLoading(false);
       }
     );
 
@@ -193,6 +193,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           description: "Bem-vindo à plataforma TreexPay",
         });
 
+        console.log('Navigating to dashboard...');
         navigate('/dashboard');
       }
     } catch (error: any) {
