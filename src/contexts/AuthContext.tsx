@@ -63,7 +63,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('Error loading user profile:', error);
-        return;
+        
+        if (error.code === 'PGRST116') {
+          console.error('Profile not found for user:', supabaseUser.id);
+          toast({
+            variant: "destructive",
+            title: "Perfil não encontrado",
+            description: "Seu perfil não foi encontrado no sistema. Entre em contato com o suporte.",
+          });
+          // Force logout if profile is missing
+          await supabase.auth.signOut();
+          return;
+        }
+        
+        if (error.code === '42501') {
+          console.error('RLS policy blocking profile access:', supabaseUser.id);
+          toast({
+            variant: "destructive",
+            title: "Acesso negado",
+            description: "Não foi possível acessar suas informações. Faça login novamente.",
+          });
+          await supabase.auth.signOut();
+          return;
+        }
+        
+        throw error;
       }
 
       if (profile) {
@@ -73,6 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      setUser(null);
     }
   };
 
@@ -93,6 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        setUser(null);
       } finally {
         if (mounted) {
           console.log('Auth initialization complete');
@@ -115,6 +141,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
         }
+        
+        // Ensure loading is false after any auth state change
+        setIsLoading(false);
       }
     );
 
@@ -139,9 +168,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (data.user) {
+        console.log('Login successful, loading profile...');
         await loadUserProfile(data.user);
         
-        // Check if user is active
+        // Check if user is active after profile is loaded
         const { data: profile } = await supabase
           .from('profiles')
           .select('active')

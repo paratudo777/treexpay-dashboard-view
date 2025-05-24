@@ -21,7 +21,10 @@ export const useProfile = () => {
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       console.log('Fetching profile for user:', user?.id);
-      if (!user?.id) return null;
+      if (!user?.id) {
+        console.log('No user ID available, returning null');
+        return null;
+      }
       
       const { data, error } = await supabase
         .from('profiles')
@@ -31,12 +34,35 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Profile fetch error:', error);
+        // Check if it's an RLS error or missing profile
+        if (error.code === 'PGRST116') {
+          console.error('Profile not found for user:', user.id);
+          toast({
+            variant: "destructive",
+            title: "Perfil não encontrado",
+            description: "Seu perfil não foi encontrado. Entre em contato com o suporte.",
+          });
+        } else {
+          console.error('RLS or permission error:', error);
+          toast({
+            variant: "destructive",
+            title: "Erro ao carregar perfil",
+            description: "Não foi possível carregar suas informações. Tente fazer login novamente.",
+          });
+        }
         throw error;
       }
       console.log('Profile data:', data);
       return data;
     },
     enabled: !!user?.id,
+    retry: (failureCount, error: any) => {
+      // Don't retry on RLS errors or missing profile
+      if (error?.code === 'PGRST116' || error?.code === '42501') {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // Get user settings
@@ -54,12 +80,23 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Settings fetch error:', error);
+        // Settings might not exist yet, which is ok
+        if (error.code === 'PGRST116') {
+          console.log('Settings not found for user, this is ok');
+          return null;
+        }
         throw error;
       }
       console.log('Settings data:', data);
       return data;
     },
     enabled: !!user?.id,
+    retry: (failureCount, error: any) => {
+      if (error?.code === 'PGRST116') {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // Get user notifications
@@ -78,10 +115,10 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Notifications fetch error:', error);
-        throw error;
+        return [];
       }
       console.log('Notifications data:', data);
-      return data;
+      return data || [];
     },
     enabled: !!user?.id,
   });
@@ -152,6 +189,7 @@ export const useProfile = () => {
     settings,
     notifications,
     isLoading: profileLoading || settingsLoading || notificationsLoading,
+    profileError,
     updateNotifications: updateNotificationsMutation.mutate,
     markNotificationAsRead: markNotificationAsReadMutation.mutate,
   };
