@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -155,6 +156,30 @@ Deno.serve(async (req) => {
           // Wait for trigger to create profile
           await new Promise(resolve => setTimeout(resolve, 1000));
 
+          // Verify if profile was created by trigger
+          const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
+            .from('profiles')
+            .select('*')
+            .eq('id', createdUserId)
+            .single();
+
+          if (profileCheckError) {
+            console.error('Profile not found after creation:', profileCheckError);
+            // Rollback: delete the created user
+            await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+            return new Response(
+              JSON.stringify({ 
+                success: false,
+                error: 'Profile creation failed', 
+                details: 'Profile was not created by trigger' 
+              }),
+              { 
+                status: 400, 
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
+          }
+
           // Update profile with selected role and set as active
           const { error: updateError } = await supabaseAdmin
             .from('profiles')
@@ -182,31 +207,71 @@ Deno.serve(async (req) => {
             );
           }
 
-          // Create settings with fees
-          const { error: settingsError } = await supabaseAdmin
+          // Check if settings already exist (to avoid duplicate key error)
+          const { data: existingSettings, error: settingsCheckError } = await supabaseAdmin
             .from('settings')
-            .upsert({
-              user_id: createdUserId,
-              deposit_fee: depositFee,
-              withdrawal_fee: withdrawalFee,
-              created_at: new Date().toISOString()
-            });
+            .select('id')
+            .eq('user_id', createdUserId)
+            .single();
 
-          if (settingsError) {
-            console.error('Error creating user settings:', settingsError);
+          if (settingsCheckError && settingsCheckError.code !== 'PGRST116') {
+            console.error('Error checking existing settings:', settingsCheckError);
             // Rollback: delete the created user
             await supabaseAdmin.auth.admin.deleteUser(createdUserId);
             return new Response(
               JSON.stringify({ 
                 success: false,
-                error: 'Failed to create user settings', 
-                details: settingsError.message 
+                error: 'Failed to check existing settings', 
+                details: settingsCheckError.message 
               }),
               { 
                 status: 400, 
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
               }
             );
+          }
+
+          // Create or update settings with fees
+          if (!existingSettings) {
+            const { error: settingsError } = await supabaseAdmin
+              .from('settings')
+              .insert({
+                user_id: createdUserId,
+                deposit_fee: depositFee,
+                withdrawal_fee: withdrawalFee,
+                created_at: new Date().toISOString()
+              });
+
+            if (settingsError) {
+              console.error('Error creating user settings:', settingsError);
+              // Rollback: delete the created user
+              await supabaseAdmin.auth.admin.deleteUser(createdUserId);
+              return new Response(
+                JSON.stringify({ 
+                  success: false,
+                  error: 'Failed to create user settings', 
+                  details: settingsError.message 
+                }),
+                { 
+                  status: 400, 
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+                }
+              );
+            }
+          } else {
+            // Update existing settings if they already exist
+            const { error: settingsUpdateError } = await supabaseAdmin
+              .from('settings')
+              .update({
+                deposit_fee: depositFee,
+                withdrawal_fee: withdrawalFee
+              })
+              .eq('user_id', createdUserId);
+
+            if (settingsUpdateError) {
+              console.error('Error updating user settings:', settingsUpdateError);
+              // Continue without failing since user is already created
+            }
           }
 
           console.log('User created successfully with settings:', createdUserId);

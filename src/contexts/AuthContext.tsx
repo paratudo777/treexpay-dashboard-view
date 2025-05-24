@@ -53,8 +53,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Load user profile from Supabase with improved error handling and timeout
   const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
-    const MAX_RETRIES = 2;
-    const TIMEOUT_MS = 10000; // 10 seconds timeout
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 15000; // 15 seconds timeout
 
     try {
       console.log('Loading profile for user:', supabaseUser.id, 'Retry:', retryCount);
@@ -84,13 +84,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             description: "Seu perfil não foi encontrado no sistema. Entre em contato com o suporte.",
           });
           await supabase.auth.signOut();
+          setUser(null);
           return;
         }
         
         // Retry logic for other errors
         if (retryCount < MAX_RETRIES) {
           console.log(`Retrying profile load... (${retryCount + 1}/${MAX_RETRIES})`);
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 2000 * (retryCount + 1))); // Exponential backoff
           return loadUserProfile(supabaseUser, retryCount + 1);
         }
         
@@ -98,16 +99,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (profile) {
+        // Verify profile data integrity
+        if (!profile.email || !profile.name) {
+          console.error('Profile data incomplete:', profile);
+          toast({
+            variant: "destructive",
+            title: "Dados do perfil incompletos",
+            description: "Perfil encontrado mas dados estão incompletos. Entre em contato com o suporte.",
+          });
+          setUser(null);
+          return;
+        }
+
         const userData = mapProfileToUser(profile, supabaseUser);
         console.log('Setting user data:', userData);
         setUser(userData);
+      } else {
+        console.error('No profile data returned');
+        toast({
+          variant: "destructive",
+          title: "Erro no perfil",
+          description: "Não foi possível carregar os dados do perfil.",
+        });
+        setUser(null);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
       
       if (retryCount < MAX_RETRIES) {
         console.log(`Retrying profile load after error... (${retryCount + 1}/${MAX_RETRIES})`);
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        await new Promise(resolve => setTimeout(resolve, 3000 * (retryCount + 1))); // Exponential backoff
         return loadUserProfile(supabaseUser, retryCount + 1);
       }
       
@@ -116,7 +137,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       toast({
         variant: "destructive",
         title: "Erro ao carregar perfil",
-        description: "Não foi possível carregar suas informações. Tente fazer login novamente.",
+        description: "Não foi possível carregar suas informações após várias tentativas. Tente fazer login novamente.",
       });
     }
   };
@@ -128,7 +149,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const initializeAuth = async () => {
       try {
         console.log('Initializing auth...');
-        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Get current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
         
         if (session?.user && mounted) {
           console.log('Found existing session:', session.user.id);
@@ -166,9 +196,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('User signed out');
           setUser(null);
           setIsLoading(false);
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed');
-          // Don't change loading state for token refresh
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('Token refreshed, updating user data if needed');
+          // Only reload profile if we don't have user data
+          if (!user) {
+            await loadUserProfile(session.user);
+          }
         }
       }
     );
@@ -197,15 +230,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('Login successful, loading profile...');
         await loadUserProfile(data.user);
         
-        // Check if user is active after profile is loaded
-        const { data: profile } = await supabase
+        // Additional check: verify user is active before proceeding
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('active')
+          .select('active, profile')
           .eq('id', data.user.id)
           .single();
 
+        if (profileError) {
+          console.error('Error checking user status:', profileError);
+          await supabase.auth.signOut();
+          toast({
+            variant: "destructive",
+            title: "Erro de autenticação",
+            description: "Não foi possível verificar o status da conta.",
+          });
+          return;
+        }
+
         if (!profile?.active) {
           await supabase.auth.signOut();
+          setUser(null);
           toast({
             variant: "destructive",
             title: "Acesso negado",
@@ -224,10 +269,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Credenciais inválidas";
+      if (error.message?.includes('Invalid login credentials')) {
+        errorMessage = "Email ou senha incorretos";
+      } else if (error.message?.includes('Email not confirmed')) {
+        errorMessage = "Email não confirmado. Verifique sua caixa de entrada.";
+      } else if (error.message?.includes('Too many requests')) {
+        errorMessage = "Muitas tentativas de login. Tente novamente em alguns minutos.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Erro de login",
-        description: error.message || "Credenciais inválidas",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -274,6 +330,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     try {
       console.log('Logging out...');
+      setIsLoading(true);
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
@@ -293,6 +351,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro no logout",
         description: error.message || "Erro ao fazer logout",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 

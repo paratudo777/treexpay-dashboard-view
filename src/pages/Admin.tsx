@@ -83,7 +83,7 @@ export default function Admin() {
                 Criar Usuário
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="w-full max-w-lg mx-auto p-4 sm:p-6 md:p-8 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Criar Novo Usuário</DialogTitle>
                 <DialogDescription>
@@ -91,20 +91,20 @@ export default function Admin() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="name" className="sm:text-right">
                     Nome
                   </Label>
                   <Input
                     id="name"
                     value={newUser.name}
                     onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                    className="col-span-3"
+                    className="col-span-1 sm:col-span-3"
                     placeholder="Nome completo do usuário"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="email" className="sm:text-right">
                     E-mail
                   </Label>
                   <Input
@@ -112,12 +112,12 @@ export default function Admin() {
                     type="email"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    className="col-span-3"
+                    className="col-span-1 sm:col-span-3"
                     placeholder="email@exemplo.com"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="password" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="password" className="sm:text-right">
                     Senha Temporária
                   </Label>
                   <Input
@@ -125,16 +125,16 @@ export default function Admin() {
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="col-span-3"
+                    className="col-span-1 sm:col-span-3"
                     placeholder="Senha inicial do usuário"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="profile" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="profile" className="sm:text-right">
                     Perfil
                   </Label>
                   <Select value={newUser.profile} onValueChange={(value) => setNewUser({ ...newUser, profile: value as 'admin' | 'user' })}>
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger className="col-span-1 sm:col-span-3">
                       <SelectValue placeholder="Selecione o perfil" />
                     </SelectTrigger>
                     <SelectContent>
@@ -143,8 +143,8 @@ export default function Admin() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="depositFee" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="depositFee" className="sm:text-right">
                     Taxa de Depósito (%)
                   </Label>
                   <Input
@@ -155,12 +155,12 @@ export default function Admin() {
                     step="0.01"
                     value={newUser.depositFee}
                     onChange={(e) => setNewUser({ ...newUser, depositFee: parseFloat(e.target.value) || 0 })}
-                    className="col-span-3"
+                    className="col-span-1 sm:col-span-3"
                     placeholder="0.00"
                   />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="withdrawalFee" className="text-right">
+                <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-2 sm:gap-4">
+                  <Label htmlFor="withdrawalFee" className="sm:text-right">
                     Taxa de Saque (%)
                   </Label>
                   <Input
@@ -171,7 +171,7 @@ export default function Admin() {
                     step="0.01"
                     value={newUser.withdrawalFee}
                     onChange={(e) => setNewUser({ ...newUser, withdrawalFee: parseFloat(e.target.value) || 0 })}
-                    className="col-span-3"
+                    className="col-span-1 sm:col-span-3"
                     placeholder="0.00"
                   />
                 </div>
@@ -182,11 +182,12 @@ export default function Admin() {
                   <p>• Taxa de saque: {newUser.withdrawalFee}%</p>
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
                 <Button 
                   type="submit" 
                   onClick={handleCreateUser}
                   disabled={!newUser.name || !newUser.email || !newUser.password || isCreating}
+                  className="w-full sm:w-auto"
                 >
                   {isCreating ? 'Criando...' : 'Criar Usuário'}
                 </Button>
@@ -208,63 +209,65 @@ export default function Admin() {
                 <div className="text-muted-foreground">Carregando usuários...</div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead>Perfil</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Criado em</TableHead>
-                    <TableHead>Último Login</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
-                          {user.profile === 'admin' ? 'Admin' : 'Usuário'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.active ? 'default' : 'destructive'}>
-                          {user.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(user.created_at)}</TableCell>
-                      <TableCell>
-                        {user.lastLogin ? formatDate(user.lastLogin) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleStatus(user.id, user.active)}
-                          >
-                            {user.active ? (
-                              <UserX className="h-4 w-4" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleResetPassword(user.id)}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>E-mail</TableHead>
+                      <TableHead>Perfil</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Criado em</TableHead>
+                      <TableHead>Último Login</TableHead>
+                      <TableHead>Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
+                            {user.profile === 'admin' ? 'Admin' : 'Usuário'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.active ? 'default' : 'destructive'}>
+                            {user.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(user.created_at)}</TableCell>
+                        <TableCell>
+                          {user.lastLogin ? formatDate(user.lastLogin) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleStatus(user.id, user.active)}
+                            >
+                              {user.active ? (
+                                <UserX className="h-4 w-4" />
+                              ) : (
+                                <UserCheck className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetPassword(user.id)}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
