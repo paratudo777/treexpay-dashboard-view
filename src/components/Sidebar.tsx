@@ -7,8 +7,8 @@ import {
   LayoutDashboard, 
   FileText, 
   Wallet, 
-  ShoppingCart, 
-  LogOut 
+  LogOut,
+  Settings
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -16,6 +16,7 @@ type NavItem = {
   name: string;
   href: string;
   icon: React.ElementType;
+  adminOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -23,11 +24,11 @@ const navItems: NavItem[] = [
   { name: 'Transações', href: '/transactions', icon: FileText },
   { name: 'Depósitos', href: '/depositos', icon: Wallet },
   { name: 'Financeiro', href: '/financeiro', icon: Wallet },
-  { name: 'Checkouts', href: '/checkouts', icon: ShoppingCart },
+  { name: 'Administração', href: '/admin', icon: Settings, adminOnly: true },
 ];
 
 export function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -36,6 +37,8 @@ export function Sidebar() {
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
+
+  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <div className={cn(
@@ -64,7 +67,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = location.pathname === item.href;
             
             return (

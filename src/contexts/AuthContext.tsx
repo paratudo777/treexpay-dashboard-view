@@ -6,11 +6,17 @@ import { useToast } from "@/components/ui/use-toast";
 interface User {
   email: string;
   name: string;
+  profile: 'admin' | 'user';
+  status: 'active' | 'inactive';
+  id: string;
+  createdAt: string;
+  lastLogin?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -31,14 +37,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
-    // This is a mock authentication
-    // In a real application, you would call an API
+    // Mock authentication with admin user
     if (email && password) {
-      // Mock successful login
-      const mockUser = {
+      // Mock admin user for testing
+      const mockUser: User = {
         email,
-        name: 'Usuário TreexPay',
+        name: email === 'admin@treexpay.com' ? 'Administrador' : 'Usuário TreexPay',
+        profile: email === 'admin@treexpay.com' ? 'admin' : 'user',
+        status: 'active',
+        id: '1',
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
       };
+      
+      // Check if user is active
+      if (mockUser.status !== 'active') {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Sua conta não está ativa. Entre em contato com o administrador.",
+        });
+        return;
+      }
       
       // Store user in state and localStorage
       setUser(mockUser);
@@ -67,7 +87,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated: !!user, 
+      isAdmin: user?.profile === 'admin',
+      login, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

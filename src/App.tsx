@@ -5,15 +5,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Depositos from "./pages/Depositos";
 import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
 // Create empty placeholder pages for sidebar navigation
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -34,7 +35,6 @@ const App = () => (
           <div className="dark">
             <Routes>
               <Route path="/" element={<Login />} />
-              <Route path="/register" element={<Register />} />
               <Route 
                 path="/dashboard" 
                 element={
@@ -76,11 +76,11 @@ const App = () => (
                 } 
               />
               <Route 
-                path="/checkouts" 
+                path="/admin" 
                 element={
-                  <ProtectedRoute>
-                    <PlaceholderPage title="Página de Checkouts" />
-                  </ProtectedRoute>
+                  <AdminRoute>
+                    <Admin />
+                  </AdminRoute>
                 } 
               />
               <Route path="*" element={<NotFound />} />
