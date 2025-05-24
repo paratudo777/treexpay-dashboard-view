@@ -32,11 +32,13 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
-    // Create basic auth header
+    // Create basic auth header - CORRECTED: SK:PK format
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
     console.log('Starting NovaEra payment test flow...');
+    console.log('Base URL:', NOVAERA_BASE_URL);
+    console.log('Using credentials format: SK:PK');
 
     // Step 1: Check API status
     console.log('Checking NovaEra API status...');
@@ -47,8 +49,12 @@ Deno.serve(async (req) => {
       },
     });
 
+    console.log('Status response:', statusResponse.status);
+
     if (!statusResponse.ok) {
-      throw new Error(`Status check failed: ${statusResponse.status}`);
+      const errorBody = await statusResponse.text();
+      console.error('Status check error body:', errorBody);
+      throw new Error(`Status check failed: ${statusResponse.status} - ${errorBody}`);
     }
 
     const statusData: NovaEraStatusResponse = await statusResponse.json();
@@ -84,8 +90,12 @@ Deno.serve(async (req) => {
       }),
     });
 
+    console.log('Tokenize response status:', tokenizeResponse.status);
+
     if (!tokenizeResponse.ok) {
-      throw new Error(`Card tokenization failed: ${tokenizeResponse.status}`);
+      const errorBody = await tokenizeResponse.text();
+      console.error('Tokenization error body:', errorBody);
+      throw new Error(`Card tokenization failed: ${tokenizeResponse.status} - ${errorBody}`);
     }
 
     const cardToken = await tokenizeResponse.text();
@@ -122,8 +132,12 @@ Deno.serve(async (req) => {
       }),
     });
 
+    console.log('Transaction response status:', transactionResponse.status);
+
     if (!transactionResponse.ok) {
-      throw new Error(`Transaction creation failed: ${transactionResponse.status}`);
+      const errorBody = await transactionResponse.text();
+      console.error('Transaction error body:', errorBody);
+      throw new Error(`Transaction creation failed: ${transactionResponse.status} - ${errorBody}`);
     }
 
     const transactionData: NovaEraTransactionResponse = await transactionResponse.json();
