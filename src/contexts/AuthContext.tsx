@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/components/ui/use-toast";
@@ -50,15 +51,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     lastLogin: supabaseUser.last_sign_in_at || undefined,
   });
 
-  // Load user profile from Supabase
-  const loadUserProfile = async (supabaseUser: SupabaseUser) => {
+  // Load user profile from Supabase with improved error handling and timeout
+  const loadUserProfile = async (supabaseUser: SupabaseUser, retryCount = 0) => {
+    const MAX_RETRIES = 2;
+    const TIMEOUT_MS = 10000; // 10 seconds timeout
+
     try {
-      console.log('Loading profile for user:', supabaseUser.id);
-      const { data: profile, error } = await supabase
+      console.log('Loading profile for user:', supabaseUser.id, 'Retry:', retryCount);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile loading timeout')), TIMEOUT_MS);
+      });
+
+      // Race between the actual query and timeout
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', supabaseUser.id)
         .single();
+
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Error loading user profile:', error);
@@ -70,20 +83,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             title: "Perfil não encontrado",
             description: "Seu perfil não foi encontrado no sistema. Entre em contato com o suporte.",
           });
-          // Force logout if profile is missing
           await supabase.auth.signOut();
           return;
         }
         
-        if (error.code === '42501') {
-          console.error('RLS policy blocking profile access:', supabaseUser.id);
-          toast({
-            variant: "destructive",
-            title: "Acesso negado",
-            description: "Não foi possível acessar suas informações. Faça login novamente.",
-          });
-          await supabase.auth.signOut();
-          return;
+        // Retry logic for other errors
+        if (retryCount < MAX_RETRIES) {
+          console.log(`Retrying profile load... (${retryCount + 1}/${MAX_RETRIES})`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          return loadUserProfile(supabaseUser, retryCount + 1);
         }
         
         throw error;
@@ -96,7 +104,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying profile load after error... (${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        return loadUserProfile(supabaseUser, retryCount + 1);
+      }
+      
+      // After all retries failed, clear user state
       setUser(null);
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar perfil",
+        description: "Não foi possível carregar suas informações. Tente fazer login novamente.",
+      });
     }
   };
 
@@ -137,12 +158,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('Auth state change:', event, session?.user?.id);
 
         if (event === 'SIGNED_IN' && session?.user) {
-          setIsLoading(true); // Set loading when starting to load profile
+          console.log('User signed in, loading profile...');
+          setIsLoading(true);
           await loadUserProfile(session.user);
-          setIsLoading(false); // Clear loading after profile is loaded
+          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
           setUser(null);
           setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log('Token refreshed');
+          // Don't change loading state for token refresh
         }
       }
     );
