@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { NovaEraPaymentTest } from "@/components/payments/NovaEraPaymentTest";
 
 // Simulação da resposta da API
 interface PixResponse {
@@ -82,9 +82,13 @@ export default function Depositos() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto max-w-2xl">
+      <div className="container mx-auto max-w-2xl space-y-6">
         <h1 className="text-2xl font-bold text-treexpay-medium mb-6">Depósitos</h1>
         
+        {/* NovaEra Payment Test */}
+        <NovaEraPaymentTest />
+        
+        {/* Existing PIX deposit functionality */}
         <Card>
           <CardHeader>
             <CardTitle>Realizar Depósito</CardTitle>
