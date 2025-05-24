@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Plus, UserCheck, UserX, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -70,97 +69,42 @@ export default function Admin() {
     setLoading(true);
     
     try {
-      console.log('Creating user with Supabase Auth...');
+      console.log('Calling admin-create-user Edge Function...');
       
-      // 1. Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: newUser.email,
-        password: newUser.password,
-        email_confirm: true,
-        user_metadata: { 
-          name: newUser.name 
+      // Call the Edge Function to create user securely
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: newUser.email,
+          password: newUser.password,
+          name: newUser.name,
+          profile: newUser.profile,
+          depositFee: newUser.depositFee,
+          withdrawalFee: newUser.withdrawalFee
         }
       });
 
-      if (authError) {
-        console.error('Auth error:', authError);
+      if (error) {
+        console.error('Edge Function error:', error);
         toast({
           variant: "destructive",
           title: "Erro ao criar usuário",
-          description: authError.message,
+          description: error.message || "Erro interno do servidor.",
         });
         return;
       }
 
-      if (!authData.user) {
+      if (!data?.success) {
         toast({
           variant: "destructive",
-          title: "Erro",
-          description: "Falha na criação do usuário.",
+          title: "Erro ao criar usuário",
+          description: data?.error || "Erro desconhecido.",
         });
         return;
       }
 
-      console.log('User created in Auth, updating profile...');
+      console.log('User created successfully via Edge Function');
 
-      // 2. Update the profile created by the trigger
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          profile: newUser.profile,
-          active: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Erro ao atualizar perfil do usuário.",
-        });
-        return;
-      }
-
-      console.log('Profile updated, creating settings...');
-
-      // 3. Create or update settings
-      const { data: existingSettings } = await supabase
-        .from('settings')
-        .select('id')
-        .eq('user_id', authData.user.id)
-        .maybeSingle();
-
-      if (!existingSettings) {
-        const { error: settingsError } = await supabase
-          .from('settings')
-          .insert({
-            user_id: authData.user.id,
-            deposit_fee: parseFloat(newUser.depositFee) || 0,
-            withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
-          });
-
-        if (settingsError) {
-          console.error('Settings creation error:', settingsError);
-          // Don't fail the whole process for settings error, just log it
-          console.log('Settings creation failed but user was created successfully');
-        }
-      } else {
-        const { error: settingsUpdateError } = await supabase
-          .from('settings')
-          .update({
-            deposit_fee: parseFloat(newUser.depositFee) || 0,
-            withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
-          })
-          .eq('user_id', authData.user.id);
-
-        if (settingsUpdateError) {
-          console.error('Settings update error:', settingsUpdateError);
-        }
-      }
-
-      // 4. Clear form and close dialog
+      // Clear form and close dialog
       setNewUser({ 
         name: '', 
         email: '', 
@@ -171,7 +115,7 @@ export default function Admin() {
       });
       setIsCreateDialogOpen(false);
       
-      // 5. Refresh the users list
+      // Refresh the users list
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       
       toast({
