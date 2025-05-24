@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -14,7 +15,7 @@ interface CreateUserRequest {
 
 interface UpdateUserRequest {
   userId: string;
-  action: 'activate' | 'deactivate' | 'reset-password';
+  updateAction: 'activate' | 'deactivate' | 'reset-password';
   password?: string;
 }
 
@@ -37,10 +38,7 @@ Deno.serve(async (req) => {
       }
     )
 
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
-
-    if (req.method === 'GET' && action === 'list-users') {
+    if (req.method === 'GET') {
       // List all users from profiles table
       console.log('Fetching users list');
       
@@ -88,8 +86,11 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === 'POST') {
+      const body = await req.json();
+      const { action } = body;
+
       if (action === 'create-user') {
-        const { name, email, password, profile }: CreateUserRequest = await req.json();
+        const { name, email, password, profile }: CreateUserRequest = body;
 
         console.log('Creating new user:', email);
 
@@ -176,7 +177,7 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'update-user') {
-        const { userId, action: updateAction, password }: UpdateUserRequest = await req.json();
+        const { userId, updateAction, password }: UpdateUserRequest = body;
 
         console.log('Updating user:', userId, 'action:', updateAction);
 

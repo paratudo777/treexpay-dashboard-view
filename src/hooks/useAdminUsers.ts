@@ -105,15 +105,15 @@ export const useAdminUsers = () => {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const action = currentStatus ? 'deactivate' : 'activate';
-      console.log('Toggling user status:', userId, action);
+      const actionType = currentStatus ? 'deactivate' : 'activate';
+      console.log('Toggling user status:', userId, actionType);
       
       const { data, error } = await supabase.functions.invoke('admin-user-management', {
         method: 'POST',
         body: {
           action: 'update-user',
           userId,
-          action: action
+          updateAction: actionType
         }
       });
 
@@ -151,7 +151,7 @@ export const useAdminUsers = () => {
         body: {
           action: 'update-user',
           userId,
-          action: 'reset-password'
+          updateAction: 'reset-password'
         }
       });
 
