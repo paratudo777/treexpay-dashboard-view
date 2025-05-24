@@ -21,14 +21,17 @@ export function CreateAdminButton() {
     setIsLoading(true);
     
     try {
-      console.log('Creating admin user with data:', { email: formData.email, name: formData.name });
+      console.log('Creating admin user with exact credentials:', { 
+        email: formData.email, 
+        name: formData.name 
+      });
       
       const result = await createAdminUser(formData);
       
       if (result.success) {
         toast({
           title: "Administrador criado com sucesso!",
-          description: `Usuário ${result.email} foi criado com privilégios de administrador.`,
+          description: `Usuário ${result.email} foi criado com privilégios de administrador. Você pode agora fazer login com essas credenciais.`,
         });
         
         console.log('Admin user created successfully:', result);
@@ -61,7 +64,7 @@ export function CreateAdminButton() {
           Criar Administrador
         </CardTitle>
         <CardDescription>
-          Configure o usuário administrador inicial da plataforma
+          Criar usuário administrador oficial da plataforma TreexPay
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -73,6 +76,7 @@ export function CreateAdminButton() {
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             className="bg-input"
+            readOnly
           />
         </div>
         
@@ -84,6 +88,7 @@ export function CreateAdminButton() {
             value={formData.password}
             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
             className="bg-input"
+            readOnly
           />
         </div>
         
@@ -98,13 +103,20 @@ export function CreateAdminButton() {
           />
         </div>
         
+        <div className="text-sm text-muted-foreground bg-muted p-3 rounded">
+          <p><strong>Credenciais fixas:</strong></p>
+          <p>Email: {formData.email}</p>
+          <p>Senha: {formData.password}</p>
+          <p>Perfil: admin (automático)</p>
+        </div>
+        
         <Button 
           onClick={handleCreateAdmin}
-          disabled={isLoading || !formData.email || !formData.password || !formData.name}
+          disabled={isLoading}
           className="w-full bg-treexpay-dark hover:bg-treexpay-medium"
         >
           <UserPlus className="mr-2 h-4 w-4" />
-          {isLoading ? 'Criando...' : 'Criar Administrador'}
+          {isLoading ? 'Criando Administrador...' : 'Criar Administrador Oficial'}
         </Button>
       </CardContent>
     </Card>
