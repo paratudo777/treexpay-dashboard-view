@@ -1,16 +1,16 @@
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
+  id: string;
   email: string;
   name: string;
   profile: 'admin' | 'user';
-  status: 'active' | 'inactive';
-  id: string;
-  createdAt: string;
-  lastLogin?: string;
+  active: boolean;
 }
 
 interface AuthContextType {
@@ -19,80 +19,196 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is already logged in (from localStorage)
-  React.useEffect(() => {
-    const storedUser = localStorage.getItem('treexpay_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+  // Check for existing session on mount
+  useEffect(() => {
+    checkSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Mock authentication with admin user
-    if (email && password) {
-      // Mock admin user for testing
-      const mockUser: User = {
-        email,
-        name: email === 'admin@treexpay.com' ? 'Administrador' : 'Usuário TreexPay',
-        profile: email === 'admin@treexpay.com' ? 'admin' : 'user',
-        status: 'active',
-        id: '1',
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-      };
-      
-      // Check if user is active
-      if (mockUser.status !== 'active') {
+  const checkSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        await loadUserProfile(session.user);
+      }
+    } catch (error) {
+      console.error('Error checking session:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error loading profile:', error);
         toast({
           variant: "destructive",
-          title: "Acesso negado",
-          description: "Sua conta não está ativa. Entre em contato com o administrador.",
+          title: "Erro",
+          description: "Erro ao carregar perfil do usuário.",
         });
         return;
       }
-      
-      // Store user in state and localStorage
-      setUser(mockUser);
-      localStorage.setItem('treexpay_user', JSON.stringify(mockUser));
-      
-      toast({
-        title: "Login realizado com sucesso",
-        description: "Bem-vindo à plataforma TreexPay",
+
+      if (!profile) {
+        toast({
+          variant: "destructive",
+          title: "Perfil não encontrado",
+          description: "Perfil de usuário não encontrado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (!profile.active) {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Usuário inativo. Acesso negado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        profile: profile.profile,
+        active: profile.active,
       });
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
-    } else {
+    } catch (error) {
+      console.error('Error in loadUserProfile:', error);
       toast({
         variant: "destructive",
-        title: "Erro de login",
-        description: "Email e senha são obrigatórios",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
       });
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('treexpay_user');
-    navigate('/');
+  const login = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      
+      const { data: session, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro de login",
+          description: "Email ou senha inválidos.",
+        });
+        return;
+      }
+
+      if (!session?.user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Falha na autenticação.",
+        });
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        toast({
+          variant: "destructive",
+          title: "Perfil não encontrado",
+          description: "Perfil de usuário não encontrado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (!profile.active) {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Usuário inativo. Acesso negado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        profile: profile.profile,
+        active: profile.active,
+      });
+
+      toast({
+        title: "Login realizado com sucesso",
+        description: "Bem-vindo à plataforma TreexPay",
+      });
+
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      navigate('/');
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso.",
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao fazer logout.",
+      });
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      isAuthenticated: !!user, 
+      isAuthenticated: !!user && !!user.active, 
       isAdmin: user?.profile === 'admin',
       login, 
-      logout 
+      logout,
+      loading
     }}>
       {children}
     </AuthContext.Provider>

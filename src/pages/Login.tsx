@@ -9,20 +9,11 @@ import { Label } from '@/components/ui/label';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await login(email, password);
-    } catch (error) {
-      console.error('Login failed:', error);
-    } finally {
-      setLoading(false);
-    }
+    await login(email, password);
   };
 
   return (
