@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { NovaEraPaymentTest } from "@/components/payments/NovaEraPaymentTest";
+import { PixDeposit } from "@/components/payments/PixDeposit";
 
 // Simulação da resposta da API
 interface PixResponse {
@@ -85,14 +87,17 @@ export default function Depositos() {
       <div className="container mx-auto max-w-2xl space-y-6">
         <h1 className="text-2xl font-bold text-treexpay-medium mb-6">Depósitos</h1>
         
+        {/* NovaEra PIX Deposit */}
+        <PixDeposit />
+        
         {/* NovaEra Payment Test */}
         <NovaEraPaymentTest />
         
         {/* Existing PIX deposit functionality */}
         <Card>
           <CardHeader>
-            <CardTitle>Realizar Depósito</CardTitle>
-            <CardDescription>Gere um código PIX para depositar valores em sua conta.</CardDescription>
+            <CardTitle>Realizar Depósito (Simulação)</CardTitle>
+            <CardDescription>Gere um código PIX para depositar valores em sua conta (versão de demonstração).</CardDescription>
           </CardHeader>
           <CardContent>
             {!pixData ? (
@@ -140,7 +145,7 @@ export default function Depositos() {
                 onClick={handleGeneratePix}
                 disabled={isLoading}
               >
-                {isLoading ? "Gerando..." : "Gerar PIX"}
+                {isLoading ? "Gerando..." : "Gerar PIX (Demo)"}
               </Button>
             ) : (
               <Button variant="outline" onClick={() => setPixData(null)}>
