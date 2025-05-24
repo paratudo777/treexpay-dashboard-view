@@ -6,8 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface NovaEraStatusResponse {
-  status: string;
+interface NovaEraCompanyResponse {
+  success: boolean;
+  data?: any;
 }
 
 interface NovaEraTransactionResponse {
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
-    // Create basic auth header - CORRECTED: SK:PK format
+    // Create basic auth header - SK:PK format
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
@@ -40,32 +41,32 @@ Deno.serve(async (req) => {
     console.log('Base URL:', NOVAERA_BASE_URL);
     console.log('Using credentials format: SK:PK');
 
-    // Step 1: Check API status
-    console.log('Checking NovaEra API status...');
-    const statusResponse = await fetch(`${NOVAERA_BASE_URL}/status`, {
+    // Step 1: Check API health using /company endpoint
+    console.log('Checking NovaEra API health via /company...');
+    const companyResponse = await fetch(`${NOVAERA_BASE_URL}/company`, {
       method: 'GET',
       headers: {
         'Authorization': authHeader,
       },
     });
 
-    console.log('Status response:', statusResponse.status);
+    console.log('Company response status:', companyResponse.status);
 
-    if (!statusResponse.ok) {
-      const errorBody = await statusResponse.text();
-      console.error('Status check error body:', errorBody);
-      throw new Error(`Status check failed: ${statusResponse.status} - ${errorBody}`);
+    if (!companyResponse.ok) {
+      const errorBody = await companyResponse.text();
+      console.error('Company check error body:', errorBody);
+      throw new Error(`API health check failed: ${companyResponse.status} - ${errorBody}`);
     }
 
-    const statusData: NovaEraStatusResponse = await statusResponse.json();
-    console.log('API Status:', statusData.status);
+    const companyData: NovaEraCompanyResponse = await companyResponse.json();
+    console.log('API Health Check:', companyData.success ? 'OK' : 'Failed');
 
-    if (statusData.status !== 'online') {
+    if (!companyData.success) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'API offline',
-          status: statusData.status 
+          message: 'API indisponível',
+          details: companyData 
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
         "installments": "1",
         "ip": "192.168.0.1",
         "items": [
-          { "title": "Compra-Teste", "unitPrice": 1000, "quantity": 1, "tangible": false }
+          { "title": "Depósito", "unitPrice": 1000, "quantity": 1, "tangible": false }
         ],
         "externalRef": externalRef,
         "postbackUrl": "https://webhook.site/test",

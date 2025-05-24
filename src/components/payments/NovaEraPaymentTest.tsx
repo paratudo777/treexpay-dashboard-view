@@ -40,9 +40,9 @@ export const NovaEraPaymentTest = () => {
           });
         }
       } else {
-        if (data.message === 'API offline') {
+        if (data.message === 'API indisponível') {
           toast({
-            title: "API offline",
+            title: "API indisponível",
             description: "A API NovaEra está temporariamente indisponível.",
             variant: "destructive",
           });
