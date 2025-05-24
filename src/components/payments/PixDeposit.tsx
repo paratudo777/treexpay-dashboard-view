@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader, CreditCard, QrCode } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { qrImage, fmtDate } from "@/utils/pixHelpers";
 
 interface PixDepositResponse {
   success: boolean;
@@ -158,9 +158,9 @@ export const PixDeposit = () => {
           <div className="space-y-4">
             <div className="flex flex-col items-center gap-4">
               <img 
-                src={pixData.novaera.data.pix.qrcode} 
+                src={qrImage(pixData.novaera.data.pix.qrcodeText)} 
                 alt="QR Code PIX" 
-                className="mx-auto w-48" 
+                className="mx-auto w-48 rounded" 
               />
               <div className="w-full space-y-2">
                 <div className="flex justify-between">
@@ -177,7 +177,7 @@ export const PixDeposit = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Expira em:</span>
-                  <span>{new Date(pixData.novaera.data.pix.expiresAt).toLocaleDateString('pt-BR')}</span>
+                  <span>{fmtDate(pixData.novaera.data.pix.expiresAt)}</span>
                 </div>
               </div>
             </div>

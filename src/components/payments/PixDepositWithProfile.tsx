@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader, CreditCard, QrCode, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isValidCpf, formatCpf, formatPhone } from "@/utils/cpfValidation";
+import { qrImage, fmtDate } from "@/utils/pixHelpers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserProfile {
@@ -330,9 +331,9 @@ export const PixDepositWithProfile = () => {
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-4">
                 <img 
-                  src={pixData.novaera.data.pix.qrcode} 
+                  src={qrImage(pixData.novaera.data.pix.qrcodeText)} 
                   alt="QR Code PIX" 
-                  className="mx-auto w-48" 
+                  className="mx-auto w-48 rounded" 
                 />
                 <div className="w-full space-y-2">
                   <div className="flex justify-between">
@@ -349,7 +350,7 @@ export const PixDepositWithProfile = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Expira em:</span>
-                    <span>{new Date(pixData.novaera.data.pix.expiresAt).toLocaleDateString('pt-BR')}</span>
+                    <span>{fmtDate(pixData.novaera.data.pix.expiresAt)}</span>
                   </div>
                 </div>
               </div>
