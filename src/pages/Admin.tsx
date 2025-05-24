@@ -11,97 +11,252 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Plus, UserCheck, UserX, RotateCcw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface User {
   id: string;
   name: string;
   email: string;
   profile: 'admin' | 'user';
-  status: 'active' | 'inactive';
-  createdAt: string;
-  lastLogin?: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  balance: number;
 }
 
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Administrador',
-    email: 'admin@treexpay.com',
-    profile: 'admin',
-    status: 'active',
-    createdAt: '2025-01-01T00:00:00Z',
-    lastLogin: '2025-01-24T10:30:00Z'
-  },
-  {
-    id: '2',
-    name: 'João Silva',
-    email: 'joao@empresa.com',
-    profile: 'user',
-    status: 'active',
-    createdAt: '2025-01-15T00:00:00Z',
-    lastLogin: '2025-01-23T14:20:00Z'
-  },
-  {
-    id: '3',
-    name: 'Maria Santos',
-    email: 'maria@empresa.com',
-    profile: 'user',
-    status: 'inactive',
-    createdAt: '2025-01-20T00:00:00Z'
-  }
-];
-
 export default function Admin() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
     password: '',
-    profile: 'user' as 'admin' | 'user'
+    profile: 'user' as 'admin' | 'user',
+    depositFee: '0',
+    withdrawalFee: '0'
   });
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleCreateUser = () => {
-    const user: User = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newUser.name,
-      email: newUser.email,
-      profile: newUser.profile,
-      status: 'inactive',
-      createdAt: new Date().toISOString()
-    };
+  // Fetch users from Supabase
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    setUsers([...users, user]);
-    setNewUser({ name: '', email: '', password: '', profile: 'user' });
-    setIsCreateDialogOpen(false);
+      if (error) {
+        console.error('Error fetching users:', error);
+        throw error;
+      }
+
+      return data as User[];
+    }
+  });
+
+  const handleCreateUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Todos os campos são obrigatórios.",
+      });
+      return;
+    }
+
+    setLoading(true);
     
-    toast({
-      title: "Usuário criado com sucesso",
-      description: `${user.name} foi criado e está aguardando ativação.`,
-    });
+    try {
+      console.log('Creating user with Supabase Auth...');
+      
+      // 1. Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: newUser.email,
+        password: newUser.password,
+        email_confirm: true,
+        user_metadata: { 
+          name: newUser.name 
+        }
+      });
+
+      if (authError) {
+        console.error('Auth error:', authError);
+        toast({
+          variant: "destructive",
+          title: "Erro ao criar usuário",
+          description: authError.message,
+        });
+        return;
+      }
+
+      if (!authData.user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Falha na criação do usuário.",
+        });
+        return;
+      }
+
+      console.log('User created in Auth, updating profile...');
+
+      // 2. Update the profile created by the trigger
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          profile: newUser.profile,
+          active: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao atualizar perfil do usuário.",
+        });
+        return;
+      }
+
+      console.log('Profile updated, creating settings...');
+
+      // 3. Create or update settings
+      const { data: existingSettings } = await supabase
+        .from('settings')
+        .select('id')
+        .eq('user_id', authData.user.id)
+        .maybeSingle();
+
+      if (!existingSettings) {
+        const { error: settingsError } = await supabase
+          .from('settings')
+          .insert({
+            user_id: authData.user.id,
+            deposit_fee: parseFloat(newUser.depositFee) || 0,
+            withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
+          });
+
+        if (settingsError) {
+          console.error('Settings creation error:', settingsError);
+          // Don't fail the whole process for settings error, just log it
+          console.log('Settings creation failed but user was created successfully');
+        }
+      } else {
+        const { error: settingsUpdateError } = await supabase
+          .from('settings')
+          .update({
+            deposit_fee: parseFloat(newUser.depositFee) || 0,
+            withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
+          })
+          .eq('user_id', authData.user.id);
+
+        if (settingsUpdateError) {
+          console.error('Settings update error:', settingsUpdateError);
+        }
+      }
+
+      // 4. Clear form and close dialog
+      setNewUser({ 
+        name: '', 
+        email: '', 
+        password: '', 
+        profile: 'user',
+        depositFee: '0',
+        withdrawalFee: '0'
+      });
+      setIsCreateDialogOpen(false);
+      
+      // 5. Refresh the users list
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      toast({
+        title: "Usuário criado com sucesso",
+        description: `${newUser.name} foi criado e está ativo.`,
+      });
+
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers(users.map(user => 
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
-        : user
-    ));
-    
-    const user = users.find(u => u.id === userId);
-    toast({
-      title: "Status atualizado",
-      description: `${user?.name} foi ${user?.status === 'active' ? 'desativado' : 'ativado'}.`,
-    });
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          active: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao atualizar status do usuário.",
+        });
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      const user = users.find(u => u.id === userId);
+      toast({
+        title: "Status atualizado",
+        description: `${user?.name} foi ${currentStatus ? 'desativado' : 'ativado'}.`,
+      });
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    }
   };
 
-  const resetPassword = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    toast({
-      title: "Senha resetada",
-      description: `Nova senha temporária enviada para ${user?.email}.`,
-    });
+  const resetPassword = async (userId: string, userEmail: string) => {
+    try {
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+      
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: tempPassword
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao resetar senha.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Senha resetada",
+        description: `Nova senha temporária: ${tempPassword}`,
+      });
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -136,7 +291,7 @@ export default function Admin() {
               <DialogHeader>
                 <DialogTitle>Criar Novo Usuário</DialogTitle>
                 <DialogDescription>
-                  Preencha os dados do novo usuário. Ele será criado com status inativo.
+                  Preencha os dados do novo usuário. Ele será criado e ativado automaticamente.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -165,7 +320,7 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="password" className="text-right">
-                    Senha Temporária
+                    Senha
                   </Label>
                   <Input
                     id="password"
@@ -189,14 +344,40 @@ export default function Admin() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="depositFee" className="text-right">
+                    Taxa Depósito (%)
+                  </Label>
+                  <Input
+                    id="depositFee"
+                    type="number"
+                    step="0.01"
+                    value={newUser.depositFee}
+                    onChange={(e) => setNewUser({ ...newUser, depositFee: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="withdrawalFee" className="text-right">
+                    Taxa Saque (%)
+                  </Label>
+                  <Input
+                    id="withdrawalFee"
+                    type="number"
+                    step="0.01"
+                    value={newUser.withdrawalFee}
+                    onChange={(e) => setNewUser({ ...newUser, withdrawalFee: e.target.value })}
+                    className="col-span-3"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button 
                   type="submit" 
                   onClick={handleCreateUser}
-                  disabled={!newUser.name || !newUser.email || !newUser.password}
+                  disabled={loading || !newUser.name || !newUser.email || !newUser.password}
                 >
-                  Criar Usuário
+                  {loading ? 'Criando...' : 'Criar Usuário'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -211,63 +392,67 @@ export default function Admin() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Perfil</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Criado em</TableHead>
-                  <TableHead>Último Login</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
-                        {user.profile === 'admin' ? 'Admin' : 'Usuário'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.status === 'active' ? 'default' : 'destructive'}>
-                        {user.status === 'active' ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(user.createdAt)}</TableCell>
-                    <TableCell>
-                      {user.lastLogin ? formatDate(user.lastLogin) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleUserStatus(user.id)}
-                        >
-                          {user.status === 'active' ? (
-                            <UserX className="h-4 w-4" />
-                          ) : (
-                            <UserCheck className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => resetPassword(user.id)}
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <div className="text-muted-foreground">Carregando usuários...</div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>E-mail</TableHead>
+                    <TableHead>Perfil</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Saldo</TableHead>
+                    <TableHead>Criado em</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
+                          {user.profile === 'admin' ? 'Admin' : 'Usuário'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.active ? 'default' : 'destructive'}>
+                          {user.active ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>R$ {user.balance.toFixed(2)}</TableCell>
+                      <TableCell>{formatDate(user.created_at)}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleUserStatus(user.id, user.active)}
+                          >
+                            {user.active ? (
+                              <UserX className="h-4 w-4" />
+                            ) : (
+                              <UserCheck className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resetPassword(user.id, user.email)}
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
