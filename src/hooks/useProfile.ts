@@ -14,10 +14,13 @@ export const useProfile = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  console.log('useProfile hook - user:', user);
+
   // Get user profile data
-  const { data: profile, isLoading: profileLoading } = useQuery({
+  const { data: profile, isLoading: profileLoading, error: profileError } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
+      console.log('Fetching profile for user:', user?.id);
       if (!user?.id) return null;
       
       const { data, error } = await supabase
@@ -26,16 +29,21 @@ export const useProfile = () => {
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Profile fetch error:', error);
+        throw error;
+      }
+      console.log('Profile data:', data);
       return data;
     },
     enabled: !!user?.id,
   });
 
   // Get user settings
-  const { data: settings, isLoading: settingsLoading } = useQuery({
+  const { data: settings, isLoading: settingsLoading, error: settingsError } = useQuery({
     queryKey: ['settings', user?.id],
     queryFn: async () => {
+      console.log('Fetching settings for user:', user?.id);
       if (!user?.id) return null;
       
       const { data, error } = await supabase
@@ -44,16 +52,21 @@ export const useProfile = () => {
         .eq('user_id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Settings fetch error:', error);
+        throw error;
+      }
+      console.log('Settings data:', data);
       return data;
     },
     enabled: !!user?.id,
   });
 
   // Get user notifications
-  const { data: notifications, isLoading: notificationsLoading } = useQuery({
+  const { data: notifications, isLoading: notificationsLoading, error: notificationsError } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
+      console.log('Fetching notifications for user:', user?.id);
       if (!user?.id) return [];
       
       const { data, error } = await supabase
@@ -63,7 +76,11 @@ export const useProfile = () => {
         .order('sent_date', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Notifications fetch error:', error);
+        throw error;
+      }
+      console.log('Notifications data:', data);
       return data;
     },
     enabled: !!user?.id,
@@ -91,6 +108,7 @@ export const useProfile = () => {
       });
     },
     onError: (error) => {
+      console.error('Update notifications error:', error);
       toast({
         variant: "destructive",
         title: "Erro ao atualizar configurações",
@@ -112,6 +130,21 @@ export const useProfile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
     },
+    onError: (error) => {
+      console.error('Mark notification as read error:', error);
+    },
+  });
+
+  console.log('useProfile hook results:', {
+    profile,
+    settings,
+    notifications,
+    profileLoading,
+    settingsLoading,
+    notificationsLoading,
+    profileError,
+    settingsError,
+    notificationsError
   });
 
   return {

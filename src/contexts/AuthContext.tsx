@@ -37,6 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  console.log('AuthProvider - current user:', user);
+
   // Convert Supabase profile to our User type
   const mapProfileToUser = (profile: Profile, supabaseUser: SupabaseUser): User => ({
     id: profile.id,
@@ -52,6 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Load user profile from Supabase
   const loadUserProfile = async (supabaseUser: SupabaseUser) => {
     try {
+      console.log('Loading profile for user:', supabaseUser.id);
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -65,6 +68,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (profile) {
         const userData = mapProfileToUser(profile, supabaseUser);
+        console.log('Setting user data:', userData);
         setUser(userData);
       }
     } catch (error) {
@@ -78,15 +82,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initializeAuth = async () => {
       try {
+        console.log('Initializing auth...');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user && mounted) {
+          console.log('Found existing session:', session.user.id);
           await loadUserProfile(session.user);
+        } else {
+          console.log('No existing session found');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
         if (mounted) {
+          console.log('Auth initialization complete');
           setIsLoading(false);
         }
       }
@@ -98,6 +107,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+
+        console.log('Auth state change:', event, session?.user?.id);
 
         if (event === 'SIGNED_IN' && session?.user) {
           await loadUserProfile(session.user);
@@ -116,6 +127,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
+      console.log('Attempting login for:', email);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -168,6 +180,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setIsLoading(true);
+      console.log('Attempting signup for:', email);
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -203,6 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
+      console.log('Logging out...');
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;
