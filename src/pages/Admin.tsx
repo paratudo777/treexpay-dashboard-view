@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +57,8 @@ export default function Admin() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
+      console.log('Fetching users with settings...');
+      
       const { data, error } = await supabase
         .from('profiles')
         .select(`
@@ -74,11 +75,24 @@ export default function Admin() {
         throw error;
       }
 
+      console.log('Raw data from Supabase:', data);
+
       // Transform the data to match our interface
-      return data.map(user => ({
-        ...user,
-        settings: user.settings?.[0] || null
-      })) as UserWithSettings[];
+      const transformedData = data.map(user => {
+        const settings = Array.isArray(user.settings) && user.settings.length > 0 
+          ? user.settings[0] 
+          : null;
+        
+        console.log(`User ${user.name} settings:`, settings);
+        
+        return {
+          ...user,
+          settings
+        };
+      }) as UserWithSettings[];
+
+      console.log('Transformed data:', transformedData);
+      return transformedData;
     }
   });
 
@@ -276,6 +290,77 @@ export default function Admin() {
     }
   };
 
+  const updateUserFee = async (userId: string, feeType: 'deposit_fee' | 'withdrawal_fee', newValue: number): Promise<boolean> => {
+    try {
+      console.log(`Updating ${feeType} for user ${userId} to ${newValue}%`);
+      
+      // Primeiro, verificar se o usuário tem configurações
+      const { data: existingSettings, error: fetchError } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error fetching existing settings:', fetchError);
+        throw fetchError;
+      }
+
+      let updateResult;
+
+      if (!existingSettings) {
+        // Criar configurações se não existirem
+        console.log('Creating new settings for user:', userId);
+        updateResult = await supabase
+          .from('settings')
+          .insert({
+            user_id: userId,
+            deposit_fee: feeType === 'deposit_fee' ? newValue : 0,
+            withdrawal_fee: feeType === 'withdrawal_fee' ? newValue : 0
+          });
+      } else {
+        // Atualizar configurações existentes
+        console.log('Updating existing settings for user:', userId);
+        updateResult = await supabase
+          .from('settings')
+          .update({ [feeType]: newValue })
+          .eq('user_id', userId);
+      }
+
+      const { error } = updateResult;
+
+      if (error) {
+        console.error('Error updating fee:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: `Erro ao atualizar taxa de ${feeType === 'deposit_fee' ? 'depósito' : 'saque'}.`,
+        });
+        return false;
+      }
+
+      console.log('Fee updated successfully');
+
+      // Refresh the users list
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      toast({
+        title: "Taxa atualizada",
+        description: `Taxa de ${feeType === 'deposit_fee' ? 'depósito' : 'saque'} atualizada para ${newValue}%.`,
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error in updateUserFee:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+      return false;
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -442,6 +527,9 @@ export default function Admin() {
                 <TableBody>
                   {users.map((user) => {
                     const userSettings = user.settings;
+                    const depositFee = userSettings?.deposit_fee ?? 0;
+                    const withdrawalFee = userSettings?.withdrawal_fee ?? 0;
+                    
                     return (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.name}</TableCell>
@@ -457,68 +545,18 @@ export default function Admin() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {userSettings ? (
-                            <FeeEditInput
-                              currentValue={userSettings.deposit_fee}
-                              onUpdate={async (newValue) => {
-                                const { error } = await supabase
-                                  .from('settings')
-                                  .update({ deposit_fee: newValue })
-                                  .eq('user_id', user.id);
-
-                                if (error) {
-                                  toast({
-                                    variant: "destructive",
-                                    title: "Erro",
-                                    description: "Erro ao atualizar taxa de depósito.",
-                                  });
-                                  return false;
-                                }
-
-                                queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-                                toast({
-                                  title: "Taxa atualizada",
-                                  description: `Taxa de depósito atualizada para ${newValue}%.`,
-                                });
-                                return true;
-                              }}
-                              feeType="depósito"
-                            />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">0%</span>
-                          )}
+                          <FeeEditInput
+                            currentValue={depositFee}
+                            onUpdate={(newValue) => updateUserFee(user.id, 'deposit_fee', newValue)}
+                            feeType="depósito"
+                          />
                         </TableCell>
                         <TableCell>
-                          {userSettings ? (
-                            <FeeEditInput
-                              currentValue={userSettings.withdrawal_fee}
-                              onUpdate={async (newValue) => {
-                                const { error } = await supabase
-                                  .from('settings')
-                                  .update({ withdrawal_fee: newValue })
-                                  .eq('user_id', user.id);
-
-                                if (error) {
-                                  toast({
-                                    variant: "destructive",
-                                    title: "Erro",
-                                    description: "Erro ao atualizar taxa de saque.",
-                                  });
-                                  return false;
-                                }
-
-                                queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-                                toast({
-                                  title: "Taxa atualizada",
-                                  description: `Taxa de saque atualizada para ${newValue}%.`,
-                                });
-                                return true;
-                              }}
-                              feeType="saque"
-                            />
-                          ) : (
-                            <span className="text-xs text-muted-foreground">0%</span>
-                          )}
+                          <FeeEditInput
+                            currentValue={withdrawalFee}
+                            onUpdate={(newValue) => updateUserFee(user.id, 'withdrawal_fee', newValue)}
+                            feeType="saque"
+                          />
                         </TableCell>
                         <TableCell>
                           <NetBalanceDisplay
