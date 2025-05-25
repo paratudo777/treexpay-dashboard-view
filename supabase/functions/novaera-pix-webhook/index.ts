@@ -49,25 +49,29 @@ Deno.serve(async (req) => {
 
     console.log('Updated deposits:', data);
 
-    // If deposit was found and updated, also create a transaction record
+    // The trigger will automatically create/update the transaction record
+    // But we can also ensure consistency by updating the transaction directly
     if (data && data.length > 0) {
       const deposit = data[0];
       
+      // Update corresponding transaction to approved status
       const { error: transactionError } = await supabase
         .from('transactions')
-        .insert({
-          user_id: deposit.user_id,
-          type: 'deposit',
-          amount: deposit.amount,
-          status: 'completed',
-          description: 'Depósito via PIX',
-          code: `DEP_${Date.now()}`
-        });
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', deposit.user_id)
+        .eq('type', 'deposit')
+        .eq('amount', deposit.amount)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
+        console.error('Error updating transaction:', transactionError);
       } else {
-        console.log('Transaction record created for deposit');
+        console.log('Transaction status updated to approved');
       }
     }
 
