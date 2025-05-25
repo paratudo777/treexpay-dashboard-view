@@ -68,18 +68,29 @@ Deno.serve(async (req) => {
     // Converter de centavos para reais
     const amountInReais = paidAmount / 100;
 
-    // Buscar o depósito na tabela deposits usando a referência
+    // Extrair o ID do depósito da referência (formato: deposit_UUID)
+    let depositId = null;
+    if (transactionRef.startsWith('deposit_')) {
+      depositId = transactionRef.replace('deposit_', '');
+    }
+
+    if (!depositId) {
+      console.error('❌ ID do depósito não encontrado na referência:', transactionRef);
+      throw new Error(`Invalid deposit reference format: ${transactionRef}`);
+    }
+
+    // Buscar o depósito na tabela deposits usando o ID
     const { data: depositData, error: findDepositError } = await supabase
       .from('deposits')
       .select('*')
-      .eq('id', transactionRef.replace('deposit_', '').split('_')[1] + transactionRef.split('_')[2])
+      .eq('id', depositId)
       .eq('status', 'waiting')
       .single();
 
     if (findDepositError || !depositData) {
       console.error('❌ Depósito não encontrado ou já processado:', findDepositError);
       
-      // Tentar buscar por valor e data próxima
+      // Tentar buscar por valor e data próxima como fallback
       const { data: altDeposit, error: altError } = await supabase
         .from('deposits')
         .select('*')
@@ -144,12 +155,11 @@ Deno.serve(async (req) => {
 });
 
 async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
-  // 1. Atualizar status do depósito para "completed"
+  // 1. Atualizar status do depósito para "completed" (sem updated_at que não existe)
   const { error: updateDepositError } = await supabase
     .from('deposits')
     .update({ 
-      status: 'completed',
-      updated_at: new Date().toISOString()
+      status: 'completed'
     })
     .eq('id', deposit.id);
 
