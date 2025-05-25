@@ -10,9 +10,10 @@ export interface Transaction {
   id: string;
   code: string;
   status: TransactionStatus;
-  transaction_date: string;
+  created_at: string;
   description: string;
   amount: number;
+  type: string;
 }
 
 export const useTransactions = () => {
@@ -32,9 +33,9 @@ export const useTransactions = () => {
       
       let query = supabase
         .from('transactions')
-        .select('id, code, status, transaction_date, description, amount')
+        .select('id, code, status, created_at, description, amount, type')
         .eq('user_id', user.id)
-        .order('transaction_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       // Apply status filter if specified
       if (statusFilter) {
@@ -53,6 +54,7 @@ export const useTransactions = () => {
         return;
       }
 
+      console.log('Fetched transactions:', data);
       setTransactions(data || []);
     } catch (error) {
       console.error('Error in fetchTransactions:', error);

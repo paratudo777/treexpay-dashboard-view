@@ -150,7 +150,7 @@ export default function Transactions() {
                           <TableCell>
                             <StatusBadge status={transaction.status} />
                           </TableCell>
-                          <TableCell>{formatDateTime(transaction.transaction_date)}</TableCell>
+                          <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
                           <TableCell>{transaction.description}</TableCell>
                           <TableCell className="text-right">
                             {formatAmount(transaction.amount)}
@@ -175,7 +175,7 @@ export default function Transactions() {
                   </CardHeader>
                   <CardContent className="pb-4">
                     <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">{formatDateTime(transaction.transaction_date)}</p>
+                      <p className="text-sm text-muted-foreground">{formatDateTime(transaction.created_at)}</p>
                       <p>{transaction.description}</p>
                       <p className="text-lg font-semibold">
                         {formatAmount(transaction.amount)}
