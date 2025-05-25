@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Check, X, Edit } from 'lucide-react';
@@ -16,7 +16,7 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Atualizar tempValue quando currentValue mudar
-  useState(() => {
+  useEffect(() => {
     setTempValue(currentValue.toString());
   }, [currentValue]);
 
