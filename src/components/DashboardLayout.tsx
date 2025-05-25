@@ -17,9 +17,8 @@ export function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   const handleSidebarNavigation = () => {
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
+    // Sempre fechar a sidebar após navegação, sem condições
+    setSidebarOpen(false);
   };
 
   return (
@@ -35,8 +34,9 @@ export function DashboardLayout({
       {/* Sidebar for desktop, or when toggled on mobile */}
       {(sidebarOpen || !isMobile) && (
         <div className={cn(
-          "lg:static lg:z-auto", 
-          isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden lg:block"
+          "lg:static lg:z-auto transition-transform duration-300 ease-in-out", 
+          isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden lg:block",
+          isMobile && !sidebarOpen ? "transform -translate-x-full" : "transform translate-x-0"
         )}>
           <Sidebar onNavigate={handleSidebarNavigation} />
         </div>
