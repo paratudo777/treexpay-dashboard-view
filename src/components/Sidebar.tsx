@@ -8,9 +8,11 @@ import {
   FileText, 
   Wallet, 
   LogOut,
-  Settings
+  Settings,
+  MessageSquare
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Button } from './ui/button';
 
 type NavItem = {
   name: string;
@@ -36,6 +38,10 @@ export function Sidebar() {
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
+  };
+
+  const openWhatsApp = () => {
+    window.open('https://wa.me/5518991913165', '_blank');
   };
 
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
@@ -91,8 +97,22 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Logout button */}
-      <div className="p-4 border-t border-sidebar-border">
+      {/* Support and Logout buttons */}
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        {/* Support button */}
+        <Button
+          onClick={openWhatsApp}
+          className={cn(
+            "w-full bg-treexpay-dark hover:bg-treexpay-medium flex items-center gap-2",
+            collapsed ? "px-2" : "px-4"
+          )}
+          size={collapsed ? "icon" : "default"}
+        >
+          <MessageSquare className="h-4 w-4" />
+          {!collapsed && <span>Falar com o Suporte</span>}
+        </Button>
+        
+        {/* Logout button */}
         <button
           onClick={logout}
           className={cn(
