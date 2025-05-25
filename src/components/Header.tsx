@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserBalance } from "@/hooks/useUserBalance";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +17,7 @@ import {
 export function Header() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { balance, loading } = useUserBalance();
   const [hasNotifications] = useState(true);
   
   return (
@@ -24,6 +26,11 @@ export function Header() {
         <span className="text-sm text-muted-foreground">
           Bem-vindo, {user?.name || 'Usuário'}
         </span>
+        {user?.profile !== 'admin' && (
+          <span className="text-sm text-treexpay-medium font-semibold">
+            Saldo: {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}
+          </span>
+        )}
       </div>
       
       <div className="flex items-center gap-2">

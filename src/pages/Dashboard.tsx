@@ -6,13 +6,13 @@ import { StatusPieChart } from '@/components/dashboard/StatusPieChart';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
 import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign, PercentCircle } from 'lucide-react';
 import { useState } from 'react';
+import { useUserBalance } from '@/hooks/useUserBalance';
 
 type Period = 'today' | 'week' | 'month' | 'year';
 
 // Mock data for different periods
 const periodData = {
   today: {
-    balance: 'R$ 3.164,31',
     deposits: 'R$ 5.200,00',
     withdrawals: 'R$ 2.035,69',
     totalDeposits: '32',
@@ -20,7 +20,6 @@ const periodData = {
     fees: 'R$ 780,00',
   },
   week: {
-    balance: 'R$ 21.945,12',
     deposits: 'R$ 32.100,00',
     withdrawals: 'R$ 10.154,88',
     totalDeposits: '198',
@@ -28,7 +27,6 @@ const periodData = {
     fees: 'R$ 4.815,00',
   },
   month: {
-    balance: 'R$ 89.762,43',
     deposits: 'R$ 125.400,00',
     withdrawals: 'R$ 35.637,57',
     totalDeposits: '723',
@@ -36,7 +34,6 @@ const periodData = {
     fees: 'R$ 18.810,00',
   },
   year: {
-    balance: 'R$ 1.042.816,72',
     deposits: 'R$ 1.685.200,00',
     withdrawals: 'R$ 642.383,28',
     totalDeposits: '9.124',
@@ -47,6 +44,7 @@ const periodData = {
 
 const Dashboard = () => {
   const [activePeriod, setActivePeriod] = useState<Period>('today');
+  const { balance, loading } = useUserBalance();
   const currentData = periodData[activePeriod];
 
   const handlePeriodChange = (period: Period) => {
@@ -61,7 +59,9 @@ const Dashboard = () => {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
             <p className="text-lg text-muted-foreground">
-              Saldo Total: <span className="text-treexpay-medium font-semibold">{currentData.balance}</span>
+              Saldo Total: <span className="text-treexpay-medium font-semibold">
+                {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}
+              </span>
             </p>
           </div>
           <PeriodSelector onPeriodChange={handlePeriodChange} />
