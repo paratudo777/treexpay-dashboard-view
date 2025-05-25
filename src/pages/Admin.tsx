@@ -9,9 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, UserCheck, UserX, RotateCcw } from 'lucide-react';
+import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
 
 interface User {
   id: string;
@@ -26,6 +27,8 @@ interface User {
 
 export default function Admin() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -35,6 +38,7 @@ export default function Admin() {
     withdrawalFee: '0'
   });
   const [loading, setLoading] = useState(false);
+  const [resettingMetrics, setResettingMetrics] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -213,6 +217,43 @@ export default function Admin() {
     });
   };
 
+  const handleBalanceAdjustment = (user: User) => {
+    setSelectedUser(user);
+    setIsBalanceModalOpen(true);
+  };
+
+  const resetDailyMetrics = async () => {
+    setResettingMetrics(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-daily-metrics');
+
+      if (error) {
+        console.error('Error resetting metrics:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao resetar métricas diárias.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Métricas resetadas",
+        description: "Todas as métricas diárias foram resetadas com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    } finally {
+      setResettingMetrics(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -224,108 +265,129 @@ export default function Admin() {
             </p>
           </div>
           
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-treexpay-dark hover:bg-treexpay-medium">
-                <Plus className="mr-2 h-4 w-4" />
-                Criar Usuário
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Criar Novo Usuário</DialogTitle>
-                <DialogDescription>
-                  Preencha os dados do novo usuário. Ele será criado e ativado automaticamente.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Nome
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newUser.name}
-                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    E-mail
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="password" className="text-right">
-                    Senha
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="profile" className="text-right">
-                    Perfil
-                  </Label>
-                  <Select value={newUser.profile} onValueChange={(value) => setNewUser({ ...newUser, profile: value as 'admin' | 'user' })}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Selecione o perfil" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">Usuário</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="depositFee" className="text-right">
-                    Taxa Depósito (%)
-                  </Label>
-                  <Input
-                    id="depositFee"
-                    type="number"
-                    step="0.01"
-                    value={newUser.depositFee}
-                    onChange={(e) => setNewUser({ ...newUser, depositFee: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="withdrawalFee" className="text-right">
-                    Taxa Saque (%)
-                  </Label>
-                  <Input
-                    id="withdrawalFee"
-                    type="number"
-                    step="0.01"
-                    value={newUser.withdrawalFee}
-                    onChange={(e) => setNewUser({ ...newUser, withdrawalFee: e.target.value })}
-                    className="col-span-3"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button 
-                  type="submit" 
-                  onClick={handleCreateUser}
-                  disabled={loading || !newUser.name || !newUser.email || !newUser.password}
-                >
-                  {loading ? 'Criando...' : 'Criar Usuário'}
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={resetDailyMetrics}
+              disabled={resettingMetrics}
+              className="bg-orange-50 hover:bg-orange-100 border-orange-200"
+            >
+              {resettingMetrics ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  Resetando...
+                </>
+              ) : (
+                <>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Resetar Métricas
+                </>
+              )}
+            </Button>
+            
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-treexpay-dark hover:bg-treexpay-medium">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Criar Usuário
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Novo Usuário</DialogTitle>
+                  <DialogDescription>
+                    Preencha os dados do novo usuário. Ele será criado e ativado automaticamente.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Nome
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newUser.name}
+                      onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">
+                      E-mail
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="password" className="text-right">
+                      Senha
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="profile" className="text-right">
+                      Perfil
+                    </Label>
+                    <Select value={newUser.profile} onValueChange={(value) => setNewUser({ ...newUser, profile: value as 'admin' | 'user' })}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Selecione o perfil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">Usuário</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="depositFee" className="text-right">
+                      Taxa Depósito (%)
+                    </Label>
+                    <Input
+                      id="depositFee"
+                      type="number"
+                      step="0.01"
+                      value={newUser.depositFee}
+                      onChange={(e) => setNewUser({ ...newUser, depositFee: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="withdrawalFee" className="text-right">
+                      Taxa Saque (%)
+                    </Label>
+                    <Input
+                      id="withdrawalFee"
+                      type="number"
+                      step="0.01"
+                      value={newUser.withdrawalFee}
+                      onChange={(e) => setNewUser({ ...newUser, withdrawalFee: e.target.value })}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    type="submit" 
+                    onClick={handleCreateUser}
+                    disabled={loading || !newUser.name || !newUser.email || !newUser.password}
+                  >
+                    {loading ? 'Criando...' : 'Criar Usuário'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Card>
@@ -368,7 +430,19 @@ export default function Admin() {
                           {user.active ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </TableCell>
-                      <TableCell>R$ {user.balance.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>R$ {user.balance.toFixed(2)}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleBalanceAdjustment(user)}
+                            className="h-6 w-6 p-0"
+                          >
+                            <DollarSign className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{formatDate(user.created_at)}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
@@ -399,6 +473,18 @@ export default function Admin() {
             )}
           </CardContent>
         </Card>
+
+        <BalanceAdjustmentModal
+          user={selectedUser}
+          isOpen={isBalanceModalOpen}
+          onClose={() => {
+            setIsBalanceModalOpen(false);
+            setSelectedUser(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+          }}
+        />
       </div>
     </DashboardLayout>
   );
