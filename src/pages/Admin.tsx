@@ -81,7 +81,7 @@ export default function Admin() {
       // Transform the data to match our interface, handling the settings array properly
       const transformedData = data.map(user => {
         // Supabase returns settings as an array, get the first item or null
-        const settings = user.settings && user.settings.length > 0 
+        const settings = user.settings && Array.isArray(user.settings) && user.settings.length > 0 
           ? user.settings[0] 
           : null;
         
@@ -127,20 +127,39 @@ export default function Admin() {
 
       if (error) {
         console.error('Edge Function error:', error);
-        toast({
-          variant: "destructive",
-          title: "Erro ao criar usuário",
-          description: error.message || "Erro interno do servidor.",
-        });
+        
+        // Verificar se é erro de email já existente
+        if (error.message && error.message.includes('email address has already been registered')) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar usuário",
+            description: `Já existe um usuário cadastrado com o email ${newUser.email}.`,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar usuário",
+            description: error.message || "Erro interno do servidor.",
+          });
+        }
         return;
       }
 
       if (!data?.success) {
-        toast({
-          variant: "destructive",
-          title: "Erro ao criar usuário",
-          description: data?.error || "Erro desconhecido.",
-        });
+        // Verificar se é erro de email já existente na resposta
+        if (data?.error && data.error.includes('email address has already been registered')) {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar usuário",
+            description: `Já existe um usuário cadastrado com o email ${newUser.email}.`,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Erro ao criar usuário",
+            description: data?.error || "Erro desconhecido.",
+          });
+        }
         return;
       }
 
@@ -301,9 +320,9 @@ export default function Admin() {
         .from('settings')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
+      if (fetchError) {
         console.error('Error fetching existing settings:', fetchError);
         throw fetchError;
       }
@@ -360,6 +379,121 @@ export default function Admin() {
         description: "Erro interno. Tente novamente.",
       });
       return false;
+    }
+  };
+
+  const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          active: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao atualizar status do usuário.",
+        });
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      const user = users.find(u => u.id === userId);
+      toast({
+        title: "Status atualizado",
+        description: `${user?.name} foi ${currentStatus ? 'desativado' : 'ativado'}.`,
+      });
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    }
+  };
+
+  const resetPassword = async (userId: string, userEmail: string) => {
+    try {
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+      
+      const { error } = await supabase.auth.admin.updateUserById(userId, {
+        password: tempPassword
+      });
+
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao resetar senha.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Senha resetada",
+        description: `Nova senha temporária: ${tempPassword}`,
+      });
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleBalanceAdjustment = (user: User) => {
+    setSelectedUser(user);
+    setIsBalanceModalOpen(true);
+  };
+
+  const resetDailyMetrics = async () => {
+    setResettingMetrics(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-daily-metrics');
+
+      if (error) {
+        console.error('Error resetting metrics:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao resetar métricas diárias.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Métricas resetadas",
+        description: "Todas as métricas diárias foram resetadas com sucesso.",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    } finally {
+      setResettingMetrics(false);
     }
   };
 
