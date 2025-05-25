@@ -47,11 +47,14 @@ export const BalanceAdjustmentModal = ({ user, isOpen, onClose, onSuccess }: Bal
     setLoading(true);
 
     try {
-      const { error } = await supabase.rpc('adjust_user_balance', {
-        p_user_id: user.id,
-        p_admin_id: currentUser.id,
-        p_amount: amountValue,
-        p_reason: reason || null
+      // Call the Edge Function to adjust balance
+      const { data, error } = await supabase.functions.invoke('adjust-user-balance', {
+        body: {
+          user_id: user.id,
+          admin_id: currentUser.id,
+          amount: amountValue,
+          reason: reason || null
+        }
       });
 
       if (error) {
@@ -60,6 +63,15 @@ export const BalanceAdjustmentModal = ({ user, isOpen, onClose, onSuccess }: Bal
           variant: "destructive",
           title: "Erro",
           description: "Erro ao ajustar saldo do usuário.",
+        });
+        return;
+      }
+
+      if (!data?.success) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: data?.error || "Erro ao ajustar saldo.",
         });
         return;
       }
