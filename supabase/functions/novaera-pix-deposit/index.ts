@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       throw new Error('CPF inválido');
     }
 
-    // Create Supabase client
+    // Create Supabase client with service role key
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
     // Create basic auth header
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     const pixData: NovaEraPixResponse = await pixResponse.json();
     console.log('PIX created successfully:', pixData);
 
-    // Save deposit to Supabase
+    // Save deposit to Supabase with correct status type
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
       .insert({
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
         qr_code: pixData.data.pix.qrcodeText,
         pix_key: "treex@tecnologia.com.br",
         receiver_name: "Treex Tecnologia",
-        status: 'waiting'
+        status: 'waiting' // Use the correct enum value, not a string
       })
       .select()
       .single();
@@ -144,6 +144,8 @@ Deno.serve(async (req) => {
       console.error('Error saving deposit:', depositError);
       throw new Error('Failed to save deposit to database');
     }
+
+    console.log('Deposit saved successfully:', depositData);
 
     return new Response(
       JSON.stringify({
