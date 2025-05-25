@@ -18,21 +18,21 @@ export function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-background dark">
+      {/* Backdrop for mobile - deve ficar atrás do sidebar */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 z-40" 
+          onClick={() => setSidebarOpen(false)} 
+        />
+      )}
+
       {/* Sidebar for desktop, or when toggled on mobile */}
       {(sidebarOpen || !isMobile) && (
         <div className={cn(
-          "fixed inset-0 z-40 lg:static lg:z-auto", 
-          isMobile ? "flex" : "hidden lg:flex"
+          "lg:static lg:z-auto", 
+          isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden lg:block"
         )}>
           <Sidebar />
-          
-          {/* Backdrop for mobile - removido o blur que causava o efeito borrado */}
-          {isMobile && (
-            <div 
-              className="fixed inset-0 bg-background/80" 
-              onClick={() => setSidebarOpen(false)} 
-            />
-          )}
         </div>
       )}
 
@@ -56,7 +56,7 @@ export function DashboardLayout({
           <Header />
         )}
         
-        {/* Page content - removido o botão de suporte daqui */}
+        {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           {children}
         </main>
