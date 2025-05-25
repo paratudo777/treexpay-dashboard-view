@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +34,7 @@ interface UserSettings {
 }
 
 interface UserWithSettings extends User {
-  settings: UserSettings[];
+  settings: UserSettings | null;
 }
 
 export default function Admin() {
@@ -73,7 +74,11 @@ export default function Admin() {
         throw error;
       }
 
-      return data as UserWithSettings[];
+      // Transform the data to match our interface
+      return data.map(user => ({
+        ...user,
+        settings: user.settings?.[0] || null
+      })) as UserWithSettings[];
     }
   });
 
@@ -436,7 +441,7 @@ export default function Admin() {
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => {
-                    const userSettings = user.settings?.[0];
+                    const userSettings = user.settings;
                     return (
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">{user.name}</TableCell>
@@ -528,7 +533,16 @@ export default function Admin() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => handleBalanceAdjustment(user)}
+                              title="Ajustar saldo"
+                            >
+                              <DollarSign className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => toggleUserStatus(user.id, user.active)}
+                              title={user.active ? "Desativar usuário" : "Ativar usuário"}
                             >
                               {user.active ? (
                                 <UserX className="h-4 w-4" />
@@ -540,6 +554,7 @@ export default function Admin() {
                               variant="outline"
                               size="sm"
                               onClick={() => resetPassword(user.id, user.email)}
+                              title="Resetar senha"
                             >
                               <RotateCcw className="h-4 w-4" />
                             </Button>
