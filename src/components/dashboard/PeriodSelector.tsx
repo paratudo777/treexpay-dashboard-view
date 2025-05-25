@@ -22,7 +22,11 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'today' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('today')}
-        className={activePeriod === 'today' ? 'bg-treexpay-dark' : ''}
+        className={
+          activePeriod === 'today' 
+            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
+            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
+        }
       >
         Hoje
       </Button>
@@ -30,7 +34,11 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'week' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('week')}
-        className={activePeriod === 'week' ? 'bg-treexpay-dark' : ''}
+        className={
+          activePeriod === 'week' 
+            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
+            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
+        }
       >
         Últimos 7 dias
       </Button>
@@ -38,7 +46,11 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'month' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('month')}
-        className={activePeriod === 'month' ? 'bg-treexpay-dark' : ''}
+        className={
+          activePeriod === 'month' 
+            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
+            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
+        }
       >
         Este Mês
       </Button>
@@ -46,7 +58,11 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'year' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('year')}
-        className={activePeriod === 'year' ? 'bg-treexpay-dark' : ''}
+        className={
+          activePeriod === 'year' 
+            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
+            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
+        }
       >
         Este Ano
       </Button>

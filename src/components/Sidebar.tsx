@@ -46,22 +46,38 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const handleNavigation = (href: string) => {
     navigate(href);
-    // Close sidebar on mobile after navigation
-    if (isMobile && onNavigate) {
+    // Fechar sidebar automaticamente após navegação
+    if (onNavigate) {
+      onNavigate();
+    }
+    // Também fechar se estiver em mobile
+    if (isMobile) {
+      setCollapsed(true);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    // Fechar sidebar após logout
+    if (onNavigate) {
       onNavigate();
     }
   };
 
   const openWhatsApp = () => {
     window.open('https://wa.me/5518991913165', '_blank');
+    // Fechar sidebar após abrir WhatsApp
+    if (onNavigate) {
+      onNavigate();
+    }
   };
 
   const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <div className={cn(
-      "h-screen bg-sidebar flex flex-col border-r border-sidebar-border transition-all duration-300",
-      collapsed ? "w-16" : "w-64"
+      "h-screen bg-sidebar flex flex-col border-r border-sidebar-border transition-all duration-300 ease-in-out transform",
+      collapsed ? "w-16 -translate-x-full md:translate-x-0" : "w-64 translate-x-0"
     )}>
       {/* Logo */}
       <div className="p-4 flex items-center justify-center h-16 border-b border-sidebar-border">
@@ -76,7 +92,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       {isMobile && (
         <button 
           onClick={toggleSidebar}
-          className="absolute top-4 right-4 p-2 rounded-full bg-sidebar-accent text-sidebar-accent-foreground"
+          className="absolute top-4 right-4 p-2 rounded-full bg-sidebar-accent text-sidebar-accent-foreground transition-transform duration-200 hover:scale-105"
         >
           {collapsed ? "→" : "←"}
         </button>
@@ -93,7 +109,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 <button
                   onClick={() => handleNavigation(item.href)}
                   className={cn(
-                    "flex items-center w-full p-2 rounded-md transition-colors",
+                    "flex items-center w-full p-2 rounded-md transition-all duration-200 ease-in-out transform hover:scale-105",
                     isActive 
                       ? "bg-sidebar-accent text-treexpay-medium" 
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -115,7 +131,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <Button
           onClick={openWhatsApp}
           className={cn(
-            "w-full bg-treexpay-dark hover:bg-treexpay-medium flex items-center gap-2",
+            "w-full bg-treexpay-dark hover:bg-treexpay-medium flex items-center gap-2 transition-all duration-200 ease-in-out transform hover:scale-105",
             collapsed ? "px-2" : "px-4"
           )}
           size={collapsed ? "icon" : "default"}
@@ -126,9 +142,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         
         {/* Logout button */}
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className={cn(
-            "flex items-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors",
+            "flex items-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200 ease-in-out transform hover:scale-105",
             collapsed && "justify-center"
           )}
         >

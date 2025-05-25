@@ -57,8 +57,8 @@ const Dashboard = () => {
         {/* Header with balance and period selector */}
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-lg text-muted-foreground">
+            <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+            <p className="text-lg text-gray-200">
               Saldo Total: <span className="text-treexpay-medium font-semibold">
                 {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}
               </span>
