@@ -78,12 +78,20 @@ export default function Admin() {
 
       console.log('Raw data from Supabase:', data);
 
-      // Transform the data to match our interface, handling the settings array properly
+      // Transform the data to match our interface
       const transformedData = data.map(user => {
-        // Supabase returns settings as an array, get the first item or null
-        const settings = user.settings && Array.isArray(user.settings) && user.settings.length > 0 
-          ? user.settings[0] 
-          : null;
+        // Supabase pode retornar settings como array ou objeto
+        let settings = null;
+        
+        if (user.settings) {
+          if (Array.isArray(user.settings) && user.settings.length > 0) {
+            // Se for array, pegar o primeiro item
+            settings = user.settings[0];
+          } else if (!Array.isArray(user.settings)) {
+            // Se for objeto direto, usar como está
+            settings = user.settings;
+          }
+        }
         
         console.log(`User ${user.name} settings:`, settings);
         
