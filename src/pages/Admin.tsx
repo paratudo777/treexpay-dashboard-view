@@ -42,13 +42,19 @@ export default function Admin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch users from Supabase
+  // Fetch users with settings data
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          settings (
+            deposit_fee,
+            withdrawal_fee
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -56,7 +62,7 @@ export default function Admin() {
         throw error;
       }
 
-      return data as User[];
+      return data as (User & { settings: { deposit_fee: number; withdrawal_fee: number }[] })[];
     }
   });
 
@@ -410,64 +416,127 @@ export default function Admin() {
                     <TableHead>E-mail</TableHead>
                     <TableHead>Perfil</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Saldo</TableHead>
+                    <TableHead>Taxa Depósito</TableHead>
+                    <TableHead>Taxa Saque</TableHead>
+                    <TableHead>Saldo Líquido</TableHead>
                     <TableHead>Criado em</TableHead>
                     <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
-                          {user.profile === 'admin' ? 'Admin' : 'Usuário'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={user.active ? 'default' : 'destructive'}>
-                          {user.active ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>R$ {user.balance.toFixed(2)}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleBalanceAdjustment(user)}
-                            className="h-6 w-6 p-0"
-                          >
-                            <DollarSign className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(user.created_at)}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleUserStatus(user.id, user.active)}
-                          >
-                            {user.active ? (
-                              <UserX className="h-4 w-4" />
-                            ) : (
-                              <UserCheck className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => resetPassword(user.id, user.email)}
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {users.map((user) => {
+                    const userSettings = user.settings?.[0];
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'}>
+                            {user.profile === 'admin' ? 'Admin' : 'Usuário'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.active ? 'default' : 'destructive'}>
+                            {user.active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {userSettings ? (
+                            <FeeEditInput
+                              currentValue={userSettings.deposit_fee}
+                              onUpdate={async (newValue) => {
+                                const { error } = await supabase
+                                  .from('settings')
+                                  .update({ deposit_fee: newValue })
+                                  .eq('user_id', user.id);
+
+                                if (error) {
+                                  toast({
+                                    variant: "destructive",
+                                    title: "Erro",
+                                    description: "Erro ao atualizar taxa de depósito.",
+                                  });
+                                  return false;
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+                                toast({
+                                  title: "Taxa atualizada",
+                                  description: `Taxa de depósito atualizada para ${newValue}%.`,
+                                });
+                                return true;
+                              }}
+                              feeType="depósito"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">0%</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {userSettings ? (
+                            <FeeEditInput
+                              currentValue={userSettings.withdrawal_fee}
+                              onUpdate={async (newValue) => {
+                                const { error } = await supabase
+                                  .from('settings')
+                                  .update({ withdrawal_fee: newValue })
+                                  .eq('user_id', user.id);
+
+                                if (error) {
+                                  toast({
+                                    variant: "destructive",
+                                    title: "Erro",
+                                    description: "Erro ao atualizar taxa de saque.",
+                                  });
+                                  return false;
+                                }
+
+                                queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+                                toast({
+                                  title: "Taxa atualizada",
+                                  description: `Taxa de saque atualizada para ${newValue}%.`,
+                                });
+                                return true;
+                              }}
+                              feeType="saque"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">0%</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <NetBalanceDisplay
+                            userId={user.id}
+                            grossBalance={user.balance}
+                            depositCount={0}
+                          />
+                        </TableCell>
+                        <TableCell>{formatDate(user.created_at)}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleUserStatus(user.id, user.active)}
+                            >
+                              {user.active ? (
+                                <UserX className="h-4 w-4" />
+                              ) : (
+                                <UserCheck className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resetPassword(user.id, user.email)}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
