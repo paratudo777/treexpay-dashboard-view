@@ -77,8 +77,38 @@ Deno.serve(async (req) => {
 
     console.log('Creating PIX deposit for amount:', amount);
 
-    // Generate external reference
-    const externalRef = `deposit_${Date.now()}_${userId.substring(0, 8)}`;
+    // Primeiro, criar o depósito no banco
+    const { data: depositData, error: depositError } = await supabase
+      .from('deposits')
+      .insert({
+        user_id: userId,
+        amount: Number(amount),
+        pix_key: "treex@tecnologia.com.br",
+        receiver_name: "Treex Tecnologia",
+        status: 'waiting'
+      })
+      .select()
+      .single();
+
+    if (depositError) {
+      console.error('Supabase insert error:', JSON.stringify(depositError, null, 2));
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: depositError,
+          message: 'Deposit creation failed'
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        }
+      );
+    }
+
+    console.log('Deposit saved successfully:', depositData);
+
+    // Generate external reference using the deposit ID
+    const externalRef = `deposit_${depositData.id}`;
 
     // Create PIX transaction with required fields
     const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
@@ -130,46 +160,22 @@ Deno.serve(async (req) => {
     const pixData: NovaEraPixResponse = await pixResponse.json();
     console.log('PIX created successfully:', pixData);
 
-    // Log do payload que será enviado para o Supabase
-    const depositPayload = {
-      user_id: userId,
-      amount: Number(amount), // Garantir que é numérico
-      qr_code: pixData.data.pix.qrcode, // ← GRAVAR O BR CODE COMPLETO!
-      pix_key: "treex@tecnologia.com.br",
-      receiver_name: "Treex Tecnologia",
-      status: 'waiting'
-    };
-    
-    console.log('Deposit payload:', JSON.stringify(depositPayload, null, 2));
-
-    // Save deposit to Supabase
-    const { data: depositData, error: depositError } = await supabase
+    // Atualizar o depósito com o QR code
+    const { error: updateError } = await supabase
       .from('deposits')
-      .insert(depositPayload)
-      .select()
-      .single();
+      .update({
+        qr_code: pixData.data.pix.qrcode
+      })
+      .eq('id', depositData.id);
 
-    if (depositError) {
-      console.error('Supabase insert error:', JSON.stringify(depositError, null, 2));
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: depositError,
-          message: 'Deposit creation failed'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500
-        }
-      );
+    if (updateError) {
+      console.error('Error updating deposit with QR code:', updateError);
     }
-
-    console.log('Deposit saved successfully:', depositData);
 
     return new Response(
       JSON.stringify({
         success: true,
-        deposit: depositData,
+        deposit: { ...depositData, qr_code: pixData.data.pix.qrcode },
         novaera: pixData
       }),
       { 

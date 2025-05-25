@@ -58,68 +58,51 @@ Deno.serve(async (req) => {
 
     console.log('💰 Processando pagamento PIX aprovado para referência:', transactionRef);
 
-    // Buscar a transação no Supabase pela referência
-    const { data: transaction, error: findError } = await supabase
-      .from('transactions')
+    // Extrair valor do pagamento
+    const paidAmount = body?.data?.amount || body?.amount || body?.paidAmount;
+    if (!paidAmount) {
+      console.error('❌ Valor do pagamento não encontrado');
+      throw new Error('Payment amount not found');
+    }
+
+    // Converter de centavos para reais
+    const amountInReais = paidAmount / 100;
+
+    // Buscar o depósito na tabela deposits usando a referência
+    const { data: depositData, error: findDepositError } = await supabase
+      .from('deposits')
       .select('*')
-      .eq('code', transactionRef)
-      .eq('status', 'pending')
+      .eq('id', transactionRef.replace('deposit_', '').split('_')[1] + transactionRef.split('_')[2])
+      .eq('status', 'waiting')
       .single();
 
-    if (findError || !transaction) {
-      console.error('❌ Transação não encontrada ou já processada:', findError);
-      // Tentar buscar por ID se não encontrar pelo code
-      const { data: altTransaction, error: altError } = await supabase
-        .from('transactions')
+    if (findDepositError || !depositData) {
+      console.error('❌ Depósito não encontrado ou já processado:', findDepositError);
+      
+      // Tentar buscar por valor e data próxima
+      const { data: altDeposit, error: altError } = await supabase
+        .from('deposits')
         .select('*')
-        .eq('id', transactionRef)
-        .eq('status', 'pending')
+        .eq('amount', amountInReais)
+        .eq('status', 'waiting')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
 
-      if (altError || !altTransaction) {
-        throw new Error(`Transaction not found for reference: ${transactionRef}`);
+      if (altError || !altDeposit) {
+        throw new Error(`Deposit not found for reference: ${transactionRef}`);
       }
+
+      console.log('✅ Depósito encontrado por valor:', altDeposit);
+
+      // Usar o depósito encontrado
+      await processApprovedDeposit(supabase, altDeposit, amountInReais);
       
-      // Usar a transação encontrada pelo ID alternativo
-      const foundTransaction = altTransaction;
-      console.log('✅ Transação encontrada pelo ID:', foundTransaction);
-
-      // Atualizar status da transação para aprovado
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', foundTransaction.id);
-
-      if (updateError) {
-        console.error('❌ Erro ao atualizar transação:', updateError);
-        throw updateError;
-      }
-
-      console.log('✅ Transação atualizada para aprovado');
-
-      // Se for um depósito, incrementar saldo do usuário usando a função SQL
-      if (foundTransaction.type === 'deposit') {
-        const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
-          p_user_id: foundTransaction.user_id,
-          p_amount: foundTransaction.amount
-        });
-
-        if (balanceError) {
-          console.error('❌ Erro ao incrementar saldo:', balanceError);
-          throw balanceError;
-        } else {
-          console.log(`💰 Saldo incrementado para usuário ${foundTransaction.user_id}: +${foundTransaction.amount}`);
-        }
-      }
-
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'PIX payment processed successfully',
-          transaction: foundTransaction
+          deposit: altDeposit
         }),
         { 
           status: 200,
@@ -128,44 +111,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('✅ Transação encontrada pelo code:', transaction);
+    console.log('✅ Depósito encontrado:', depositData);
 
-    // Atualizar status da transação para aprovado
-    const { error: updateError } = await supabase
-      .from('transactions')
-      .update({ 
-        status: 'approved',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', transaction.id);
-
-    if (updateError) {
-      console.error('❌ Erro ao atualizar transação:', updateError);
-      throw updateError;
-    }
-
-    console.log('✅ Transação atualizada para aprovado');
-
-    // Se for um depósito, incrementar saldo do usuário usando a função SQL
-    if (transaction.type === 'deposit') {
-      const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
-        p_user_id: transaction.user_id,
-        p_amount: transaction.amount
-      });
-
-      if (balanceError) {
-        console.error('❌ Erro ao incrementar saldo:', balanceError);
-        throw balanceError;
-      } else {
-        console.log(`💰 Saldo incrementado para usuário ${transaction.user_id}: +${transaction.amount}`);
-      }
-    }
+    // Processar o depósito aprovado
+    await processApprovedDeposit(supabase, depositData, amountInReais);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'PIX payment processed successfully',
-        transaction: transaction
+        deposit: depositData
       }),
       { 
         status: 200,
@@ -187,3 +142,56 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
+  // 1. Atualizar status do depósito para "completed"
+  const { error: updateDepositError } = await supabase
+    .from('deposits')
+    .update({ 
+      status: 'completed',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', deposit.id);
+
+  if (updateDepositError) {
+    console.error('❌ Erro ao atualizar depósito:', updateDepositError);
+    throw updateDepositError;
+  }
+
+  console.log('✅ Status do depósito atualizado para completed');
+
+  // 2. Gerar código único para a transação
+  const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+  // 3. Criar transação na tabela transactions
+  const { error: createTransactionError } = await supabase
+    .from('transactions')
+    .insert({
+      code: transactionCode,
+      user_id: deposit.user_id,
+      type: 'deposit',
+      description: 'Depósito PIX NovaEra',
+      amount: amount,
+      status: 'approved'
+    });
+
+  if (createTransactionError) {
+    console.error('❌ Erro ao criar transação:', createTransactionError);
+    throw createTransactionError;
+  }
+
+  console.log('✅ Transação criada com sucesso:', transactionCode);
+
+  // 4. Incrementar saldo do usuário usando a função SQL
+  const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
+    p_user_id: deposit.user_id,
+    p_amount: amount
+  });
+
+  if (balanceError) {
+    console.error('❌ Erro ao incrementar saldo:', balanceError);
+    throw balanceError;
+  }
+
+  console.log(`💰 Saldo incrementado para usuário ${deposit.user_id}: +${amount}`);
+}
