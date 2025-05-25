@@ -58,6 +58,9 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
+    // Log para verificar a service key
+    console.log('Service key check:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 10));
+
     // Validate CPF
     const cpfToValidate = userCpf || "11144477735"; // Use test CPF if not provided
     if (!isValidCpf(cpfToValidate)) {
@@ -126,23 +129,40 @@ Deno.serve(async (req) => {
     const pixData: NovaEraPixResponse = await pixResponse.json();
     console.log('PIX created successfully:', pixData);
 
-    // Save deposit to Supabase with correct status type
+    // Log do payload que será enviado para o Supabase
+    const depositPayload = {
+      user_id: userId,
+      amount: Number(amount), // Garantir que é numérico
+      qr_code: pixData.data.pix.qrcodeText,
+      pix_key: "treex@tecnologia.com.br",
+      receiver_name: "Treex Tecnologia",
+      status: 'waiting'
+    };
+    
+    console.log('Deposit payload:', JSON.stringify(depositPayload, null, 2));
+
+    // Save deposit to Supabase
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
-      .insert({
-        user_id: userId,
-        amount: amount,
-        qr_code: pixData.data.pix.qrcodeText,
-        pix_key: "treex@tecnologia.com.br",
-        receiver_name: "Treex Tecnologia",
-        status: 'waiting' // Use the correct enum value, not a string
-      })
+      .insert(depositPayload)
       .select()
       .single();
 
     if (depositError) {
-      console.error('Error saving deposit:', depositError);
-      throw new Error('Failed to save deposit to database');
+      console.error('Supabase insert error:', JSON.stringify(depositError, null, 2));
+      // Retornar o erro completo do Supabase para análise
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: depositError,
+          message: 'Deposit creation failed',
+          payload: depositPayload
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500
+        }
+      );
     }
 
     console.log('Deposit saved successfully:', depositData);
