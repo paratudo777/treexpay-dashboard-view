@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,9 +78,10 @@ export default function Admin() {
 
       console.log('Raw data from Supabase:', data);
 
-      // Transform the data to match our interface
+      // Transform the data to match our interface, handling the settings array properly
       const transformedData = data.map(user => {
-        const settings = Array.isArray(user.settings) && user.settings.length > 0 
+        // Supabase returns settings as an array, get the first item or null
+        const settings = user.settings && user.settings.length > 0 
           ? user.settings[0] 
           : null;
         

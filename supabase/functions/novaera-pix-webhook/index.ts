@@ -157,6 +157,9 @@ Deno.serve(async (req) => {
 });
 
 async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
+  console.log(`💼 Processando depósito aprovado para usuário ${deposit.user_id}`);
+  console.log(`💰 Valor do depósito: R$ ${amount.toFixed(2)}`);
+
   // 1. Buscar as configurações de taxa do usuário
   const { data: userSettings, error: settingsError } = await supabase
     .from('settings')
@@ -170,19 +173,19 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
   }
 
   const userDepositFee = userSettings?.deposit_fee || 0;
-  console.log(`💼 Taxa do usuário: ${userDepositFee}%`);
+  console.log(`💼 Taxa de depósito do usuário: ${userDepositFee}%`);
 
   // 2. Calcular o valor líquido após descontar as taxas
-  const feeAmount = (amount * userDepositFee) / 100; // Taxa percentual
-  const totalFees = feeAmount + PROVIDER_FEE; // Taxa percentual + taxa fixa
+  const percentageFeeAmount = (amount * userDepositFee) / 100; // Taxa percentual do usuário
+  const totalFees = percentageFeeAmount + PROVIDER_FEE; // Taxa percentual + taxa fixa do provedor
   const netAmount = Math.max(0, amount - totalFees); // Não permitir saldo negativo
 
-  console.log(`💰 Cálculo de taxas:`);
-  console.log(`   Valor bruto: R$ ${amount.toFixed(2)}`);
-  console.log(`   Taxa usuário (${userDepositFee}%): R$ ${feeAmount.toFixed(2)}`);
-  console.log(`   Taxa provedor: R$ ${PROVIDER_FEE.toFixed(2)}`);
-  console.log(`   Total taxas: R$ ${totalFees.toFixed(2)}`);
-  console.log(`   Valor líquido: R$ ${netAmount.toFixed(2)}`);
+  console.log(`💰 Cálculo detalhado das taxas:`);
+  console.log(`   Valor bruto do depósito: R$ ${amount.toFixed(2)}`);
+  console.log(`   Taxa do usuário (${userDepositFee}%): R$ ${percentageFeeAmount.toFixed(2)}`);
+  console.log(`   Taxa fixa do provedor: R$ ${PROVIDER_FEE.toFixed(2)}`);
+  console.log(`   Total de taxas descontadas: R$ ${totalFees.toFixed(2)}`);
+  console.log(`   Valor líquido a ser creditado: R$ ${netAmount.toFixed(2)}`);
 
   // 3. Atualizar status do depósito para "completed"
   const { error: updateDepositError } = await supabase
@@ -193,7 +196,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     .eq('id', deposit.id);
 
   if (updateDepositError) {
-    console.error('❌ Erro ao atualizar depósito:', updateDepositError);
+    console.error('❌ Erro ao atualizar status do depósito:', updateDepositError);
     throw updateDepositError;
   }
 
@@ -202,15 +205,15 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
   // 4. Gerar código único para a transação
   const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
-  // 5. Criar transação na tabela transactions
+  // 5. Criar transação na tabela transactions com valor líquido
   const { error: createTransactionError } = await supabase
     .from('transactions')
     .insert({
       code: transactionCode,
       user_id: deposit.user_id,
       type: 'deposit',
-      description: `Depósito PIX NovaEra - Taxa: ${userDepositFee}% (R$ ${feeAmount.toFixed(2)}) + Taxa Provedor: R$ ${PROVIDER_FEE.toFixed(2)}`,
-      amount: netAmount, // Valor já com taxas descontadas
+      description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Taxa usuário (${userDepositFee}%): R$ ${percentageFeeAmount.toFixed(2)} | Taxa provedor: R$ ${PROVIDER_FEE.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+      amount: netAmount, // Salvar valor líquido (já com taxas descontadas)
       status: 'approved'
     });
 
@@ -228,9 +231,11 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
   });
 
   if (balanceError) {
-    console.error('❌ Erro ao incrementar saldo:', balanceError);
+    console.error('❌ Erro ao incrementar saldo do usuário:', balanceError);
     throw balanceError;
   }
 
-  console.log(`💰 Saldo incrementado para usuário ${deposit.user_id}: +R$ ${netAmount.toFixed(2)} (líquido após taxas)`);
+  console.log(`💰 Saldo do usuário ${deposit.user_id} incrementado com sucesso:`);
+  console.log(`   Valor creditado: +R$ ${netAmount.toFixed(2)} (líquido após taxas)`);
+  console.log(`🎉 Depósito processado com sucesso!`);
 }
