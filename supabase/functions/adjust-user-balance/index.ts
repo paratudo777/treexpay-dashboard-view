@@ -39,20 +39,83 @@ Deno.serve(async (req) => {
 
     console.log('Adjusting balance for user:', user_id, 'by admin:', admin_id, 'amount:', amount);
 
-    // Call the database function to adjust balance
-    const { error } = await supabase.rpc('adjust_user_balance', {
-      p_user_id: user_id,
-      p_admin_id: admin_id,
-      p_amount: amount,
-      p_reason: reason
-    });
+    // Verificar se o admin existe e tem permissão
+    const { data: adminProfile, error: adminError } = await supabase
+      .from('profiles')
+      .select('profile')
+      .eq('id', admin_id)
+      .single();
 
-    if (error) {
-      console.error('Database error:', error);
+    if (adminError || !adminProfile) {
+      console.error('Admin not found:', adminError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: error.message 
+          error: 'Administrador não encontrado' 
+        }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    if (adminProfile.profile !== 'admin') {
+      console.error('User is not admin:', admin_id);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Apenas administradores podem ajustar saldos' 
+        }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Verificar se o usuário existe
+    const { data: userProfile, error: userError } = await supabase
+      .from('profiles')
+      .select('id, balance')
+      .eq('id', user_id)
+      .single();
+
+    if (userError || !userProfile) {
+      console.error('User not found:', userError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Usuário não encontrado' 
+        }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Calcular novo saldo
+    const currentBalance = parseFloat(userProfile.balance) || 0;
+    const newBalance = currentBalance + parseFloat(amount);
+
+    console.log('Current balance:', currentBalance, 'Adjustment:', amount, 'New balance:', newBalance);
+
+    // Atualizar o saldo do usuário
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ 
+        balance: newBalance,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user_id);
+
+    if (updateError) {
+      console.error('Error updating balance:', updateError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Erro ao atualizar saldo do usuário' 
         }),
         { 
           status: 500,
@@ -61,12 +124,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Balance adjusted successfully');
+    // Registrar o ajuste no histórico
+    const { error: historyError } = await supabase
+      .from('balance_adjustments')
+      .insert({
+        user_id: user_id,
+        admin_id: admin_id,
+        amount: parseFloat(amount),
+        reason: reason || null
+      });
+
+    if (historyError) {
+      console.error('Error recording adjustment history:', historyError);
+      // Não falhar se não conseguir registrar o histórico, mas logar o erro
+    }
+
+    console.log('Balance adjusted successfully from', currentBalance, 'to', newBalance);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Balance adjusted successfully' 
+        message: 'Saldo ajustado com sucesso',
+        old_balance: currentBalance,
+        new_balance: newBalance
       }),
       { 
         status: 200,
@@ -79,7 +159,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error.message || 'Erro interno do servidor'
       }),
       { 
         status: 500,
