@@ -46,3 +46,6 @@ enable_confirmations = false
 
 [functions.admin-create-user]
 verify_jwt = true
+
+[functions.novaera-pix-webhook]
+verify_jwt = false
