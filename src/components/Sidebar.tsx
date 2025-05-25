@@ -29,7 +29,11 @@ const navItems: NavItem[] = [
   { name: 'Administração', href: '/admin', icon: Settings, adminOnly: true },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ onNavigate }: SidebarProps) {
   const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,6 +42,14 @@ export function Sidebar() {
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
+  };
+
+  const handleNavigation = (href: string) => {
+    navigate(href);
+    // Close sidebar on mobile after navigation
+    if (isMobile && onNavigate) {
+      onNavigate();
+    }
   };
 
   const openWhatsApp = () => {
@@ -79,7 +91,7 @@ export function Sidebar() {
             return (
               <li key={item.name}>
                 <button
-                  onClick={() => navigate(item.href)}
+                  onClick={() => handleNavigation(item.href)}
                   className={cn(
                     "flex items-center w-full p-2 rounded-md transition-colors",
                     isActive 

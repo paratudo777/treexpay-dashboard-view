@@ -16,6 +16,12 @@ export function DashboardLayout({
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
+  const handleSidebarNavigation = () => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-background dark">
       {/* Backdrop for mobile - deve ficar atrás do sidebar */}
@@ -32,7 +38,7 @@ export function DashboardLayout({
           "lg:static lg:z-auto", 
           isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden lg:block"
         )}>
-          <Sidebar />
+          <Sidebar onNavigate={handleSidebarNavigation} />
         </div>
       )}
 
