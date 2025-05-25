@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const PROVIDER_FEE = 1.50; // Taxa fixa do provedor por transação
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -155,7 +157,34 @@ Deno.serve(async (req) => {
 });
 
 async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
-  // 1. Atualizar status do depósito para "completed" (sem updated_at que não existe)
+  // 1. Buscar as configurações de taxa do usuário
+  const { data: userSettings, error: settingsError } = await supabase
+    .from('settings')
+    .select('deposit_fee')
+    .eq('user_id', deposit.user_id)
+    .single();
+
+  if (settingsError) {
+    console.error('❌ Erro ao buscar configurações do usuário:', settingsError);
+    // Se não encontrar configurações, usar taxa 0
+  }
+
+  const userDepositFee = userSettings?.deposit_fee || 0;
+  console.log(`💼 Taxa do usuário: ${userDepositFee}%`);
+
+  // 2. Calcular o valor líquido após descontar as taxas
+  const feeAmount = (amount * userDepositFee) / 100; // Taxa percentual
+  const totalFees = feeAmount + PROVIDER_FEE; // Taxa percentual + taxa fixa
+  const netAmount = Math.max(0, amount - totalFees); // Não permitir saldo negativo
+
+  console.log(`💰 Cálculo de taxas:`);
+  console.log(`   Valor bruto: R$ ${amount.toFixed(2)}`);
+  console.log(`   Taxa usuário (${userDepositFee}%): R$ ${feeAmount.toFixed(2)}`);
+  console.log(`   Taxa provedor: R$ ${PROVIDER_FEE.toFixed(2)}`);
+  console.log(`   Total taxas: R$ ${totalFees.toFixed(2)}`);
+  console.log(`   Valor líquido: R$ ${netAmount.toFixed(2)}`);
+
+  // 3. Atualizar status do depósito para "completed"
   const { error: updateDepositError } = await supabase
     .from('deposits')
     .update({ 
@@ -170,18 +199,18 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
 
   console.log('✅ Status do depósito atualizado para completed');
 
-  // 2. Gerar código único para a transação
+  // 4. Gerar código único para a transação
   const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
-  // 3. Criar transação na tabela transactions
+  // 5. Criar transação na tabela transactions
   const { error: createTransactionError } = await supabase
     .from('transactions')
     .insert({
       code: transactionCode,
       user_id: deposit.user_id,
       type: 'deposit',
-      description: 'Depósito PIX NovaEra',
-      amount: amount,
+      description: `Depósito PIX NovaEra - Taxa: ${userDepositFee}% (R$ ${feeAmount.toFixed(2)}) + Taxa Provedor: R$ ${PROVIDER_FEE.toFixed(2)}`,
+      amount: netAmount, // Valor já com taxas descontadas
       status: 'approved'
     });
 
@@ -192,10 +221,10 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
 
   console.log('✅ Transação criada com sucesso:', transactionCode);
 
-  // 4. Incrementar saldo do usuário usando a função SQL
+  // 6. Incrementar saldo do usuário com o valor líquido (já com taxas descontadas)
   const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
     p_user_id: deposit.user_id,
-    p_amount: amount
+    p_amount: netAmount
   });
 
   if (balanceError) {
@@ -203,5 +232,5 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw balanceError;
   }
 
-  console.log(`💰 Saldo incrementado para usuário ${deposit.user_id}: +${amount}`);
+  console.log(`💰 Saldo incrementado para usuário ${deposit.user_id}: +R$ ${netAmount.toFixed(2)} (líquido após taxas)`);
 }

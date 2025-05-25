@@ -13,6 +13,8 @@ import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock } from 'lucide-rea
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
+import { FeeEditInput } from '@/components/admin/FeeEditInput';
+import { NetBalanceDisplay } from '@/components/admin/NetBalanceDisplay';
 
 interface User {
   id: string;
@@ -23,6 +25,15 @@ interface User {
   created_at: string;
   updated_at: string;
   balance: number;
+}
+
+interface UserSettings {
+  deposit_fee: number;
+  withdrawal_fee: number;
+}
+
+interface UserWithSettings extends User {
+  settings: UserSettings[];
 }
 
 export default function Admin() {
@@ -62,7 +73,7 @@ export default function Admin() {
         throw error;
       }
 
-      return data as (User & { settings: { deposit_fee: number; withdrawal_fee: number }[] })[];
+      return data as UserWithSettings[];
     }
   });
 

@@ -3,11 +3,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useNetBalance } from './useNetBalance';
 
 export const useUserBalance = () => {
   const [balance, setBalance] = useState<number>(0);
-  const [depositCount, setDepositCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -21,7 +19,7 @@ export const useUserBalance = () => {
     try {
       setLoading(true);
       
-      // Buscar saldo bruto
+      // Buscar saldo atual do usuário (já calculado com taxas aplicadas)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -38,20 +36,8 @@ export const useUserBalance = () => {
         return;
       }
 
-      // Buscar quantidade de depósitos aprovados
-      const { data: depositsData, error: depositsError } = await supabase
-        .from('deposits')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'completed');
-
-      if (depositsError) {
-        console.error('Error fetching deposits count:', depositsError);
-      }
-
       console.log('Updated balance fetched:', profileData.balance);
       setBalance(Number(profileData.balance) || 0);
-      setDepositCount(depositsData?.length || 0);
     } catch (error) {
       console.error('Error in fetchBalance:', error);
       toast({
@@ -63,9 +49,6 @@ export const useUserBalance = () => {
       setLoading(false);
     }
   };
-
-  // Calcular saldo líquido
-  const netBalanceData = useNetBalance(user?.id || '', balance, depositCount);
 
   useEffect(() => {
     fetchBalance();
@@ -98,9 +81,7 @@ export const useUserBalance = () => {
   }, [user]);
 
   return {
-    balance: netBalanceData.netBalance, // Retorna saldo líquido
-    grossBalance: balance, // Saldo bruto disponível se necessário
-    balanceDetails: netBalanceData,
+    balance, // Retorna saldo líquido (já com taxas aplicadas)
     loading,
     refetch: fetchBalance
   };
