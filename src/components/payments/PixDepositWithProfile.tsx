@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader, CreditCard, QrCode, AlertCircle } from "lucide-react";
+import { Loader, CreditCard, QrCode, AlertCircle, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isValidCpf, formatCpf, formatPhone } from "@/utils/cpfValidation";
 import { qrImage, fmtDateIso } from "@/utils/pixHelpers";
@@ -219,6 +219,25 @@ export const PixDepositWithProfile = () => {
     }).format(value);
   };
 
+  const copyPixCode = async () => {
+    if (pixData?.novaera.data.pix.qrcode) {
+      try {
+        await navigator.clipboard.writeText(pixData.novaera.data.pix.qrcode);
+        toast({
+          title: "Código copiado!",
+          description: "O código PIX foi copiado para a área de transferência.",
+        });
+      } catch (error) {
+        console.error('Erro ao copiar:', error);
+        toast({
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar o código. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const isProfileComplete = userProfile?.phone && userProfile?.cpf;
 
   return (
@@ -331,32 +350,44 @@ export const PixDepositWithProfile = () => {
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-4">
-                {/* ✅ QR Code em alta resolução 400x400 */}
+                {/* QR Code */}
                 <img 
                   src={qrImage(pixData.novaera.data.pix.qrcode)} 
                   alt="QR Code PIX" 
                   className="mx-auto w-40 md:w-56 rounded" 
                 />
-                <div className="w-full space-y-2">
+                
+                {/* Valor do depósito */}
+                <div className="w-full">
                   <div className="flex justify-between">
                     <span className="font-medium">Valor:</span>
                     <span>{formatCurrency(parseFloat(amount))}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Chave PIX:</span>
-                    <span>treex@tecnologia.com.br</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Recebedor:</span>
-                    <span>Treex Tecnologia</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Expira em:</span>
-                    {/* ✅ Usando o campo correto expirationDate */}
-                    <span>{fmtDateIso(pixData.novaera.data.pix.expirationDate || pixData.novaera.data.pix.expiresAt)}</span>
+                </div>
+
+                {/* Campo PIX Copia e Cola */}
+                <div className="w-full space-y-2">
+                  <Label htmlFor="pixCode">PIX Copia e Cola</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="pixCode"
+                      type="text"
+                      value={pixData.novaera.data.pix.qrcode}
+                      readOnly
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      onClick={copyPixCode}
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </div>
+              
               <Button variant="outline" onClick={newPix} className="w-full">
                 Gerar novo PIX
               </Button>
