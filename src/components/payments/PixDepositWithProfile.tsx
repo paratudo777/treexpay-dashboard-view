@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader, CreditCard, QrCode, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isValidCpf, formatCpf, formatPhone } from "@/utils/cpfValidation";
-import { qrImage, fmtDate } from "@/utils/pixHelpers";
+import { qrImage, fmtDateIso } from "@/utils/pixHelpers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserProfile {
@@ -32,6 +32,7 @@ interface PixDepositResponse {
         qrcode: string;
         qrcodeText: string;
         expiresAt: string;
+        expirationDate: string;
       };
       externalId: string;
     };
@@ -330,10 +331,11 @@ export const PixDepositWithProfile = () => {
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-4">
+                {/* ✅ QR Code em alta resolução 400x400 */}
                 <img 
-                  src={qrImage(pixData.novaera.data.pix.qrcodeText)} 
+                  src={qrImage(pixData.novaera.data.pix.qrcode)} 
                   alt="QR Code PIX" 
-                  className="mx-auto w-48 rounded" 
+                  className="mx-auto w-40 md:w-56 rounded" 
                 />
                 <div className="w-full space-y-2">
                   <div className="flex justify-between">
@@ -350,7 +352,8 @@ export const PixDepositWithProfile = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium">Expira em:</span>
-                    <span>{fmtDate(pixData.novaera.data.pix.expiresAt)}</span>
+                    {/* ✅ Usando o campo correto expirationDate */}
+                    <span>{fmtDateIso(pixData.novaera.data.pix.expirationDate || pixData.novaera.data.pix.expiresAt)}</span>
                   </div>
                 </div>
               </div>

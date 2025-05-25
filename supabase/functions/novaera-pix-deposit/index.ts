@@ -18,6 +18,7 @@ interface NovaEraPixResponse {
       qrcode: string;
       qrcodeText: string;
       expiresAt: string;
+      expirationDate: string;
     };
     externalId: string;
   };
@@ -133,7 +134,7 @@ Deno.serve(async (req) => {
     const depositPayload = {
       user_id: userId,
       amount: Number(amount), // Garantir que é numérico
-      qr_code: pixData.data.pix.qrcodeText,
+      qr_code: pixData.data.pix.qrcode, // ← GRAVAR O BR CODE COMPLETO!
       pix_key: "treex@tecnologia.com.br",
       receiver_name: "Treex Tecnologia",
       status: 'waiting'
@@ -150,13 +151,11 @@ Deno.serve(async (req) => {
 
     if (depositError) {
       console.error('Supabase insert error:', JSON.stringify(depositError, null, 2));
-      // Retornar o erro completo do Supabase para análise
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: depositError,
-          message: 'Deposit creation failed',
-          payload: depositPayload
+          message: 'Deposit creation failed'
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
