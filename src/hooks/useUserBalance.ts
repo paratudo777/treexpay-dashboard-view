@@ -36,7 +36,7 @@ export const useUserBalance = () => {
       }
 
       console.log('Updated balance fetched:', data.balance);
-      setBalance(parseFloat(data.balance) || 0);
+      setBalance(Number(data.balance) || 0);
     } catch (error) {
       console.error('Error in fetchBalance:', error);
       toast({
@@ -69,7 +69,7 @@ export const useUserBalance = () => {
         },
         (payload) => {
           console.log('Balance updated via real-time:', payload.new.balance);
-          setBalance(parseFloat(payload.new.balance) || 0);
+          setBalance(Number(payload.new.balance) || 0);
         }
       )
       .subscribe();
