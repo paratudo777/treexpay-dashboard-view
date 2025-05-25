@@ -291,6 +291,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      incrementar_saldo_usuario: {
+        Args: { p_user_id: string; p_amount: number }
+        Returns: undefined
+      }
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean

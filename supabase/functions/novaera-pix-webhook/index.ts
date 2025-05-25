@@ -24,16 +24,17 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = await req.json();
-    console.log('Webhook NovaEra PIX recebido:', JSON.stringify(body, null, 2));
+    console.log('🚀 Webhook NovaEra PIX recebido:', JSON.stringify(body, null, 2));
 
     // Verificar se é um pagamento PIX aprovado
     const isApproved = body?.status === "approved" || 
                       body?.transaction?.status === "approved" || 
                       body?.payment?.status === "approved" ||
-                      body?.status === "Compra Aprovada";
+                      body?.status === "Compra Aprovada" ||
+                      body?.data?.status === "paid";
 
     if (!isApproved) {
-      console.log('Webhook ignorado - não é um pagamento aprovado. Status:', body?.status);
+      console.log('⚠️ Webhook ignorado - não é um pagamento aprovado. Status:', body?.status || body?.data?.status);
       return new Response("ok", { 
         status: 200,
         headers: corsHeaders 
@@ -42,86 +43,138 @@ Deno.serve(async (req) => {
 
     // Buscar referência/ID da transação
     const transactionRef = body?.externalRef || 
+                          body?.data?.externalRef ||
                           body?.externalId ||
+                          body?.data?.externalId ||
                           body?.reference || 
                           body?.transaction_id || 
-                          body?.id;
+                          body?.id ||
+                          body?.data?.id;
 
     if (!transactionRef) {
-      console.error('Referência da transação não encontrada no webhook NovaEra PIX');
+      console.error('❌ Referência da transação não encontrada no webhook NovaEra PIX');
       throw new Error('Transaction reference not found');
     }
 
-    console.log('Processando pagamento PIX aprovado para referência:', transactionRef);
+    console.log('💰 Processando pagamento PIX aprovado para referência:', transactionRef);
 
-    // Atualizar depósito para completed
-    const { data: depositData, error: depositError } = await supabase
-      .from("deposits")
-      .update({ status: "completed" })
-      .or(`qr_code.eq.${body.pix?.qrcodeText || body.pix?.qrcode || ''},id.eq.${transactionRef}`)
-      .select();
+    // Buscar a transação no Supabase pela referência
+    const { data: transaction, error: findError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('code', transactionRef)
+      .eq('status', 'pending')
+      .single();
 
-    if (depositError) {
-      console.error('Erro ao atualizar depósito:', depositError);
-    } else if (depositData && depositData.length > 0) {
-      console.log('Depósito atualizado:', depositData[0]);
+    if (findError || !transaction) {
+      console.error('❌ Transação não encontrada ou já processada:', findError);
+      // Tentar buscar por ID se não encontrar pelo code
+      const { data: altTransaction, error: altError } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', transactionRef)
+        .eq('status', 'pending')
+        .single();
+
+      if (altError || !altTransaction) {
+        throw new Error(`Transaction not found for reference: ${transactionRef}`);
+      }
       
-      const deposit = depositData[0];
-      
-      // Atualizar transação correspondente
-      const { error: transactionError } = await supabase
+      // Usar a transação encontrada pelo ID alternativo
+      const foundTransaction = altTransaction;
+      console.log('✅ Transação encontrada pelo ID:', foundTransaction);
+
+      // Atualizar status da transação para aprovado
+      const { error: updateError } = await supabase
         .from('transactions')
         .update({ 
           status: 'approved',
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', deposit.user_id)
-        .eq('type', 'deposit')
-        .eq('amount', deposit.amount)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1);
+        .eq('id', foundTransaction.id);
 
-      if (transactionError) {
-        console.error('Erro ao atualizar transação:', transactionError);
-      } else {
-        console.log('Transação atualizada para aprovado');
+      if (updateError) {
+        console.error('❌ Erro ao atualizar transação:', updateError);
+        throw updateError;
       }
 
-      // Atualizar saldo do usuário
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', deposit.user_id)
-        .single();
+      console.log('✅ Transação atualizada para aprovado');
 
-      if (profileError) {
-        console.error('Erro ao buscar perfil do usuário:', profileError);
-      } else {
-        const newBalance = (profile.balance || 0) + deposit.amount;
-        
-        const { error: balanceError } = await supabase
-          .from('profiles')
-          .update({ balance: newBalance })
-          .eq('id', deposit.user_id);
+      // Se for um depósito, incrementar saldo do usuário usando a função SQL
+      if (foundTransaction.type === 'deposit') {
+        const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
+          p_user_id: foundTransaction.user_id,
+          p_amount: foundTransaction.amount
+        });
 
         if (balanceError) {
-          console.error('Erro ao atualizar saldo:', balanceError);
+          console.error('❌ Erro ao incrementar saldo:', balanceError);
+          throw balanceError;
         } else {
-          console.log(`Saldo atualizado para usuário ${deposit.user_id}: ${newBalance}`);
+          console.log(`💰 Saldo incrementado para usuário ${foundTransaction.user_id}: +${foundTransaction.amount}`);
         }
       }
-    } else {
-      console.log('Nenhum depósito encontrado para atualizar');
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'PIX payment processed successfully',
+          transaction: foundTransaction
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
-    return new Response("webhook processed", { 
-      status: 200,
-      headers: corsHeaders
-    });
+    console.log('✅ Transação encontrada pelo code:', transaction);
+
+    // Atualizar status da transação para aprovado
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({ 
+        status: 'approved',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', transaction.id);
+
+    if (updateError) {
+      console.error('❌ Erro ao atualizar transação:', updateError);
+      throw updateError;
+    }
+
+    console.log('✅ Transação atualizada para aprovado');
+
+    // Se for um depósito, incrementar saldo do usuário usando a função SQL
+    if (transaction.type === 'deposit') {
+      const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
+        p_user_id: transaction.user_id,
+        p_amount: transaction.amount
+      });
+
+      if (balanceError) {
+        console.error('❌ Erro ao incrementar saldo:', balanceError);
+        throw balanceError;
+      } else {
+        console.log(`💰 Saldo incrementado para usuário ${transaction.user_id}: +${transaction.amount}`);
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'PIX payment processed successfully',
+        transaction: transaction
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error) {
-    console.error('Erro no webhook NovaEra PIX:', error);
+    console.error('❌ Erro no webhook NovaEra PIX:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
