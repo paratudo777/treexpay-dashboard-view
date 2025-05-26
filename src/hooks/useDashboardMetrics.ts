@@ -67,14 +67,14 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         isAdmin
       });
 
-      // Buscar vendas aprovadas (payments) para "Depósitos Realizados"
+      // Buscar vendas aprovadas (transações tipo payment com status approved)
       let salesQuery = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'approved')
-        .eq('type', 'payment') // Vendas são do tipo 'payment'
-        .gte('created_at', start.toISOString())
-        .lt('created_at', end.toISOString());
+        .eq('type', 'payment')
+        .gte('updated_at', start.toISOString())
+        .lt('updated_at', end.toISOString());
 
       if (!isAdmin) {
         salesQuery = salesQuery.eq('user_id', user.id);
@@ -95,8 +95,8 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         .select('*')
         .eq('status', 'approved')
         .eq('type', 'withdrawal')
-        .gte('created_at', start.toISOString())
-        .lt('created_at', end.toISOString());
+        .gte('updated_at', start.toISOString())
+        .lt('updated_at', end.toISOString());
 
       if (!isAdmin) {
         withdrawalsQuery = withdrawalsQuery.eq('user_id', user.id);
@@ -108,13 +108,15 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         console.error('Erro ao buscar saques:', withdrawalsError);
       }
 
-      // Calcular métricas das vendas (valor bruto, sem taxas)
+      console.log('Saques aprovados encontrados:', withdrawals?.length || 0, withdrawals);
+
+      // Calcular métricas das vendas (valor bruto)
       const totalDeposits = sales?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       const depositCount = sales?.length || 0;
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
-      // Calcular taxas coletadas (apenas das vendas)
+      // Calcular taxas coletadas (apenas das vendas aprovadas)
       const feesCollected = sales?.reduce((sum, t) => {
         const transactionValue = Number(t.amount);
         const percentageFee = transactionValue * 0.0599; // 5.99%
@@ -164,7 +166,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         hourEnd.setHours(hour + 2, 0, 0, 0);
 
         const hourSales = sales.filter(t => {
-          const transactionDate = new Date(t.created_at);
+          const transactionDate = new Date(t.updated_at);
           return transactionDate >= hourStart && transactionDate < hourEnd;
         });
 
@@ -180,7 +182,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
         const daySales = sales.filter(t => {
-          const transactionDate = new Date(t.created_at);
+          const transactionDate = new Date(t.updated_at);
           return transactionDate >= dayStart && transactionDate < dayEnd;
         });
 
