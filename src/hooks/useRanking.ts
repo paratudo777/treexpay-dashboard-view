@@ -20,30 +20,35 @@ export const useRanking = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const getCurrentMonthPeriod = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    return { startOfMonth, endOfMonth };
+  };
+
   const fetchRanking = async () => {
     try {
       setLoading(true);
       
-      // Calcular período do mês atual
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      
-      const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
-      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
 
       console.log('Período do ranking:', { 
         startOfMonth: startOfMonth.toISOString(), 
         endOfMonth: endOfMonth.toISOString(),
-        currentDate: now.toISOString()
+        currentDate: new Date().toISOString()
       });
 
-      // Buscar transações aprovadas do tipo 'deposit' (vendas/depósitos)
+      // Buscar APENAS transações aprovadas do tipo 'deposit' do mês atual
       const { data: transacoesAprovadas, error: transacoesError } = await supabase
         .from('transactions')
         .select('user_id, amount, created_at, type, status, code, description')
         .eq('status', 'approved')
-        .eq('type', 'deposit') // Mudado de 'payment' para 'deposit'
+        .eq('type', 'deposit')
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
         .order('created_at', { ascending: false });
@@ -53,26 +58,9 @@ export const useRanking = () => {
         throw transacoesError;
       }
 
-      console.log('Transações aprovadas encontradas:', transacoesAprovadas?.length || 0);
+      console.log('Transações aprovadas do mês encontradas:', transacoesAprovadas?.length || 0);
 
-      // Função auxiliar para extrair valor bruto da descrição
-      const extractGrossValue = (description: string, amount: number) => {
-        const grossValueMatch = description.match(/Valor bruto: R\$\s*([\d,]+\.?\d*)/);
-        if (grossValueMatch) {
-          return parseFloat(grossValueMatch[1].replace(',', ''));
-        }
-        return amount;
-      };
-
-      // Se não há transações aprovadas, ainda precisamos buscar usuários com apelidos
-      const userIds = transacoesAprovadas?.map(t => t.user_id) || [];
-      
-      // Adicionar o usuário atual à lista se não estiver presente
-      if (user?.id && !userIds.includes(user.id)) {
-        userIds.push(user.id);
-      }
-
-      // Buscar todos os usuários com apelidos definidos
+      // Buscar usuários que têm apelido definido
       const { data: usuarios, error: usuariosError } = await supabase
         .from('usuarios')
         .select('*');
@@ -81,16 +69,12 @@ export const useRanking = () => {
         console.error('Erro ao buscar usuários:', usuariosError);
       }
 
-      console.log('Usuários encontrados:', usuarios?.length || 0);
-
       // Buscar perfis dos usuários
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, name, email');
 
-      console.log('Perfis encontrados:', profiles?.length || 0);
-
-      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || [], extractGrossValue);
+      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || []);
 
     } catch (error) {
       console.error('Erro completo no ranking:', error);
@@ -104,8 +88,20 @@ export const useRanking = () => {
     }
   };
 
-  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[], extractGrossValue: (desc: string, amount: number) => number) => {
-    // Calcular volume por usuário usando valor bruto
+  const extractGrossValue = (description: string, amount: number) => {
+    // Procurar por "Valor: R$ XX" ou "Valor bruto: R$ XX" na descrição
+    const grossValueMatch = description.match(/Valor(?:\s+bruto)?:\s*R\$\s*([\d,]+\.?\d*)/i);
+    if (grossValueMatch) {
+      const value = parseFloat(grossValueMatch[1].replace(',', ''));
+      return isNaN(value) ? amount : value;
+    }
+    
+    // Se não encontrar padrão específico, usar o amount da transação
+    return amount;
+  };
+
+  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[]) => {
+    // Calcular volume por usuário baseado APENAS em transações aprovadas do mês
     const volumePorUsuario = transacoes.reduce((acc, transacao) => {
       const userId = transacao.user_id;
       const grossValue = extractGrossValue(transacao.description || '', Number(transacao.amount));
@@ -126,12 +122,12 @@ export const useRanking = () => {
       return acc;
     }, {} as Record<string, { volume: number; ultimaVenda: string }>);
 
-    console.log('Volume por usuário calculado:', volumePorUsuario);
+    console.log('Volume por usuário calculado (mês atual):', volumePorUsuario);
 
     // Criar lista de usuários para o ranking
     const usuariosCompletos = [];
     
-    // Primeiro, adicionar usuários com vendas
+    // Primeiro, adicionar usuários com vendas aprovadas no mês
     for (const userId of Object.keys(volumePorUsuario)) {
       let usuario = usuarios.find(u => u.user_id === userId);
       const profile = profiles.find(p => p.id === userId);
@@ -156,10 +152,9 @@ export const useRanking = () => {
       });
     }
 
-    // Depois, adicionar usuários com apelidos mas sem vendas (incluindo usuário atual)
+    // Depois, adicionar usuários com apelidos mas sem vendas no mês atual
     for (const usuario of usuarios) {
       if (!volumePorUsuario[usuario.user_id]) {
-        const profile = profiles.find(p => p.id === usuario.user_id);
         usuariosCompletos.push({
           ...usuario,
           volume_total_mensal: 0,
@@ -201,7 +196,7 @@ export const useRanking = () => {
   };
 
   const updateApelido = async (newApelido: string) => {
-    if (!user?.id) return;
+    if (!user?.id) return false;
 
     try {
       // Validar apelido
@@ -299,7 +294,7 @@ export const useRanking = () => {
           type: 'deposit',
           amount: valor,
           status: 'approved',
-          description: `Depósito PIX NovaEra - Valor bruto: R$ ${valor.toFixed(2)} | Líquido: R$ ${valor.toFixed(2)}`,
+          description: `Depósito PIX - Valor: R$ ${valor.toFixed(2)}`,
           code: `SALE${Date.now()}`
         });
 
@@ -325,7 +320,7 @@ export const useRanking = () => {
   useEffect(() => {
     fetchRanking();
 
-    // Escutar mudanças em tempo real
+    // Escutar mudanças em tempo real apenas para transações aprovadas
     const channel = supabase
       .channel('ranking-changes')
       .on(
@@ -349,11 +344,13 @@ export const useRanking = () => {
         },
         (payload) => {
           console.log('Mudança detectada na tabela transactions:', payload);
-          // Atualizar se for uma transação aprovada relevante
+          // Atualizar apenas se for uma transação aprovada de depósito
           if (payload.new && 
               typeof payload.new === 'object' && 
               'status' in payload.new &&
-              payload.new.status === 'approved') {
+              'type' in payload.new &&
+              payload.new.status === 'approved' &&
+              payload.new.type === 'deposit') {
             fetchRanking();
           }
         }
