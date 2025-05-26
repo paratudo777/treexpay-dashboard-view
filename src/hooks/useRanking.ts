@@ -25,15 +25,80 @@ export const useRanking = () => {
     try {
       setLoading(true);
       
+      // Buscar usuários com volume de vendas aprovadas do mês atual
       const { data, error } = await supabase
         .from('usuarios')
-        .select('*')
+        .select(`
+          *,
+          vendas_aprovadas:transactions!inner(
+            amount,
+            created_at
+          )
+        `)
+        .eq('transactions.status', 'approved')
+        .eq('transactions.type', 'sale')
+        .gte('transactions.created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+        .lt('transactions.created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString())
         .order('volume_total_mensal', { ascending: false })
         .limit(5);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar ranking:', error);
+        
+        // Fallback: buscar todos os usuários e calcular volume localmente
+        const { data: allUsers, error: fallbackError } = await supabase
+          .from('usuarios')
+          .select('*')
+          .order('volume_total_mensal', { ascending: false })
+          .limit(5);
 
-      const rankingData = data.map((usuario, index) => ({
+        if (fallbackError) throw fallbackError;
+
+        const rankingData = allUsers.map((usuario, index) => ({
+          ...usuario,
+          position: index + 1,
+          is_current_user: usuario.user_id === user?.id
+        }));
+
+        setRanking(rankingData);
+        const currentUser = rankingData.find(u => u.is_current_user);
+        setCurrentUserRanking(currentUser || null);
+        return;
+      }
+
+      // Calcular volume real baseado em vendas aprovadas do mês atual
+      const rankingWithCalculatedVolume = await Promise.all(
+        data.map(async (usuario) => {
+          const { data: vendasAprovadas, error: vendasError } = await supabase
+            .from('transactions')
+            .select('amount')
+            .eq('user_id', usuario.user_id)
+            .eq('status', 'approved')
+            .eq('type', 'sale')
+            .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+            .lt('created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString());
+
+          if (vendasError) {
+            console.error('Erro ao buscar vendas:', vendasError);
+            return usuario;
+          }
+
+          const volumeReal = vendasAprovadas.reduce((total, venda) => total + Number(venda.amount), 0);
+          
+          return {
+            ...usuario,
+            volume_total_mensal: volumeReal
+          };
+        })
+      );
+
+      // Ordenar por volume real e filtrar apenas quem tem vendas
+      const rankingFiltrado = rankingWithCalculatedVolume
+        .filter(usuario => usuario.volume_total_mensal > 0)
+        .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
+        .slice(0, 5);
+
+      const rankingData = rankingFiltrado.map((usuario, index) => ({
         ...usuario,
         position: index + 1,
         is_current_user: usuario.user_id === user?.id
@@ -45,6 +110,7 @@ export const useRanking = () => {
       setCurrentUserRanking(currentUser || null);
 
     } catch (error) {
+      console.error('Erro completo:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -141,13 +207,16 @@ export const useRanking = () => {
         usuario = newUsuario;
       }
 
-      // Adicionar venda
+      // Criar transação de venda aprovada
       const { error } = await supabase
-        .from('vendas')
+        .from('transactions')
         .insert({
-          usuario_id: usuario.id,
-          valor: valor,
-          data: new Date().toISOString()
+          user_id: user.id,
+          type: 'sale',
+          amount: valor,
+          status: 'approved',
+          description: 'Venda registrada',
+          code: `SALE${Date.now()}`
         });
 
       if (error) throw error;
@@ -159,6 +228,7 @@ export const useRanking = () => {
 
       fetchRanking();
     } catch (error) {
+      console.error('Erro ao registrar venda:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -170,7 +240,7 @@ export const useRanking = () => {
   useEffect(() => {
     fetchRanking();
 
-    // Escutar mudanças em tempo real
+    // Escutar mudanças em tempo real nas transações
     const channel = supabase
       .channel('ranking-changes')
       .on(
@@ -189,10 +259,13 @@ export const useRanking = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'vendas'
+          table: 'transactions'
         },
-        () => {
-          fetchRanking();
+        (payload) => {
+          // Apenas atualizar se for uma transação de venda aprovada
+          if (payload.new?.type === 'sale' && payload.new?.status === 'approved') {
+            fetchRanking();
+          }
         }
       )
       .subscribe();
