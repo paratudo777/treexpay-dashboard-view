@@ -25,65 +25,48 @@ export const useRanking = () => {
     try {
       setLoading(true);
       
-      // Buscar usuários com volume de vendas aprovadas do mês atual
-      const { data, error } = await supabase
+      // Buscar todos os usuários primeiro
+      const { data: allUsers, error: usersError } = await supabase
         .from('usuarios')
-        .select(`
-          *,
-          vendas_aprovadas:transactions!inner(
-            amount,
-            created_at
-          )
-        `)
-        .eq('transactions.status', 'approved')
-        .eq('transactions.type', 'sale')
-        .gte('transactions.created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-        .lt('transactions.created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString())
-        .order('volume_total_mensal', { ascending: false })
-        .limit(5);
+        .select('*');
 
-      if (error) {
-        console.error('Erro ao buscar ranking:', error);
-        
-        // Fallback: buscar todos os usuários e calcular volume localmente
-        const { data: allUsers, error: fallbackError } = await supabase
-          .from('usuarios')
-          .select('*')
-          .order('volume_total_mensal', { ascending: false })
-          .limit(5);
+      if (usersError) {
+        console.error('Erro ao buscar usuários:', usersError);
+        throw usersError;
+      }
 
-        if (fallbackError) throw fallbackError;
-
-        const rankingData = allUsers.map((usuario, index) => ({
-          ...usuario,
-          position: index + 1,
-          is_current_user: usuario.user_id === user?.id
-        }));
-
-        setRanking(rankingData);
-        const currentUser = rankingData.find(u => u.is_current_user);
-        setCurrentUserRanking(currentUser || null);
+      if (!allUsers || allUsers.length === 0) {
+        setRanking([]);
+        setCurrentUserRanking(null);
         return;
       }
 
-      // Calcular volume real baseado em vendas aprovadas do mês atual
+      // Calcular volume real baseado em transações aprovadas do mês atual
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const startOfNextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString();
+
       const rankingWithCalculatedVolume = await Promise.all(
-        data.map(async (usuario) => {
-          const { data: vendasAprovadas, error: vendasError } = await supabase
+        allUsers.map(async (usuario) => {
+          // Buscar transações aprovadas do usuário no mês atual
+          // Usando 'payment' como tipo de transação para vendas
+          const { data: transacoesAprovadas, error: transacoesError } = await supabase
             .from('transactions')
             .select('amount')
             .eq('user_id', usuario.user_id)
             .eq('status', 'approved')
-            .eq('type', 'sale')
-            .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-            .lt('created_at', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString());
+            .eq('type', 'payment')
+            .gte('created_at', startOfMonth)
+            .lt('created_at', startOfNextMonth);
 
-          if (vendasError) {
-            console.error('Erro ao buscar vendas:', vendasError);
-            return usuario;
+          if (transacoesError) {
+            console.error('Erro ao buscar transações:', transacoesError);
+            return {
+              ...usuario,
+              volume_total_mensal: 0
+            };
           }
 
-          const volumeReal = vendasAprovadas.reduce((total, venda) => total + Number(venda.amount), 0);
+          const volumeReal = transacoesAprovadas?.reduce((total, transacao) => total + Number(transacao.amount), 0) || 0;
           
           return {
             ...usuario,
@@ -207,12 +190,12 @@ export const useRanking = () => {
         usuario = newUsuario;
       }
 
-      // Criar transação de venda aprovada
+      // Criar transação de venda aprovada usando tipo 'payment'
       const { error } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
-          type: 'sale',
+          type: 'payment',
           amount: valor,
           status: 'approved',
           description: 'Venda registrada',
@@ -262,8 +245,13 @@ export const useRanking = () => {
           table: 'transactions'
         },
         (payload) => {
-          // Apenas atualizar se for uma transação de venda aprovada
-          if (payload.new?.type === 'sale' && payload.new?.status === 'approved') {
+          // Apenas atualizar se for uma transação de pagamento aprovada
+          if (payload.new && 
+              typeof payload.new === 'object' && 
+              'type' in payload.new && 
+              'status' in payload.new &&
+              payload.new.type === 'payment' && 
+              payload.new.status === 'approved') {
             fetchRanking();
           }
         }
