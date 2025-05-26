@@ -1,4 +1,3 @@
-
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +7,8 @@ import {
   Wallet, 
   LogOut,
   Settings,
-  MessageSquare
+  MessageSquare,
+  Trophy
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from './ui/button';
@@ -25,6 +25,7 @@ const navItems: NavItem[] = [
   { name: 'Transações', href: '/transactions', icon: FileText },
   { name: 'Depósitos', href: '/depositos', icon: Wallet },
   { name: 'Financeiro', href: '/financeiro', icon: Wallet },
+  { name: 'Ranking', href: '/ranking', icon: Trophy },
   { name: 'Administração', href: '/admin', icon: Settings, adminOnly: true },
 ];
 

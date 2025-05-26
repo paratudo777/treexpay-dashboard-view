@@ -1,62 +1,70 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Supabase credentials not configured');
+    // Verificar se é o primeiro dia do mês
+    const now = new Date()
+    const isFirstDayOfMonth = now.getDate() === 1
+
+    if (isFirstDayOfMonth) {
+      // Chamar a função para resetar os volumes mensais
+      const { error } = await supabase.rpc('reset_monthly_volumes')
+      
+      if (error) {
+        throw error
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Monthly volumes reset successfully',
+          date: now.toISOString()
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
+    } else {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Not the first day of month, no reset needed',
+          date: now.toISOString()
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        },
+      )
     }
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-    console.log('🕛 Iniciando reset das métricas diárias...');
-
-    // Chamar a função para resetar métricas
-    const { error } = await supabase.rpc('reset_daily_metrics');
-
-    if (error) {
-      console.error('❌ Erro ao resetar métricas:', error);
-      throw error;
-    }
-
-    console.log('✅ Métricas diárias resetadas com sucesso');
-
+  } catch (error) {
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        message: 'Daily metrics reset successfully',
+        error: error.message,
         timestamp: new Date().toISOString()
       }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
-  } catch (error) {
-    console.error('❌ Erro na edge function reset-daily-metrics:', error);
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      },
+    )
   }
-});
+})

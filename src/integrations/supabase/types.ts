@@ -241,6 +241,68 @@ export type Database = {
           },
         ]
       }
+      usuarios: {
+        Row: {
+          apelido: string
+          created_at: string | null
+          id: string
+          ultima_venda_em: string | null
+          updated_at: string | null
+          user_id: string
+          volume_total_mensal: number | null
+        }
+        Insert: {
+          apelido: string
+          created_at?: string | null
+          id?: string
+          ultima_venda_em?: string | null
+          updated_at?: string | null
+          user_id: string
+          volume_total_mensal?: number | null
+        }
+        Update: {
+          apelido?: string
+          created_at?: string | null
+          id?: string
+          ultima_venda_em?: string | null
+          updated_at?: string | null
+          user_id?: string
+          volume_total_mensal?: number | null
+        }
+        Relationships: []
+      }
+      vendas: {
+        Row: {
+          created_at: string | null
+          data: string | null
+          id: string
+          usuario_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          data?: string | null
+          id?: string
+          usuario_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          data?: string | null
+          id?: string
+          usuario_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       withdrawals: {
         Row: {
           amount: number
@@ -298,6 +360,10 @@ export type Database = {
       is_admin: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      reset_monthly_volumes: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

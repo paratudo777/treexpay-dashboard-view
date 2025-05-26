@@ -10,6 +10,7 @@ import Transactions from "./pages/Transactions";
 import Depositos from "./pages/Depositos";
 import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
+import Ranking from "./pages/Ranking";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -64,6 +65,14 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Financeiro />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/ranking" 
+                element={
+                  <ProtectedRoute>
+                    <Ranking />
                   </ProtectedRoute>
                 } 
               />
