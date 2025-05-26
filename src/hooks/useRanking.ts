@@ -25,72 +25,147 @@ export const useRanking = () => {
     try {
       setLoading(true);
       
-      // Buscar todos os usuários primeiro
-      const { data: allUsers, error: usersError } = await supabase
-        .from('usuarios')
-        .select('*');
+      // Definir período do mês atual
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
-      if (usersError) {
-        console.error('Erro ao buscar usuários:', usersError);
-        throw usersError;
+      console.log('Período do ranking:', { startOfMonth, endOfMonth });
+
+      // Buscar todas as transações aprovadas do tipo payment no mês atual
+      const { data: transacoesAprovadas, error: transacoesError } = await supabase
+        .from('transactions')
+        .select('user_id, amount, created_at')
+        .eq('status', 'approved')
+        .eq('type', 'payment')
+        .gte('created_at', startOfMonth)
+        .lte('created_at', endOfMonth);
+
+      if (transacoesError) {
+        console.error('Erro ao buscar transações:', transacoesError);
+        throw transacoesError;
       }
 
-      if (!allUsers || allUsers.length === 0) {
+      console.log('Transações aprovadas encontradas:', transacoesAprovadas?.length || 0);
+
+      if (!transacoesAprovadas || transacoesAprovadas.length === 0) {
         setRanking([]);
         setCurrentUserRanking(null);
         return;
       }
 
-      // Calcular volume real baseado em transações aprovadas do mês atual
-      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-      const startOfNextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString();
-
-      const rankingWithCalculatedVolume = await Promise.all(
-        allUsers.map(async (usuario) => {
-          // Buscar transações aprovadas do usuário no mês atual
-          // Usando 'payment' como tipo de transação para vendas
-          const { data: transacoesAprovadas, error: transacoesError } = await supabase
-            .from('transactions')
-            .select('amount')
-            .eq('user_id', usuario.user_id)
-            .eq('status', 'approved')
-            .eq('type', 'payment')
-            .gte('created_at', startOfMonth)
-            .lt('created_at', startOfNextMonth);
-
-          if (transacoesError) {
-            console.error('Erro ao buscar transações:', transacoesError);
-            return {
-              ...usuario,
-              volume_total_mensal: 0
-            };
-          }
-
-          const volumeReal = transacoesAprovadas?.reduce((total, transacao) => total + Number(transacao.amount), 0) || 0;
-          
-          return {
-            ...usuario,
-            volume_total_mensal: volumeReal
+      // Agrupar transações por usuário e calcular volume total
+      const volumePorUsuario = transacoesAprovadas.reduce((acc, transacao) => {
+        const userId = transacao.user_id;
+        if (!acc[userId]) {
+          acc[userId] = {
+            volume: 0,
+            ultimaVenda: transacao.created_at
           };
-        })
-      );
+        }
+        acc[userId].volume += Number(transacao.amount);
+        
+        // Manter a data da venda mais recente
+        if (new Date(transacao.created_at) > new Date(acc[userId].ultimaVenda)) {
+          acc[userId].ultimaVenda = transacao.created_at;
+        }
+        
+        return acc;
+      }, {} as Record<string, { volume: number; ultimaVenda: string }>);
 
-      // Ordenar por volume real e filtrar apenas quem tem vendas
-      const rankingFiltrado = rankingWithCalculatedVolume
-        .filter(usuario => usuario.volume_total_mensal > 0)
-        .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
-        .slice(0, 5);
+      console.log('Volume por usuário:', volumePorUsuario);
 
-      const rankingData = rankingFiltrado.map((usuario, index) => ({
-        ...usuario,
-        position: index + 1,
-        is_current_user: usuario.user_id === user?.id
-      }));
-
-      setRanking(rankingData);
+      // Buscar dados dos usuários que têm vendas
+      const userIds = Object.keys(volumePorUsuario);
       
-      const currentUser = rankingData.find(u => u.is_current_user);
-      setCurrentUserRanking(currentUser || null);
+      if (userIds.length === 0) {
+        setRanking([]);
+        setCurrentUserRanking(null);
+        return;
+      }
+
+      const { data: usuarios, error: usuariosError } = await supabase
+        .from('usuarios')
+        .select('*')
+        .in('user_id', userIds);
+
+      if (usuariosError) {
+        console.error('Erro ao buscar usuários:', usuariosError);
+        throw usuariosError;
+      }
+
+      console.log('Usuários encontrados:', usuarios?.length || 0);
+
+      // Para usuários que não existem na tabela usuarios, criar dados temporários
+      const usuariosCompletos = [];
+      
+      for (const userId of userIds) {
+        let usuario = usuarios?.find(u => u.user_id === userId);
+        
+        if (!usuario) {
+          // Buscar dados do perfil para usuários não cadastrados na tabela usuarios
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', userId)
+            .single();
+          
+          usuario = {
+            id: `temp-${userId}`,
+            user_id: userId,
+            apelido: profile?.name || `Usuario${userId.slice(0, 4)}`,
+            volume_total_mensal: 0,
+            ultima_venda_em: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+        }
+        
+        usuariosCompletos.push({
+          ...usuario,
+          volume_total_mensal: volumePorUsuario[userId].volume,
+          ultima_venda_em: volumePorUsuario[userId].ultimaVenda
+        });
+      }
+
+      // Ordenar por volume total e criar ranking
+      const rankingOrdenado = usuariosCompletos
+        .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
+        .slice(0, 10) // Mostrar top 10 em vez de apenas 5
+        .map((usuario, index) => ({
+          ...usuario,
+          position: index + 1,
+          is_current_user: usuario.user_id === user?.id
+        }));
+
+      console.log('Ranking final:', rankingOrdenado);
+
+      setRanking(rankingOrdenado);
+      
+      // Buscar posição do usuário atual (mesmo se não estiver no top 10)
+      const currentUser = rankingOrdenado.find(u => u.is_current_user);
+      
+      if (!currentUser && user?.id && volumePorUsuario[user.id]) {
+        // Se o usuário atual não está no top 10 mas tem vendas, calcular sua posição
+        const userVolume = volumePorUsuario[user.id].volume;
+        const posicaoAtual = usuariosCompletos
+          .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
+          .findIndex(u => u.user_id === user.id) + 1;
+        
+        const usuarioAtual = usuariosCompletos.find(u => u.user_id === user.id);
+        
+        if (usuarioAtual) {
+          setCurrentUserRanking({
+            ...usuarioAtual,
+            position: posicaoAtual,
+            is_current_user: true,
+            volume_total_mensal: userVolume,
+            ultima_venda_em: volumePorUsuario[user.id].ultimaVenda
+          });
+        }
+      } else {
+        setCurrentUserRanking(currentUser || null);
+      }
 
     } catch (error) {
       console.error('Erro completo:', error);
@@ -190,7 +265,7 @@ export const useRanking = () => {
         usuario = newUsuario;
       }
 
-      // Criar transação de venda aprovada usando tipo 'payment'
+      // Criar transação de venda aprovada
       const { error } = await supabase
         .from('transactions')
         .insert({
