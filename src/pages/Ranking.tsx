@@ -7,11 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Medal, Award, Crown, Star } from "lucide-react";
 import { useRanking } from "@/hooks/useRanking";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function Ranking() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const { ranking, loading: rankingLoading, currentUserRanking, updateApelido } = useRanking();
+  const { ranking, loading, currentUserRanking, updateApelido } = useRanking();
   const [newApelido, setNewApelido] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -66,43 +64,6 @@ export default function Ranking() {
       }
     }
   };
-
-  // Mostrar loading enquanto verifica autenticação
-  if (authLoading) {
-    return (
-      <DashboardLayout>
-        <div className="container mx-auto max-w-4xl space-y-6">
-          <div className="flex items-center justify-center min-h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Verificando sessão...</p>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Se não está autenticado após verificação, será redirecionado pelo ProtectedRoute
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  // Mostrar loading do ranking
-  if (rankingLoading) {
-    return (
-      <DashboardLayout>
-        <div className="container mx-auto max-w-4xl space-y-6">
-          <div className="flex items-center justify-center min-h-96">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Carregando ranking...</p>
-            </div>
-          </div>
-        </div>
-      </DashboardLayout>
-    );
-  }
 
   return (
     <DashboardLayout>
@@ -177,7 +138,11 @@ export default function Ranking() {
             <CardTitle className="text-xl">Ranking do Mês</CardTitle>
           </CardHeader>
           <CardContent>
-            {ranking.length > 0 ? (
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground">Carregando ranking...</div>
+              </div>
+            ) : ranking.length > 0 ? (
               <div className="space-y-3">
                 {ranking.map((user, index) => (
                   <div

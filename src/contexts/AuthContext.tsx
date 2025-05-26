@@ -31,42 +31,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { toast } = useToast();
 
   useEffect(() => {
-    // Configurar listener de mudanças de autenticação PRIMEIRO
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        
-        if (session?.user) {
-          // Usuário logado - carregar perfil
-          await loadUserProfile(session.user);
-        } else {
-          // Usuário deslogado
-          setUser(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    // DEPOIS verificar sessão existente
-    checkInitialSession();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    checkSession();
   }, []);
 
-  const checkInitialSession = async () => {
+  const checkSession = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Sessão inicial verificada:', session?.user?.id);
-      
       if (session?.user) {
         await loadUserProfile(session.user);
-      } else {
-        setLoading(false);
       }
     } catch (error) {
-      console.error('Erro ao verificar sessão inicial:', error);
+      // Silent fail for session check
+    } finally {
       setLoading(false);
     }
   };
@@ -80,14 +56,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (error) {
-        console.error('Erro ao carregar perfil:', error);
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Erro ao carregar perfil do usuário.",
         });
-        await supabase.auth.signOut();
-        setLoading(false);
         return;
       }
 
@@ -98,7 +71,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           description: "Perfil de usuário não encontrado.",
         });
         await supabase.auth.signOut();
-        setLoading(false);
         return;
       }
 
@@ -109,7 +81,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           description: "Usuário inativo. Acesso negado.",
         });
         await supabase.auth.signOut();
-        setLoading(false);
         return;
       }
 
@@ -120,18 +91,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         profile: profile.profile,
         active: profile.active,
       });
-      
-      console.log('Perfil carregado com sucesso:', profile.name);
     } catch (error) {
-      console.error('Erro interno ao carregar perfil:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      await supabase.auth.signOut();
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -171,7 +136,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      // O perfil será carregado automaticamente pelo listener onAuthStateChange
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        toast({
+          variant: "destructive",
+          title: "Perfil não encontrado",
+          description: "Perfil de usuário não encontrado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (!profile.active) {
+        toast({
+          variant: "destructive",
+          title: "Acesso negado",
+          description: "Usuário inativo. Acesso negado.",
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setUser({
+        id: profile.id,
+        email: profile.email,
+        name: profile.name,
+        profile: profile.profile,
+        active: profile.active,
+      });
+
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
@@ -179,7 +177,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       navigate('/dashboard');
     } catch (error) {
-      console.error('Erro no login:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -193,14 +190,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     try {
       await supabase.auth.signOut();
-      // O estado será limpo automaticamente pelo listener onAuthStateChange
+      setUser(null);
       navigate('/');
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
-      console.error('Erro no logout:', error);
       toast({
         variant: "destructive",
         title: "Erro",
