@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,12 +38,12 @@ export const useRanking = () => {
         currentDate: now.toISOString()
       });
 
-      // Buscar transações aprovadas apenas do tipo 'payment' (vendas)
+      // Buscar transações aprovadas do tipo 'deposit' (vendas/depósitos)
       const { data: transacoesAprovadas, error: transacoesError } = await supabase
         .from('transactions')
-        .select('user_id, amount, created_at, type, status, code')
+        .select('user_id, amount, created_at, type, status, code, description')
         .eq('status', 'approved')
-        .eq('type', 'payment') // Apenas pagamentos (vendas)
+        .eq('type', 'deposit') // Mudado de 'payment' para 'deposit'
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
         .order('created_at', { ascending: false });
@@ -55,6 +54,15 @@ export const useRanking = () => {
       }
 
       console.log('Transações aprovadas encontradas:', transacoesAprovadas?.length || 0);
+
+      // Função auxiliar para extrair valor bruto da descrição
+      const extractGrossValue = (description: string, amount: number) => {
+        const grossValueMatch = description.match(/Valor bruto: R\$\s*([\d,]+\.?\d*)/);
+        if (grossValueMatch) {
+          return parseFloat(grossValueMatch[1].replace(',', ''));
+        }
+        return amount;
+      };
 
       // Se não há transações aprovadas, ainda precisamos buscar usuários com apelidos
       const userIds = transacoesAprovadas?.map(t => t.user_id) || [];
@@ -82,7 +90,7 @@ export const useRanking = () => {
 
       console.log('Perfis encontrados:', profiles?.length || 0);
 
-      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || []);
+      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || [], extractGrossValue);
 
     } catch (error) {
       console.error('Erro completo no ranking:', error);
@@ -96,17 +104,19 @@ export const useRanking = () => {
     }
   };
 
-  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[]) => {
-    // Calcular volume por usuário
+  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[], extractGrossValue: (desc: string, amount: number) => number) => {
+    // Calcular volume por usuário usando valor bruto
     const volumePorUsuario = transacoes.reduce((acc, transacao) => {
       const userId = transacao.user_id;
+      const grossValue = extractGrossValue(transacao.description || '', Number(transacao.amount));
+      
       if (!acc[userId]) {
         acc[userId] = {
           volume: 0,
           ultimaVenda: transacao.created_at
         };
       }
-      acc[userId].volume += Number(transacao.amount);
+      acc[userId].volume += grossValue;
       
       // Manter a data da venda mais recente
       if (new Date(transacao.created_at) > new Date(acc[userId].ultimaVenda)) {
@@ -281,15 +291,15 @@ export const useRanking = () => {
         usuario = newUsuario;
       }
 
-      // Criar transação de venda aprovada
+      // Criar transação de depósito aprovado
       const { error } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
-          type: 'payment',
+          type: 'deposit',
           amount: valor,
           status: 'approved',
-          description: 'Venda registrada',
+          description: `Depósito PIX NovaEra - Valor bruto: R$ ${valor.toFixed(2)} | Líquido: R$ ${valor.toFixed(2)}`,
           code: `SALE${Date.now()}`
         });
 

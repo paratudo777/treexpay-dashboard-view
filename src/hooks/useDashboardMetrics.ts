@@ -67,12 +67,12 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         isAdmin
       });
 
-      // Buscar vendas aprovadas (transações tipo payment com status approved)
+      // Buscar depósitos aprovados (transações tipo deposit com status approved)
       let salesQuery = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'approved')
-        .eq('type', 'payment')
+        .eq('type', 'deposit')
         .gte('updated_at', start.toISOString())
         .lt('updated_at', end.toISOString());
 
@@ -83,11 +83,11 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       const { data: sales, error: salesError } = await salesQuery;
 
       if (salesError) {
-        console.error('Erro ao buscar vendas:', salesError);
+        console.error('Erro ao buscar depósitos:', salesError);
         throw salesError;
       }
 
-      console.log('Vendas aprovadas encontradas:', sales?.length || 0, sales);
+      console.log('Depósitos aprovados encontrados:', sales?.length || 0, sales);
 
       // Buscar saques aprovados
       let withdrawalsQuery = supabase
@@ -110,18 +110,33 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       console.log('Saques aprovados encontrados:', withdrawals?.length || 0, withdrawals);
 
-      // Calcular métricas das vendas (valor bruto)
-      const totalDeposits = sales?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      // Função para extrair valor bruto da descrição
+      const extractGrossValue = (description: string, amount: number) => {
+        // Procurar por padrão "Valor bruto: R$ X,XX"
+        const grossValueMatch = description.match(/Valor bruto: R\$\s*([\d,]+\.?\d*)/);
+        if (grossValueMatch) {
+          return parseFloat(grossValueMatch[1].replace(',', ''));
+        }
+        // Se não encontrar, usar o amount (valor líquido) como fallback
+        return amount;
+      };
+
+      // Calcular métricas das vendas usando valor bruto
+      const totalDeposits = sales?.reduce((sum, t) => {
+        const grossValue = extractGrossValue(t.description || '', Number(t.amount));
+        return sum + grossValue;
+      }, 0) || 0;
+
       const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
       const depositCount = sales?.length || 0;
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
-      // Calcular taxas coletadas (apenas das vendas aprovadas)
+      // Calcular taxas coletadas (apenas dos depósitos aprovados)
       const feesCollected = sales?.reduce((sum, t) => {
-        const transactionValue = Number(t.amount);
-        const percentageFee = transactionValue * 0.0599; // 5.99%
-        const fixedFee = 1.50;
-        return sum + percentageFee + fixedFee;
+        const grossValue = extractGrossValue(t.description || '', Number(t.amount));
+        const netValue = Number(t.amount);
+        const totalFees = grossValue - netValue;
+        return sum + totalFees;
       }, 0) || 0;
 
       console.log('Métricas calculadas:', {
@@ -158,6 +173,15 @@ export const useDashboardMetrics = (period: Period = 'today') => {
   const generateChartData = (sales: any[], period: Period) => {
     const data: Array<{ hora: string; valor: number }> = [];
 
+    // Função auxiliar para extrair valor bruto
+    const extractGrossValue = (description: string, amount: number) => {
+      const grossValueMatch = description.match(/Valor bruto: R\$\s*([\d,]+\.?\d*)/);
+      if (grossValueMatch) {
+        return parseFloat(grossValueMatch[1].replace(',', ''));
+      }
+      return amount;
+    };
+
     if (period === 'today') {
       for (let hour = 0; hour < 24; hour += 2) {
         const hourStart = new Date();
@@ -170,7 +194,11 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           return transactionDate >= hourStart && transactionDate < hourEnd;
         });
 
-        const hourTotal = hourSales.reduce((sum, t) => sum + Number(t.amount), 0);
+        const hourTotal = hourSales.reduce((sum, t) => {
+          const grossValue = extractGrossValue(t.description || '', Number(t.amount));
+          return sum + grossValue;
+        }, 0);
+        
         data.push({ hora: `${hour.toString().padStart(2, '0')}h`, valor: hourTotal });
       }
     } else {
@@ -186,7 +214,11 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           return transactionDate >= dayStart && transactionDate < dayEnd;
         });
 
-        const dayTotal = daySales.reduce((sum, t) => sum + Number(t.amount), 0);
+        const dayTotal = daySales.reduce((sum, t) => {
+          const grossValue = extractGrossValue(t.description || '', Number(t.amount));
+          return sum + grossValue;
+        }, 0);
+        
         const label = period === 'week' ? 
           dayStart.toLocaleDateString('pt-BR', { weekday: 'short' }) :
           dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });

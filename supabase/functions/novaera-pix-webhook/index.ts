@@ -148,6 +148,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
   const totalFees = percentageFeeAmount + PROVIDER_FEE;
   const netAmount = Math.max(0, amount - totalFees);
 
+  // Atualizar status do depósito
   const { error: updateDepositError } = await supabase
     .from('deposits')
     .update({ 
@@ -159,23 +160,53 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw updateDepositError;
   }
 
-  const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-
-  const { error: createTransactionError } = await supabase
+  // Buscar transação pendente existente relacionada ao depósito
+  const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
-    .insert({
-      code: transactionCode,
-      user_id: deposit.user_id,
-      type: 'deposit',
-      description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Taxa usuário (${userDepositFee}%): R$ ${percentageFeeAmount.toFixed(2)} | Taxa provedor: R$ ${PROVIDER_FEE.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
-      amount: netAmount,
-      status: 'approved'
-    });
+    .select('*')
+    .eq('user_id', deposit.user_id)
+    .eq('type', 'deposit')
+    .eq('status', 'pending')
+    .eq('amount', netAmount)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
 
-  if (createTransactionError) {
-    throw createTransactionError;
+  if (!findTransactionError && existingTransaction) {
+    // Atualizar transação existente ao invés de criar nova
+    const { error: updateTransactionError } = await supabase
+      .from('transactions')
+      .update({
+        status: 'approved',
+        description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existingTransaction.id);
+
+    if (updateTransactionError) {
+      throw updateTransactionError;
+    }
+  } else {
+    // Criar nova transação apenas se não existir uma pendente
+    const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+    const { error: createTransactionError } = await supabase
+      .from('transactions')
+      .insert({
+        code: transactionCode,
+        user_id: deposit.user_id,
+        type: 'deposit',
+        description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        amount: netAmount,
+        status: 'approved'
+      });
+
+    if (createTransactionError) {
+      throw createTransactionError;
+    }
   }
 
+  // Atualizar saldo do usuário
   const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
     p_user_id: deposit.user_id,
     p_amount: netAmount

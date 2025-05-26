@@ -45,12 +45,15 @@ Deno.serve(async (req) => {
       throw new Error('Transaction reference not found');
     }
 
+    // Buscar transação pendente pelo código ou ID
     const { data: transaction, error: findError } = await supabase
       .from('transactions')
       .select('*')
       .eq('code', transactionRef)
       .eq('status', 'pending')
       .single();
+
+    let targetTransaction = transaction;
 
     if (findError) {
       const { data: altTransaction, error: altError } = await supabase
@@ -64,20 +67,21 @@ Deno.serve(async (req) => {
         throw new Error(`Transaction not found for reference: ${transactionRef}`);
       }
       
-      const transaction = altTransaction;
+      targetTransaction = altTransaction;
     }
 
-    if (!transaction) {
+    if (!targetTransaction) {
       throw new Error(`Transaction not found for reference: ${transactionRef}`);
     }
 
+    // Atualizar apenas o status da transação existente
     const { data: updatedTransaction, error: updateError } = await supabase
       .from('transactions')
       .update({ 
         status: 'approved',
         updated_at: new Date().toISOString()
       })
-      .eq('id', transaction.id)
+      .eq('id', targetTransaction.id)
       .select()
       .single();
 
@@ -85,20 +89,15 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    if (transaction.type === 'deposit') {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('balance')
-        .eq('id', transaction.user_id)
-        .single();
+    // Se for um depósito, atualizar saldo do usuário
+    if (targetTransaction.type === 'deposit') {
+      const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
+        p_user_id: targetTransaction.user_id,
+        p_amount: targetTransaction.amount
+      });
 
-      if (!profileError && profile) {
-        const newBalance = (profile.balance || 0) + transaction.amount;
-        
-        await supabase
-          .from('profiles')
-          .update({ balance: newBalance })
-          .eq('id', transaction.user_id);
+      if (balanceError) {
+        throw balanceError;
       }
     }
 
