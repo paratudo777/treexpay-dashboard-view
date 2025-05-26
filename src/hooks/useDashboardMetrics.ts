@@ -59,44 +59,78 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       setLoading(true);
       const { start, end } = getDateRange(period);
 
-      let query = supabase
+      console.log('Buscando métricas do dashboard:', {
+        period,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        user: user.id,
+        isAdmin
+      });
+
+      // Buscar vendas aprovadas (payments) para "Depósitos Realizados"
+      let salesQuery = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'approved')
+        .eq('type', 'payment') // Vendas são do tipo 'payment'
         .gte('created_at', start.toISOString())
         .lt('created_at', end.toISOString());
 
       if (!isAdmin) {
-        query = query.eq('user_id', user.id);
+        salesQuery = salesQuery.eq('user_id', user.id);
       }
 
-      const { data: transactions, error } = await query;
+      const { data: sales, error: salesError } = await salesQuery;
 
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Erro ao carregar métricas.",
-        });
-        return;
+      if (salesError) {
+        console.error('Erro ao buscar vendas:', salesError);
+        throw salesError;
       }
 
-      const deposits = transactions?.filter(t => t.type === 'deposit') || [];
-      const withdrawals = transactions?.filter(t => t.type === 'withdrawal') || [];
+      console.log('Vendas aprovadas encontradas:', sales?.length || 0, sales);
 
-      const totalDeposits = deposits.reduce((sum, t) => sum + Number(t.amount), 0);
-      const totalWithdrawals = withdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
-      const depositCount = deposits.length;
+      // Buscar saques aprovados
+      let withdrawalsQuery = supabase
+        .from('transactions')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('type', 'withdrawal')
+        .gte('created_at', start.toISOString())
+        .lt('created_at', end.toISOString());
+
+      if (!isAdmin) {
+        withdrawalsQuery = withdrawalsQuery.eq('user_id', user.id);
+      }
+
+      const { data: withdrawals, error: withdrawalsError } = await withdrawalsQuery;
+
+      if (withdrawalsError) {
+        console.error('Erro ao buscar saques:', withdrawalsError);
+      }
+
+      // Calcular métricas das vendas (valor bruto, sem taxas)
+      const totalDeposits = sales?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      const depositCount = sales?.length || 0;
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
-      const feesCollected = deposits.reduce((sum, t) => {
+      // Calcular taxas coletadas (apenas das vendas)
+      const feesCollected = sales?.reduce((sum, t) => {
         const transactionValue = Number(t.amount);
-        const percentageFee = transactionValue * 0.0599;
+        const percentageFee = transactionValue * 0.0599; // 5.99%
         const fixedFee = 1.50;
         return sum + percentageFee + fixedFee;
-      }, 0);
+      }, 0) || 0;
 
-      const chartData = generateChartData(deposits, period);
+      console.log('Métricas calculadas:', {
+        totalDeposits,
+        totalWithdrawals,
+        depositCount,
+        averageTicket,
+        feesCollected
+      });
+
+      const chartData = generateChartData(sales || [], period);
 
       setMetrics({
         totalDeposits,
@@ -108,6 +142,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       });
 
     } catch (error) {
+      console.error('Erro ao buscar métricas:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -118,7 +153,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     }
   };
 
-  const generateChartData = (deposits: any[], period: Period) => {
+  const generateChartData = (sales: any[], period: Period) => {
     const data: Array<{ hora: string; valor: number }> = [];
 
     if (period === 'today') {
@@ -128,12 +163,12 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         const hourEnd = new Date();
         hourEnd.setHours(hour + 2, 0, 0, 0);
 
-        const hourDeposits = deposits.filter(t => {
+        const hourSales = sales.filter(t => {
           const transactionDate = new Date(t.created_at);
           return transactionDate >= hourStart && transactionDate < hourEnd;
         });
 
-        const hourTotal = hourDeposits.reduce((sum, t) => sum + Number(t.amount), 0);
+        const hourTotal = hourSales.reduce((sum, t) => sum + Number(t.amount), 0);
         data.push({ hora: `${hour.toString().padStart(2, '0')}h`, valor: hourTotal });
       }
     } else {
@@ -144,12 +179,12 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         const dayStart = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-        const dayDeposits = deposits.filter(t => {
+        const daySales = sales.filter(t => {
           const transactionDate = new Date(t.created_at);
           return transactionDate >= dayStart && transactionDate < dayEnd;
         });
 
-        const dayTotal = dayDeposits.reduce((sum, t) => sum + Number(t.amount), 0);
+        const dayTotal = daySales.reduce((sum, t) => sum + Number(t.amount), 0);
         const label = period === 'week' ? 
           dayStart.toLocaleDateString('pt-BR', { weekday: 'short' }) :
           dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -185,6 +220,8 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         (payload) => {
           const newRecord = payload.new as any;
           const oldRecord = payload.old as any;
+          
+          console.log('Mudança detectada nas transações:', payload);
           
           if (newRecord?.status === 'approved' || oldRecord?.status === 'approved') {
             fetchMetrics();

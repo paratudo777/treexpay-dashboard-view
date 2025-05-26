@@ -44,7 +44,7 @@ const Dashboard = () => {
         {/* Stat cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <StatCard 
-            title="Depósitos Realizados" 
+            title="Vendas Realizadas" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalDeposits)} 
             borderColor="#2a9d8f"
             icon={<ArrowDownCircle className="h-4 w-4" />}
@@ -56,7 +56,7 @@ const Dashboard = () => {
             icon={<ArrowUpCircle className="h-4 w-4" />}
           />
           <StatCard 
-            title="Total de Depósitos" 
+            title="Total de Vendas" 
             value={metricsLoading ? 'Carregando...' : metrics.depositCount.toString()} 
             borderColor="#2a9d8f"
             icon={<CreditCard className="h-4 w-4" />}
