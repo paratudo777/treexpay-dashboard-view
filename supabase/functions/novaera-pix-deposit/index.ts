@@ -24,7 +24,6 @@ interface NovaEraPixResponse {
   };
 }
 
-// Função para validar CPF
 function isValidCpf(cpf: string): boolean {
   cpf = cpf.replace(/\D/g, '');
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
@@ -41,7 +40,6 @@ function isValidCpf(cpf: string): boolean {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -59,25 +57,24 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
-    // Log para verificar a service key
-    console.log('Service key check:', SUPABASE_SERVICE_ROLE_KEY?.slice(0, 10));
+    if (!amount || amount <= 0 || amount > 50000) {
+      throw new Error('Valor inválido');
+    }
 
-    // Validate CPF
-    const cpfToValidate = userCpf || "11144477735"; // Use test CPF if not provided
+    if (!userId || !userName || !userEmail) {
+      throw new Error('Dados do usuário obrigatórios');
+    }
+
+    const cpfToValidate = userCpf || "11144477735";
     if (!isValidCpf(cpfToValidate)) {
       throw new Error('CPF inválido');
     }
 
-    // Create Supabase client with service role key
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Create basic auth header
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
-    console.log('Creating PIX deposit for amount:', amount);
-
-    // Primeiro, criar o depósito no banco
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
       .insert({
@@ -91,7 +88,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (depositError) {
-      console.error('Supabase insert error:', JSON.stringify(depositError, null, 2));
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -105,12 +101,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Deposit saved successfully:', depositData);
-
-    // Generate external reference using the deposit ID
     const externalRef = `deposit_${depositData.id}`;
 
-    // Create PIX transaction with required fields
     const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
@@ -119,7 +111,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         "paymentMethod": "pix",
-        "amount": amount * 100, // Convert to centavos
+        "amount": amount * 100,
         "externalRef": externalRef,
         "postbackUrl": `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`,
         "pix": {
@@ -149,18 +141,13 @@ Deno.serve(async (req) => {
       }),
     });
 
-    console.log('PIX response status:', pixResponse.status);
-
     if (!pixResponse.ok) {
       const errorBody = await pixResponse.text();
-      console.error('PIX creation error:', errorBody);
       throw new Error(`PIX creation failed: ${pixResponse.status} - ${errorBody}`);
     }
 
     const pixData: NovaEraPixResponse = await pixResponse.json();
-    console.log('PIX created successfully:', pixData);
 
-    // Atualizar o depósito com o QR code
     const { error: updateError } = await supabase
       .from('deposits')
       .update({
@@ -169,7 +156,7 @@ Deno.serve(async (req) => {
       .eq('id', depositData.id);
 
     if (updateError) {
-      console.error('Error updating deposit with QR code:', updateError);
+      // Silent error for QR code update
     }
 
     return new Response(
@@ -185,7 +172,6 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('PIX deposit error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 

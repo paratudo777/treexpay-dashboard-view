@@ -37,7 +37,6 @@ export const useTransactions = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Apply status filter if specified
       if (statusFilter) {
         query = query.eq('status', statusFilter);
       }
@@ -45,7 +44,6 @@ export const useTransactions = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching transactions:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -54,10 +52,8 @@ export const useTransactions = () => {
         return;
       }
 
-      console.log('Fetched transactions:', data);
       setTransactions(data || []);
     } catch (error) {
-      console.error('Error in fetchTransactions:', error);
       toast({
         variant: "destructive",
         title: "Erro",

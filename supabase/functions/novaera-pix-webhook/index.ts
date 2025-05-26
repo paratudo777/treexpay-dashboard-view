@@ -6,10 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const PROVIDER_FEE = 1.50; // Taxa fixa do provedor por transação
+const PROVIDER_FEE = 1.50;
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,13 +21,10 @@ Deno.serve(async (req) => {
       throw new Error('Supabase credentials not configured');
     }
 
-    // Create Supabase client with service role key
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const body = await req.json();
-    console.log('🚀 Webhook NovaEra PIX recebido:', JSON.stringify(body, null, 2));
 
-    // Verificar se é um pagamento PIX aprovado
     const isApproved = body?.status === "approved" || 
                       body?.transaction?.status === "approved" || 
                       body?.payment?.status === "approved" ||
@@ -36,14 +32,12 @@ Deno.serve(async (req) => {
                       body?.data?.status === "paid";
 
     if (!isApproved) {
-      console.log('⚠️ Webhook ignorado - não é um pagamento aprovado. Status:', body?.status || body?.data?.status);
       return new Response("ok", { 
         status: 200,
         headers: corsHeaders 
       });
     }
 
-    // Buscar referência/ID da transação
     const transactionRef = body?.externalRef || 
                           body?.data?.externalRef ||
                           body?.externalId ||
@@ -54,34 +48,25 @@ Deno.serve(async (req) => {
                           body?.data?.id;
 
     if (!transactionRef) {
-      console.error('❌ Referência da transação não encontrada no webhook NovaEra PIX');
       throw new Error('Transaction reference not found');
     }
 
-    console.log('💰 Processando pagamento PIX aprovado para referência:', transactionRef);
-
-    // Extrair valor do pagamento
     const paidAmount = body?.data?.amount || body?.amount || body?.paidAmount;
     if (!paidAmount) {
-      console.error('❌ Valor do pagamento não encontrado');
       throw new Error('Payment amount not found');
     }
 
-    // Converter de centavos para reais
     const amountInReais = paidAmount / 100;
 
-    // Extrair o ID do depósito da referência (formato: deposit_UUID)
     let depositId = null;
     if (transactionRef.startsWith('deposit_')) {
       depositId = transactionRef.replace('deposit_', '');
     }
 
     if (!depositId) {
-      console.error('❌ ID do depósito não encontrado na referência:', transactionRef);
       throw new Error(`Invalid deposit reference format: ${transactionRef}`);
     }
 
-    // Buscar o depósito na tabela deposits usando o ID
     const { data: depositData, error: findDepositError } = await supabase
       .from('deposits')
       .select('*')
@@ -90,9 +75,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (findDepositError || !depositData) {
-      console.error('❌ Depósito não encontrado ou já processado:', findDepositError);
-      
-      // Tentar buscar por valor e data próxima como fallback
       const { data: altDeposit, error: altError } = await supabase
         .from('deposits')
         .select('*')
@@ -106,9 +88,6 @@ Deno.serve(async (req) => {
         throw new Error(`Deposit not found for reference: ${transactionRef}`);
       }
 
-      console.log('✅ Depósito encontrado por valor:', altDeposit);
-
-      // Usar o depósito encontrado
       await processApprovedDeposit(supabase, altDeposit, amountInReais);
       
       return new Response(
@@ -124,9 +103,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('✅ Depósito encontrado:', depositData);
-
-    // Processar o depósito aprovado
     await processApprovedDeposit(supabase, depositData, amountInReais);
 
     return new Response(
@@ -142,7 +118,6 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Erro no webhook NovaEra PIX:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -157,10 +132,6 @@ Deno.serve(async (req) => {
 });
 
 async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
-  console.log(`💼 Processando depósito aprovado para usuário ${deposit.user_id}`);
-  console.log(`💰 Valor do depósito: R$ ${amount.toFixed(2)}`);
-
-  // 1. Buscar as configurações de taxa do usuário
   const { data: userSettings, error: settingsError } = await supabase
     .from('settings')
     .select('deposit_fee')
@@ -168,26 +139,15 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     .single();
 
   if (settingsError) {
-    console.error('❌ Erro ao buscar configurações do usuário:', settingsError);
-    // Se não encontrar configurações, usar taxa 0
+    // Silent error for settings fetch
   }
 
   const userDepositFee = userSettings?.deposit_fee || 0;
-  console.log(`💼 Taxa de depósito do usuário: ${userDepositFee}%`);
 
-  // 2. Calcular o valor líquido após descontar as taxas
-  const percentageFeeAmount = (amount * userDepositFee) / 100; // Taxa percentual do usuário
-  const totalFees = percentageFeeAmount + PROVIDER_FEE; // Taxa percentual + taxa fixa do provedor
-  const netAmount = Math.max(0, amount - totalFees); // Não permitir saldo negativo
+  const percentageFeeAmount = (amount * userDepositFee) / 100;
+  const totalFees = percentageFeeAmount + PROVIDER_FEE;
+  const netAmount = Math.max(0, amount - totalFees);
 
-  console.log(`💰 Cálculo detalhado das taxas:`);
-  console.log(`   Valor bruto do depósito: R$ ${amount.toFixed(2)}`);
-  console.log(`   Taxa do usuário (${userDepositFee}%): R$ ${percentageFeeAmount.toFixed(2)}`);
-  console.log(`   Taxa fixa do provedor: R$ ${PROVIDER_FEE.toFixed(2)}`);
-  console.log(`   Total de taxas descontadas: R$ ${totalFees.toFixed(2)}`);
-  console.log(`   Valor líquido a ser creditado: R$ ${netAmount.toFixed(2)}`);
-
-  // 3. Atualizar status do depósito para "completed"
   const { error: updateDepositError } = await supabase
     .from('deposits')
     .update({ 
@@ -196,16 +156,11 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     .eq('id', deposit.id);
 
   if (updateDepositError) {
-    console.error('❌ Erro ao atualizar status do depósito:', updateDepositError);
     throw updateDepositError;
   }
 
-  console.log('✅ Status do depósito atualizado para completed');
-
-  // 4. Gerar código único para a transação
   const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
-  // 5. Criar transação na tabela transactions com valor líquido
   const { error: createTransactionError } = await supabase
     .from('transactions')
     .insert({
@@ -213,29 +168,20 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
       user_id: deposit.user_id,
       type: 'deposit',
       description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Taxa usuário (${userDepositFee}%): R$ ${percentageFeeAmount.toFixed(2)} | Taxa provedor: R$ ${PROVIDER_FEE.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
-      amount: netAmount, // Salvar valor líquido (já com taxas descontadas)
+      amount: netAmount,
       status: 'approved'
     });
 
   if (createTransactionError) {
-    console.error('❌ Erro ao criar transação:', createTransactionError);
     throw createTransactionError;
   }
 
-  console.log('✅ Transação criada com sucesso:', transactionCode);
-
-  // 6. Incrementar saldo do usuário com o valor líquido (já com taxas descontadas)
   const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
     p_user_id: deposit.user_id,
     p_amount: netAmount
   });
 
   if (balanceError) {
-    console.error('❌ Erro ao incrementar saldo do usuário:', balanceError);
     throw balanceError;
   }
-
-  console.log(`💰 Saldo do usuário ${deposit.user_id} incrementado com sucesso:`);
-  console.log(`   Valor creditado: +R$ ${netAmount.toFixed(2)} (líquido após taxas)`);
-  console.log(`🎉 Depósito processado com sucesso!`);
 }

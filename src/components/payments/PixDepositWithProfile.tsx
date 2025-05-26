@@ -6,10 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader, CreditCard, QrCode, AlertCircle, Copy } from "lucide-react";
+import { Loader, QrCode, AlertCircle, Copy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { isValidCpf, formatCpf, formatPhone } from "@/utils/cpfValidation";
-import { qrImage, fmtDateIso } from "@/utils/pixHelpers";
+import { qrImage } from "@/utils/pixHelpers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface UserProfile {
@@ -72,7 +72,6 @@ export const PixDepositWithProfile = () => {
       setPhone(data.phone || '');
       setCpf(data.cpf || '');
     } catch (error) {
-      console.error('Erro ao buscar perfil:', error);
       toast({
         title: "Erro ao carregar perfil",
         description: "Não foi possível carregar suas informações de perfil.",
@@ -84,7 +83,6 @@ export const PixDepositWithProfile = () => {
   const updateUserProfile = async () => {
     if (!user) return;
 
-    // Validar CPF antes de salvar
     if (!isValidCpf(cpf)) {
       toast({
         title: "CPF inválido",
@@ -94,7 +92,6 @@ export const PixDepositWithProfile = () => {
       return;
     }
 
-    // Validar telefone
     const phoneNumbers = phone.replace(/\D/g, '');
     if (phoneNumbers.length < 10 || phoneNumbers.length > 11) {
       toast({
@@ -124,7 +121,6 @@ export const PixDepositWithProfile = () => {
         description: "Suas informações foram salvas com sucesso.",
       });
     } catch (error) {
-      console.error('Erro ao atualizar perfil:', error);
       toast({
         title: "Erro ao atualizar perfil",
         description: "Não foi possível salvar suas informações.",
@@ -147,16 +143,15 @@ export const PixDepositWithProfile = () => {
 
     const amountValue = parseFloat(amount);
     
-    if (!amount || isNaN(amountValue) || amountValue <= 0) {
+    if (!amount || isNaN(amountValue) || amountValue <= 0 || amountValue > 50000) {
       toast({
         title: "Valor inválido",
-        description: "Por favor, insira um valor válido para depósito.",
+        description: "Por favor, insira um valor válido entre R$ 0,01 e R$ 50.000,00.",
         variant: "destructive",
       });
       return;
     }
 
-    // Verificar se o perfil está completo
     if (!userProfile.phone || !userProfile.cpf) {
       toast({
         title: "Perfil incompleto",
@@ -169,8 +164,6 @@ export const PixDepositWithProfile = () => {
     setIsLoading(true);
 
     try {
-      console.log('Gerando PIX para valor:', amountValue);
-      
       const { data, error } = await supabase.functions.invoke('novaera-pix-deposit', {
         body: {
           amount: amountValue,
@@ -196,7 +189,6 @@ export const PixDepositWithProfile = () => {
         throw new Error(data.error || "Erro ao gerar PIX");
       }
     } catch (error) {
-      console.error('Erro ao gerar PIX:', error);
       toast({
         title: "Erro ao gerar PIX",
         description: "Ocorreu um erro ao gerar o código PIX. Tente novamente.",
@@ -228,7 +220,6 @@ export const PixDepositWithProfile = () => {
           description: "O código PIX foi copiado para a área de transferência.",
         });
       } catch (error) {
-        console.error('Erro ao copiar:', error);
         toast({
           title: "Erro ao copiar",
           description: "Não foi possível copiar o código. Tente novamente.",
@@ -242,7 +233,6 @@ export const PixDepositWithProfile = () => {
 
   return (
     <div className="space-y-6">
-      {/* Profile completion section */}
       {!isProfileComplete && (
         <Card>
           <CardHeader>
@@ -297,7 +287,6 @@ export const PixDepositWithProfile = () => {
         </Card>
       )}
 
-      {/* PIX deposit section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -326,7 +315,8 @@ export const PixDepositWithProfile = () => {
                   id="amount"
                   type="number"
                   placeholder="0,00"
-                  min="0"
+                  min="0.01"
+                  max="50000"
                   step="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -350,14 +340,12 @@ export const PixDepositWithProfile = () => {
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-4">
-                {/* QR Code */}
                 <img 
                   src={qrImage(pixData.novaera.data.pix.qrcode)} 
                   alt="QR Code PIX" 
                   className="mx-auto w-40 md:w-56 rounded" 
                 />
                 
-                {/* Valor do depósito */}
                 <div className="w-full">
                   <div className="flex justify-between">
                     <span className="font-medium">Valor:</span>
@@ -365,7 +353,6 @@ export const PixDepositWithProfile = () => {
                   </div>
                 </div>
 
-                {/* Campo PIX Copia e Cola */}
                 <div className="w-full space-y-2">
                   <Label htmlFor="pixCode">PIX Copia e Cola</Label>
                   <div className="flex gap-2">

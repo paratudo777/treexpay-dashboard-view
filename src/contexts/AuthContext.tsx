@@ -30,7 +30,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check for existing session on mount
   useEffect(() => {
     checkSession();
   }, []);
@@ -42,7 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await loadUserProfile(session.user);
       }
     } catch (error) {
-      console.error('Error checking session:', error);
+      // Silent fail for session check
     } finally {
       setLoading(false);
     }
@@ -57,7 +56,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading profile:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -94,7 +92,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         active: profile.active,
       });
     } catch (error) {
-      console.error('Error in loadUserProfile:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -107,8 +104,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
       
+      if (!email?.trim() || !password?.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Dados obrigatórios",
+          description: "Email e senha são obrigatórios.",
+        });
+        return;
+      }
+
       const { data: session, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim().toLowerCase(),
         password
       });
 
@@ -171,7 +177,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       navigate('/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -192,7 +197,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
-      console.error('Logout error:', error);
       toast({
         variant: "destructive",
         title: "Erro",

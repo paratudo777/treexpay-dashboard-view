@@ -19,7 +19,6 @@ interface NovaEraTransactionResponse {
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -33,16 +32,9 @@ Deno.serve(async (req) => {
       throw new Error('NovaEra API credentials not configured');
     }
 
-    // Create basic auth header - SK:PK format
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
-    console.log('Starting NovaEra payment test flow...');
-    console.log('Base URL:', NOVAERA_BASE_URL);
-    console.log('Using credentials format: SK:PK');
-
-    // Step 1: Check API health using /company endpoint
-    console.log('Checking NovaEra API health via /company...');
     const companyResponse = await fetch(`${NOVAERA_BASE_URL}/company`, {
       method: 'GET',
       headers: {
@@ -50,16 +42,12 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log('Company response status:', companyResponse.status);
-
     if (!companyResponse.ok) {
       const errorBody = await companyResponse.text();
-      console.error('Company check error body:', errorBody);
       throw new Error(`API health check failed: ${companyResponse.status} - ${errorBody}`);
     }
 
     const companyData: NovaEraCompanyResponse = await companyResponse.json();
-    console.log('API Health Check:', companyData.success ? 'OK' : 'Failed');
 
     if (!companyData.success) {
       return new Response(
@@ -75,8 +63,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Tokenize test card
-    console.log('Tokenizing test card...');
     const tokenizeResponse = await fetch(`${NOVAERA_BASE_URL}/card-token?publicKey=${NOVAERA_PK}`, {
       method: 'POST',
       headers: {
@@ -91,19 +77,13 @@ Deno.serve(async (req) => {
       }),
     });
 
-    console.log('Tokenize response status:', tokenizeResponse.status);
-
     if (!tokenizeResponse.ok) {
       const errorBody = await tokenizeResponse.text();
-      console.error('Tokenization error body:', errorBody);
       throw new Error(`Card tokenization failed: ${tokenizeResponse.status} - ${errorBody}`);
     }
 
     const cardToken = await tokenizeResponse.text();
-    console.log('Card tokenized successfully');
 
-    // Step 3: Create test transaction
-    console.log('Creating test transaction...');
     const externalRef = `pedido_teste_${Date.now()}`;
     
     const transactionResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
@@ -133,16 +113,12 @@ Deno.serve(async (req) => {
       }),
     });
 
-    console.log('Transaction response status:', transactionResponse.status);
-
     if (!transactionResponse.ok) {
       const errorBody = await transactionResponse.text();
-      console.error('Transaction error body:', errorBody);
       throw new Error(`Transaction creation failed: ${transactionResponse.status} - ${errorBody}`);
     }
 
     const transactionData: NovaEraTransactionResponse = await transactionResponse.json();
-    console.log('Transaction created:', transactionData);
 
     return new Response(
       JSON.stringify({ 
@@ -157,7 +133,6 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('NovaEra payment test error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 

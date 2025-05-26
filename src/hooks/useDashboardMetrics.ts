@@ -59,15 +59,13 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       setLoading(true);
       const { start, end } = getDateRange(period);
 
-      // Buscar apenas transações aprovadas no período
       let query = supabase
         .from('transactions')
         .select('*')
-        .eq('status', 'approved')  // Apenas transações aprovadas
+        .eq('status', 'approved')
         .gte('created_at', start.toISOString())
         .lt('created_at', end.toISOString());
 
-      // Se não for admin, filtrar apenas transações do usuário logado
       if (!isAdmin) {
         query = query.eq('user_id', user.id);
       }
@@ -75,7 +73,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       const { data: transactions, error } = await query;
 
       if (error) {
-        console.error('Error fetching transactions:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -84,27 +81,21 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         return;
       }
 
-      console.log('Approved transactions fetched for metrics:', transactions);
-
-      // Separar depósitos e saques aprovados
       const deposits = transactions?.filter(t => t.type === 'deposit') || [];
       const withdrawals = transactions?.filter(t => t.type === 'withdrawal') || [];
 
-      // Calcular métricas baseadas apenas em transações aprovadas
       const totalDeposits = deposits.reduce((sum, t) => sum + Number(t.amount), 0);
       const totalWithdrawals = withdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
       const depositCount = deposits.length;
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
-      // Calcular taxas coletadas: (valor * 5.99%) + R$ 1.50 por depósito aprovado
       const feesCollected = deposits.reduce((sum, t) => {
         const transactionValue = Number(t.amount);
-        const percentageFee = transactionValue * 0.0599; // 5.99%
+        const percentageFee = transactionValue * 0.0599;
         const fixedFee = 1.50;
         return sum + percentageFee + fixedFee;
       }, 0);
 
-      // Gerar dados do gráfico apenas com depósitos aprovados
       const chartData = generateChartData(deposits, period);
 
       setMetrics({
@@ -117,7 +108,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       });
 
     } catch (error) {
-      console.error('Error in fetchMetrics:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -132,7 +122,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     const data: Array<{ hora: string; valor: number }> = [];
 
     if (period === 'today') {
-      // Agrupar por hora para o dia atual (apenas depósitos aprovados)
       for (let hour = 0; hour < 24; hour += 2) {
         const hourStart = new Date();
         hourStart.setHours(hour, 0, 0, 0);
@@ -148,7 +137,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         data.push({ hora: `${hour.toString().padStart(2, '0')}h`, valor: hourTotal });
       }
     } else {
-      // Para outros períodos, agrupar por dia (apenas depósitos aprovados)
       const { start, end } = getDateRange(period);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -177,9 +165,12 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     fetchMetrics();
   }, [user, period, isAdmin]);
 
-  // Configurar subscription em tempo real para mudanças nas transações
   useEffect(() => {
     if (!user) return;
+
+    let filter = isAdmin ? 
+      'status=eq.approved' : 
+      `user_id=eq.${user.id}`;
 
     const channel = supabase
       .channel('dashboard-metrics-changes')
@@ -189,12 +180,13 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           event: '*',
           schema: 'public',
           table: 'transactions',
-          filter: `user_id=eq.${user.id}`  // Filtrar por usuário
+          filter: filter
         },
         (payload) => {
-          console.log('User transaction updated, refreshing metrics:', payload);
-          // Recarregar métricas apenas se for uma transação aprovada
-          if (payload.new?.status === 'approved' || payload.old?.status === 'approved') {
+          const newRecord = payload.new as any;
+          const oldRecord = payload.old as any;
+          
+          if (newRecord?.status === 'approved' || oldRecord?.status === 'approved') {
             fetchMetrics();
           }
         }

@@ -19,7 +19,6 @@ export const useUserBalance = () => {
     try {
       setLoading(true);
       
-      // Buscar saldo atual do usuário logado
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -27,7 +26,6 @@ export const useUserBalance = () => {
         .single();
 
       if (profileError) {
-        console.error('Error fetching balance:', profileError);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -36,10 +34,8 @@ export const useUserBalance = () => {
         return;
       }
 
-      console.log('User balance fetched:', profileData.balance);
       setBalance(Number(profileData.balance) || 0);
     } catch (error) {
-      console.error('Error in fetchBalance:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -54,7 +50,6 @@ export const useUserBalance = () => {
     fetchBalance();
   }, [user]);
 
-  // Configurar subscription em tempo real para mudanças no saldo do usuário
   useEffect(() => {
     if (!user) return;
 
@@ -69,8 +64,8 @@ export const useUserBalance = () => {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('User balance updated via real-time:', payload.new.balance);
-          setBalance(Number(payload.new.balance) || 0);
+          const newBalance = payload.new as any;
+          setBalance(Number(newBalance.balance) || 0);
         }
       )
       .subscribe();
@@ -81,7 +76,7 @@ export const useUserBalance = () => {
   }, [user]);
 
   return {
-    balance, // Retorna saldo líquido do usuário logado
+    balance,
     loading,
     refetch: fetchBalance
   };
