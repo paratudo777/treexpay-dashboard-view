@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -257,7 +258,7 @@ export default function Ranking() {
               </div>
             </div>
           </CardContent>
-        </div>
+        </Card>
       </div>
     </DashboardLayout>
   );
