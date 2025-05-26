@@ -24,7 +24,7 @@ export const DynamicTransactionChart = ({ data, loading }: DynamicTransactionCha
     return (
       <Card className="col-span-4">
         <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-lg font-medium">Volume de Transações</CardTitle>
+          <CardTitle className="text-lg font-medium">Volume de Transações Aprovadas</CardTitle>
         </CardHeader>
         <CardContent className="p-4 pt-0">
           <div className="h-[300px] flex items-center justify-center">
@@ -38,7 +38,7 @@ export const DynamicTransactionChart = ({ data, loading }: DynamicTransactionCha
   return (
     <Card className="col-span-4">
       <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-lg font-medium">Volume de Transações</CardTitle>
+        <CardTitle className="text-lg font-medium">Volume de Transações Aprovadas</CardTitle>
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <div className="h-[300px]">

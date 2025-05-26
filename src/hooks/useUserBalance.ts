@@ -19,7 +19,7 @@ export const useUserBalance = () => {
     try {
       setLoading(true);
       
-      // Buscar saldo atual do usuário (já calculado com taxas aplicadas)
+      // Buscar saldo atual do usuário logado
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -36,7 +36,7 @@ export const useUserBalance = () => {
         return;
       }
 
-      console.log('Updated balance fetched:', profileData.balance);
+      console.log('User balance fetched:', profileData.balance);
       setBalance(Number(profileData.balance) || 0);
     } catch (error) {
       console.error('Error in fetchBalance:', error);
@@ -54,7 +54,7 @@ export const useUserBalance = () => {
     fetchBalance();
   }, [user]);
 
-  // Set up real-time subscription for balance changes
+  // Configurar subscription em tempo real para mudanças no saldo do usuário
   useEffect(() => {
     if (!user) return;
 
@@ -69,7 +69,7 @@ export const useUserBalance = () => {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Balance updated via real-time:', payload.new.balance);
+          console.log('User balance updated via real-time:', payload.new.balance);
           setBalance(Number(payload.new.balance) || 0);
         }
       )
@@ -81,7 +81,7 @@ export const useUserBalance = () => {
   }, [user]);
 
   return {
-    balance, // Retorna saldo líquido (já com taxas aplicadas)
+    balance, // Retorna saldo líquido do usuário logado
     loading,
     refetch: fetchBalance
   };
