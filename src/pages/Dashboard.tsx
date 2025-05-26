@@ -8,11 +8,13 @@ import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign, PercentCircle }
 import { useState } from 'react';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { useDashboardMetrics, type Period } from '@/hooks/useDashboardMetrics';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const [activePeriod, setActivePeriod] = useState<Period>('today');
   const { balance, loading: balanceLoading } = useUserBalance();
   const { metrics, loading: metricsLoading } = useDashboardMetrics(activePeriod);
+  const { user, isAdmin } = useAuth();
 
   const handlePeriodChange = (period: Period) => {
     setActivePeriod(period);
@@ -31,11 +33,16 @@ const Dashboard = () => {
         {/* Header with balance and period selector */}
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Dashboard {isAdmin ? '(Admin - Usuário Individual)' : '(Minhas Métricas)'}
+            </h1>
             <p className="text-lg text-gray-200">
               Saldo Total: <span className="text-treexpay-medium font-semibold">
                 {balanceLoading ? 'Carregando...' : formatCurrency(balance)}
               </span>
+            </p>
+            <p className="text-sm text-gray-300">
+              Usuário: {user?.name} ({user?.email})
             </p>
           </div>
           <PeriodSelector onPeriodChange={handlePeriodChange} />

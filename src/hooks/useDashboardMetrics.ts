@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -68,17 +67,15 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       });
 
       // Buscar depósitos aprovados (transações tipo deposit com status approved)
+      // CORREÇÃO: Sempre filtrar por usuário individual, não mostrar dados agregados
       let salesQuery = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'approved')
         .eq('type', 'deposit')
+        .eq('user_id', user.id) // SEMPRE filtrar pelo usuário atual
         .gte('updated_at', start.toISOString())
         .lt('updated_at', end.toISOString());
-
-      if (!isAdmin) {
-        salesQuery = salesQuery.eq('user_id', user.id);
-      }
 
       const { data: sales, error: salesError } = await salesQuery;
 
@@ -87,20 +84,17 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         throw salesError;
       }
 
-      console.log('Depósitos aprovados encontrados:', sales?.length || 0, sales);
+      console.log('Depósitos aprovados encontrados para usuário', user.id, ':', sales?.length || 0, sales);
 
-      // Buscar saques aprovados
+      // Buscar saques aprovados - também filtrar por usuário
       let withdrawalsQuery = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'approved')
         .eq('type', 'withdrawal')
+        .eq('user_id', user.id) // SEMPRE filtrar pelo usuário atual
         .gte('updated_at', start.toISOString())
         .lt('updated_at', end.toISOString());
-
-      if (!isAdmin) {
-        withdrawalsQuery = withdrawalsQuery.eq('user_id', user.id);
-      }
 
       const { data: withdrawals, error: withdrawalsError } = await withdrawalsQuery;
 
@@ -108,7 +102,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         console.error('Erro ao buscar saques:', withdrawalsError);
       }
 
-      console.log('Saques aprovados encontrados:', withdrawals?.length || 0, withdrawals);
+      console.log('Saques aprovados encontrados para usuário', user.id, ':', withdrawals?.length || 0, withdrawals);
 
       // Função para extrair valor bruto da descrição
       const extractGrossValue = (description: string, amount: number) => {
@@ -139,7 +133,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         return sum + totalFees;
       }, 0) || 0;
 
-      console.log('Métricas calculadas:', {
+      console.log('Métricas calculadas para usuário', user.id, ':', {
         totalDeposits,
         totalWithdrawals,
         depositCount,
@@ -232,15 +226,12 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
   useEffect(() => {
     fetchMetrics();
-  }, [user, period, isAdmin]);
+  }, [user, period]);
 
   useEffect(() => {
     if (!user) return;
 
-    let filter = isAdmin ? 
-      'status=eq.approved' : 
-      `user_id=eq.${user.id}`;
-
+    // CORREÇÃO: Sempre filtrar por usuário específico nos real-time updates
     const channel = supabase
       .channel('dashboard-metrics-changes')
       .on(
@@ -249,13 +240,13 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           event: '*',
           schema: 'public',
           table: 'transactions',
-          filter: filter
+          filter: `user_id=eq.${user.id}` // Sempre filtrar pelo usuário atual
         },
         (payload) => {
           const newRecord = payload.new as any;
           const oldRecord = payload.old as any;
           
-          console.log('Mudança detectada nas transações:', payload);
+          console.log('Mudança detectada nas transações para usuário', user.id, ':', payload);
           
           if (newRecord?.status === 'approved' || oldRecord?.status === 'approved') {
             fetchMetrics();
@@ -267,7 +258,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, period, isAdmin]);
+  }, [user, period]);
 
   return {
     metrics,
