@@ -67,6 +67,13 @@ Deno.serve(async (req) => {
       throw new Error(`Invalid deposit reference format: ${transactionRef}`);
     }
 
+    console.log('Processando webhook PIX NovaEra:', {
+      transactionRef,
+      depositId,
+      amountInReais,
+      timestamp: new Date().toISOString()
+    });
+
     const { data: depositData, error: findDepositError } = await supabase
       .from('deposits')
       .select('*')
@@ -118,6 +125,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    console.error('Erro no webhook PIX NovaEra:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
@@ -132,6 +140,13 @@ Deno.serve(async (req) => {
 });
 
 async function processApprovedDeposit(supabase: any, deposit: any, amount: number) {
+  console.log('Iniciando processamento de depósito aprovado:', {
+    depositId: deposit.id,
+    userId: deposit.user_id,
+    amount,
+    timestamp: new Date().toISOString()
+  });
+
   const { data: userSettings, error: settingsError } = await supabase
     .from('settings')
     .select('deposit_fee')
@@ -139,14 +154,22 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     .single();
 
   if (settingsError) {
-    // Silent error for settings fetch
+    console.log('Configurações não encontradas, usando taxa padrão');
   }
 
   const userDepositFee = userSettings?.deposit_fee || 0;
-
   const percentageFeeAmount = (amount * userDepositFee) / 100;
   const totalFees = percentageFeeAmount + PROVIDER_FEE;
   const netAmount = Math.max(0, amount - totalFees);
+
+  console.log('Cálculo de taxas:', {
+    grossAmount: amount,
+    userFeePercent: userDepositFee,
+    percentageFeeAmount,
+    providerFee: PROVIDER_FEE,
+    totalFees,
+    netAmount
+  });
 
   // Atualizar status do depósito
   const { error: updateDepositError } = await supabase
@@ -160,25 +183,27 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw updateDepositError;
   }
 
-  // Buscar transação pendente existente relacionada ao depósito
+  // CORREÇÃO: Buscar e atualizar transação pendente existente ao invés de criar nova
   const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
     .select('*')
     .eq('user_id', deposit.user_id)
     .eq('type', 'deposit')
     .eq('status', 'pending')
-    .eq('amount', netAmount)
     .order('created_at', { ascending: false })
     .limit(1)
     .single();
 
   if (!findTransactionError && existingTransaction) {
-    // Atualizar transação existente ao invés de criar nova
+    console.log('Atualizando transação pendente existente:', existingTransaction.id);
+    
+    // Atualizar transação existente
     const { error: updateTransactionError } = await supabase
       .from('transactions')
       .update({
         status: 'approved',
-        description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)}`,
+        amount: netAmount,
         updated_at: new Date().toISOString()
       })
       .eq('id', existingTransaction.id);
@@ -186,7 +211,15 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     if (updateTransactionError) {
       throw updateTransactionError;
     }
+
+    console.log('Transação atualizada com sucesso:', {
+      transactionId: existingTransaction.id,
+      newAmount: netAmount,
+      newStatus: 'approved'
+    });
   } else {
+    console.log('Nenhuma transação pendente encontrada, criando nova');
+    
     // Criar nova transação apenas se não existir uma pendente
     const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
@@ -196,7 +229,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
         code: transactionCode,
         user_id: deposit.user_id,
         type: 'deposit',
-        description: `Depósito PIX NovaEra - Valor bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)}`,
         amount: netAmount,
         status: 'approved'
       });
@@ -204,6 +237,12 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     if (createTransactionError) {
       throw createTransactionError;
     }
+
+    console.log('Nova transação criada:', {
+      code: transactionCode,
+      amount: netAmount,
+      status: 'approved'
+    });
   }
 
   // Atualizar saldo do usuário
@@ -215,4 +254,9 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
   if (balanceError) {
     throw balanceError;
   }
+
+  console.log('Saldo do usuário atualizado:', {
+    userId: deposit.user_id,
+    incrementAmount: netAmount
+  });
 }

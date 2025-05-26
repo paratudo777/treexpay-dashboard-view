@@ -4,7 +4,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { DynamicTransactionChart } from '@/components/dashboard/DynamicTransactionChart';
 import { StatusPieChart } from '@/components/dashboard/StatusPieChart';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
-import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign, PercentCircle } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { useDashboardMetrics, type Period } from '@/hooks/useDashboardMetrics';
@@ -14,7 +14,7 @@ const Dashboard = () => {
   const [activePeriod, setActivePeriod] = useState<Period>('today');
   const { balance, loading: balanceLoading } = useUserBalance();
   const { metrics, loading: metricsLoading } = useDashboardMetrics(activePeriod);
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   const handlePeriodChange = (period: Period) => {
     setActivePeriod(period);
@@ -34,22 +34,19 @@ const Dashboard = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white">
-              Dashboard {isAdmin ? '(Admin - Usuário Individual)' : '(Minhas Métricas)'}
+              Dashboard
             </h1>
             <p className="text-lg text-gray-200">
               Saldo Total: <span className="text-treexpay-medium font-semibold">
                 {balanceLoading ? 'Carregando...' : formatCurrency(balance)}
               </span>
             </p>
-            <p className="text-sm text-gray-300">
-              Usuário: {user?.name} ({user?.email})
-            </p>
           </div>
           <PeriodSelector onPeriodChange={handlePeriodChange} />
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <StatCard 
             title="Vendas Realizadas" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalDeposits)} 
@@ -73,12 +70,6 @@ const Dashboard = () => {
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.averageTicket)} 
             borderColor="#117a8b"
             icon={<DollarSign className="h-4 w-4" />}
-          />
-          <StatCard 
-            title="Taxas Coletadas" 
-            value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.feesCollected)} 
-            borderColor="#117a8b"
-            icon={<PercentCircle className="h-4 w-4" />}
           />
         </div>
 
