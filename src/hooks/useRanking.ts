@@ -17,7 +17,7 @@ export const useRanking = () => {
   const [ranking, setRanking] = useState<RankingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserRanking, setCurrentUserRanking] = useState<RankingUser | null>(null);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const getCurrentMonthPeriod = () => {
@@ -32,6 +32,12 @@ export const useRanking = () => {
   };
 
   const fetchRanking = async () => {
+    // Não executar se ainda estiver carregando a autenticação
+    if (authLoading) {
+      console.log('Aguardando verificação de autenticação...');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -318,7 +324,11 @@ export const useRanking = () => {
   };
 
   useEffect(() => {
-    fetchRanking();
+    // Só executar quando a autenticação não estiver mais carregando
+    if (!authLoading) {
+      console.log('AuthContext carregou, iniciando fetchRanking...');
+      fetchRanking();
+    }
 
     // Escutar mudanças em tempo real apenas para transações aprovadas
     const channel = supabase
@@ -332,7 +342,9 @@ export const useRanking = () => {
         },
         () => {
           console.log('Mudança detectada na tabela usuarios');
-          fetchRanking();
+          if (!authLoading) {
+            fetchRanking();
+          }
         }
       )
       .on(
@@ -350,7 +362,8 @@ export const useRanking = () => {
               'status' in payload.new &&
               'type' in payload.new &&
               payload.new.status === 'approved' &&
-              payload.new.type === 'deposit') {
+              payload.new.type === 'deposit' &&
+              !authLoading) {
             fetchRanking();
           }
         }
@@ -360,11 +373,11 @@ export const useRanking = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [authLoading, user?.id]); // Dependência do authLoading adicionada
 
   return {
     ranking,
-    loading,
+    loading: loading || authLoading, // Considerar ambos os loadings
     currentUserRanking,
     updateApelido,
     addVenda,
