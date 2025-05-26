@@ -25,28 +25,26 @@ export const useRanking = () => {
     try {
       setLoading(true);
       
-      // Calcular período do mês atual de forma mais precisa
+      // Calcular período do mês atual
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
       
-      // Primeiro dia do mês atual às 00:00:00
       const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
-      // Último dia do mês atual às 23:59:59
       const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
-      console.log('Período do ranking (corrigido):', { 
+      console.log('Período do ranking:', { 
         startOfMonth: startOfMonth.toISOString(), 
         endOfMonth: endOfMonth.toISOString(),
         currentDate: now.toISOString()
       });
 
-      // Buscar TODAS as transações aprovadas no período, incluindo diferentes tipos
+      // Buscar transações aprovadas apenas do tipo 'payment' (vendas)
       const { data: transacoesAprovadas, error: transacoesError } = await supabase
         .from('transactions')
         .select('user_id, amount, created_at, type, status, code')
         .eq('status', 'approved')
-        .or('type.eq.payment,type.eq.sale') // Aceitar tanto payment quanto sale
+        .eq('type', 'payment') // Apenas pagamentos (vendas)
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
         .order('created_at', { ascending: false });
@@ -57,56 +55,49 @@ export const useRanking = () => {
       }
 
       console.log('Transações aprovadas encontradas:', transacoesAprovadas?.length || 0);
-      console.log('Detalhes das transações:', transacoesAprovadas);
 
-      // Se não há transações, verificar se há dados na tabela de vendas antigas
-      if (!transacoesAprovadas || transacoesAprovadas.length === 0) {
-        console.log('Verificando tabela de vendas antigas...');
-        
-        const { data: vendasAntigas, error: vendasError } = await supabase
-          .from('vendas')
-          .select('usuario_id, valor, data')
-          .gte('data', startOfMonth.toISOString())
-          .lte('data', endOfMonth.toISOString());
-
-        if (vendasError) {
-          console.error('Erro ao buscar vendas:', vendasError);
-        } else {
-          console.log('Vendas antigas encontradas:', vendasAntigas?.length || 0);
-          
-          if (vendasAntigas && vendasAntigas.length > 0) {
-            // Converter vendas antigas para formato de transações
-            const transacoesConvertidas = vendasAntigas.map(venda => ({
-              user_id: venda.usuario_id,
-              amount: venda.valor,
-              created_at: venda.data
-            }));
-            
-            return processarRanking(transacoesConvertidas);
-          }
-        }
-        
-        setRanking([]);
-        setCurrentUserRanking(null);
-        return;
+      // Se não há transações aprovadas, ainda precisamos buscar usuários com apelidos
+      const userIds = transacoesAprovadas?.map(t => t.user_id) || [];
+      
+      // Adicionar o usuário atual à lista se não estiver presente
+      if (user?.id && !userIds.includes(user.id)) {
+        userIds.push(user.id);
       }
 
-      await processarRanking(transacoesAprovadas);
+      // Buscar todos os usuários com apelidos definidos
+      const { data: usuarios, error: usuariosError } = await supabase
+        .from('usuarios')
+        .select('*');
+
+      if (usuariosError) {
+        console.error('Erro ao buscar usuários:', usuariosError);
+      }
+
+      console.log('Usuários encontrados:', usuarios?.length || 0);
+
+      // Buscar perfis dos usuários
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, email');
+
+      console.log('Perfis encontrados:', profiles?.length || 0);
+
+      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || []);
 
     } catch (error) {
       console.error('Erro completo no ranking:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao carregar ranking. Tente novamente.",
+        description: "Erro ao carregar ranking. Verifique sua conexão.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const processarRanking = async (transacoes: any[]) => {
-    // Agrupar transações por usuário e calcular volume total
+  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[]) => {
+    // Calcular volume por usuário
     const volumePorUsuario = transacoes.reduce((acc, transacao) => {
       const userId = transacao.user_id;
       if (!acc[userId]) {
@@ -127,40 +118,16 @@ export const useRanking = () => {
 
     console.log('Volume por usuário calculado:', volumePorUsuario);
 
-    // Buscar dados dos usuários que têm vendas
-    const userIds = Object.keys(volumePorUsuario);
-    
-    if (userIds.length === 0) {
-      setRanking([]);
-      setCurrentUserRanking(null);
-      return;
-    }
-
-    // Buscar dados dos usuários na tabela usuarios
-    const { data: usuarios } = await supabase
-      .from('usuarios')
-      .select('*')
-      .in('user_id', userIds);
-
-    console.log('Usuários encontrados na tabela usuarios:', usuarios?.length || 0);
-
-    // Buscar dados dos perfis para todos os usuários
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, name, email')
-      .in('id', userIds);
-
-    console.log('Perfis encontrados:', profiles?.length || 0);
-
-    // Criar lista completa de usuários com dados de vendas
+    // Criar lista de usuários para o ranking
     const usuariosCompletos = [];
     
-    for (const userId of userIds) {
-      let usuario = usuarios?.find(u => u.user_id === userId);
-      const profile = profiles?.find(p => p.id === userId);
+    // Primeiro, adicionar usuários com vendas
+    for (const userId of Object.keys(volumePorUsuario)) {
+      let usuario = usuarios.find(u => u.user_id === userId);
+      const profile = profiles.find(p => p.id === userId);
       
       if (!usuario) {
-        // Criar usuário temporário se não existir na tabela usuarios
+        // Criar usuário temporário se não existir
         usuario = {
           id: `temp-${userId}`,
           user_id: userId,
@@ -177,6 +144,18 @@ export const useRanking = () => {
         volume_total_mensal: volumePorUsuario[userId].volume,
         ultima_venda_em: volumePorUsuario[userId].ultimaVenda
       });
+    }
+
+    // Depois, adicionar usuários com apelidos mas sem vendas (incluindo usuário atual)
+    for (const usuario of usuarios) {
+      if (!volumePorUsuario[usuario.user_id]) {
+        const profile = profiles.find(p => p.id === usuario.user_id);
+        usuariosCompletos.push({
+          ...usuario,
+          volume_total_mensal: 0,
+          ultima_venda_em: null
+        });
+      }
     }
 
     console.log('Usuários completos para ranking:', usuariosCompletos.length);
@@ -201,7 +180,7 @@ export const useRanking = () => {
     setCurrentUserRanking(currentUser || null);
 
     if (currentUser) {
-      console.log('Usuário atual encontrado no ranking:', {
+      console.log('Usuário atual encontrado:', {
         position: currentUser.position,
         apelido: currentUser.apelido,
         volume: currentUser.volume_total_mensal
@@ -236,7 +215,10 @@ export const useRanking = () => {
         // Atualizar apelido existente
         const { error } = await supabase
           .from('usuarios')
-          .update({ apelido: newApelido })
+          .update({ 
+            apelido: newApelido,
+            updated_at: new Date().toISOString()
+          })
           .eq('user_id', user.id);
 
         if (error) throw error;
