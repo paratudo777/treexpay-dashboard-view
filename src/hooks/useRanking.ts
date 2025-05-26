@@ -25,21 +25,31 @@ export const useRanking = () => {
     try {
       setLoading(true);
       
-      // Definir período do mês atual
+      // Calcular período do mês atual de forma mais precisa
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      
+      // Primeiro dia do mês atual às 00:00:00
+      const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+      // Último dia do mês atual às 23:59:59
+      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
-      console.log('Período do ranking:', { startOfMonth, endOfMonth });
+      console.log('Período do ranking (corrigido):', { 
+        startOfMonth: startOfMonth.toISOString(), 
+        endOfMonth: endOfMonth.toISOString(),
+        currentDate: now.toISOString()
+      });
 
-      // Buscar todas as transações aprovadas do tipo payment no mês atual
+      // Buscar TODAS as transações aprovadas no período, incluindo diferentes tipos
       const { data: transacoesAprovadas, error: transacoesError } = await supabase
         .from('transactions')
-        .select('user_id, amount, created_at')
+        .select('user_id, amount, created_at, type, status, code')
         .eq('status', 'approved')
-        .eq('type', 'payment')
-        .gte('created_at', startOfMonth)
-        .lte('created_at', endOfMonth);
+        .or('type.eq.payment,type.eq.sale') // Aceitar tanto payment quanto sale
+        .gte('created_at', startOfMonth.toISOString())
+        .lte('created_at', endOfMonth.toISOString())
+        .order('created_at', { ascending: false });
 
       if (transacoesError) {
         console.error('Erro ao buscar transações:', transacoesError);
@@ -47,135 +57,157 @@ export const useRanking = () => {
       }
 
       console.log('Transações aprovadas encontradas:', transacoesAprovadas?.length || 0);
+      console.log('Detalhes das transações:', transacoesAprovadas);
 
+      // Se não há transações, verificar se há dados na tabela de vendas antigas
       if (!transacoesAprovadas || transacoesAprovadas.length === 0) {
-        setRanking([]);
-        setCurrentUserRanking(null);
-        return;
-      }
-
-      // Agrupar transações por usuário e calcular volume total
-      const volumePorUsuario = transacoesAprovadas.reduce((acc, transacao) => {
-        const userId = transacao.user_id;
-        if (!acc[userId]) {
-          acc[userId] = {
-            volume: 0,
-            ultimaVenda: transacao.created_at
-          };
-        }
-        acc[userId].volume += Number(transacao.amount);
+        console.log('Verificando tabela de vendas antigas...');
         
-        // Manter a data da venda mais recente
-        if (new Date(transacao.created_at) > new Date(acc[userId].ultimaVenda)) {
-          acc[userId].ultimaVenda = transacao.created_at;
-        }
-        
-        return acc;
-      }, {} as Record<string, { volume: number; ultimaVenda: string }>);
+        const { data: vendasAntigas, error: vendasError } = await supabase
+          .from('vendas')
+          .select('usuario_id, valor, data')
+          .gte('data', startOfMonth.toISOString())
+          .lte('data', endOfMonth.toISOString());
 
-      console.log('Volume por usuário:', volumePorUsuario);
-
-      // Buscar dados dos usuários que têm vendas
-      const userIds = Object.keys(volumePorUsuario);
-      
-      if (userIds.length === 0) {
-        setRanking([]);
-        setCurrentUserRanking(null);
-        return;
-      }
-
-      const { data: usuarios, error: usuariosError } = await supabase
-        .from('usuarios')
-        .select('*')
-        .in('user_id', userIds);
-
-      if (usuariosError) {
-        console.error('Erro ao buscar usuários:', usuariosError);
-        throw usuariosError;
-      }
-
-      console.log('Usuários encontrados:', usuarios?.length || 0);
-
-      // Para usuários que não existem na tabela usuarios, criar dados temporários
-      const usuariosCompletos = [];
-      
-      for (const userId of userIds) {
-        let usuario = usuarios?.find(u => u.user_id === userId);
-        
-        if (!usuario) {
-          // Buscar dados do perfil para usuários não cadastrados na tabela usuarios
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('id', userId)
-            .single();
+        if (vendasError) {
+          console.error('Erro ao buscar vendas:', vendasError);
+        } else {
+          console.log('Vendas antigas encontradas:', vendasAntigas?.length || 0);
           
-          usuario = {
-            id: `temp-${userId}`,
-            user_id: userId,
-            apelido: profile?.name || `Usuario${userId.slice(0, 4)}`,
-            volume_total_mensal: 0,
-            ultima_venda_em: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
+          if (vendasAntigas && vendasAntigas.length > 0) {
+            // Converter vendas antigas para formato de transações
+            const transacoesConvertidas = vendasAntigas.map(venda => ({
+              user_id: venda.usuario_id,
+              amount: venda.valor,
+              created_at: venda.data
+            }));
+            
+            return processarRanking(transacoesConvertidas);
+          }
         }
         
-        usuariosCompletos.push({
-          ...usuario,
-          volume_total_mensal: volumePorUsuario[userId].volume,
-          ultima_venda_em: volumePorUsuario[userId].ultimaVenda
-        });
+        setRanking([]);
+        setCurrentUserRanking(null);
+        return;
       }
 
-      // Ordenar por volume total e criar ranking
-      const rankingOrdenado = usuariosCompletos
-        .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
-        .slice(0, 10) // Mostrar top 10 em vez de apenas 5
-        .map((usuario, index) => ({
-          ...usuario,
-          position: index + 1,
-          is_current_user: usuario.user_id === user?.id
-        }));
-
-      console.log('Ranking final:', rankingOrdenado);
-
-      setRanking(rankingOrdenado);
-      
-      // Buscar posição do usuário atual (mesmo se não estiver no top 10)
-      const currentUser = rankingOrdenado.find(u => u.is_current_user);
-      
-      if (!currentUser && user?.id && volumePorUsuario[user.id]) {
-        // Se o usuário atual não está no top 10 mas tem vendas, calcular sua posição
-        const userVolume = volumePorUsuario[user.id].volume;
-        const posicaoAtual = usuariosCompletos
-          .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
-          .findIndex(u => u.user_id === user.id) + 1;
-        
-        const usuarioAtual = usuariosCompletos.find(u => u.user_id === user.id);
-        
-        if (usuarioAtual) {
-          setCurrentUserRanking({
-            ...usuarioAtual,
-            position: posicaoAtual,
-            is_current_user: true,
-            volume_total_mensal: userVolume,
-            ultima_venda_em: volumePorUsuario[user.id].ultimaVenda
-          });
-        }
-      } else {
-        setCurrentUserRanking(currentUser || null);
-      }
+      await processarRanking(transacoesAprovadas);
 
     } catch (error) {
-      console.error('Erro completo:', error);
+      console.error('Erro completo no ranking:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao carregar ranking.",
+        description: "Erro ao carregar ranking. Tente novamente.",
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const processarRanking = async (transacoes: any[]) => {
+    // Agrupar transações por usuário e calcular volume total
+    const volumePorUsuario = transacoes.reduce((acc, transacao) => {
+      const userId = transacao.user_id;
+      if (!acc[userId]) {
+        acc[userId] = {
+          volume: 0,
+          ultimaVenda: transacao.created_at
+        };
+      }
+      acc[userId].volume += Number(transacao.amount);
+      
+      // Manter a data da venda mais recente
+      if (new Date(transacao.created_at) > new Date(acc[userId].ultimaVenda)) {
+        acc[userId].ultimaVenda = transacao.created_at;
+      }
+      
+      return acc;
+    }, {} as Record<string, { volume: number; ultimaVenda: string }>);
+
+    console.log('Volume por usuário calculado:', volumePorUsuario);
+
+    // Buscar dados dos usuários que têm vendas
+    const userIds = Object.keys(volumePorUsuario);
+    
+    if (userIds.length === 0) {
+      setRanking([]);
+      setCurrentUserRanking(null);
+      return;
+    }
+
+    // Buscar dados dos usuários na tabela usuarios
+    const { data: usuarios } = await supabase
+      .from('usuarios')
+      .select('*')
+      .in('user_id', userIds);
+
+    console.log('Usuários encontrados na tabela usuarios:', usuarios?.length || 0);
+
+    // Buscar dados dos perfis para todos os usuários
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', userIds);
+
+    console.log('Perfis encontrados:', profiles?.length || 0);
+
+    // Criar lista completa de usuários com dados de vendas
+    const usuariosCompletos = [];
+    
+    for (const userId of userIds) {
+      let usuario = usuarios?.find(u => u.user_id === userId);
+      const profile = profiles?.find(p => p.id === userId);
+      
+      if (!usuario) {
+        // Criar usuário temporário se não existir na tabela usuarios
+        usuario = {
+          id: `temp-${userId}`,
+          user_id: userId,
+          apelido: profile?.name || `User${userId.slice(0, 8)}`,
+          volume_total_mensal: 0,
+          ultima_venda_em: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+      }
+      
+      usuariosCompletos.push({
+        ...usuario,
+        volume_total_mensal: volumePorUsuario[userId].volume,
+        ultima_venda_em: volumePorUsuario[userId].ultimaVenda
+      });
+    }
+
+    console.log('Usuários completos para ranking:', usuariosCompletos.length);
+
+    // Ordenar por volume total e criar ranking
+    const rankingOrdenado = usuariosCompletos
+      .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
+      .map((usuario, index) => ({
+        ...usuario,
+        position: index + 1,
+        is_current_user: usuario.user_id === user?.id
+      }));
+
+    console.log('Ranking final ordenado:', rankingOrdenado);
+
+    // Mostrar top 10 no ranking principal
+    const top10 = rankingOrdenado.slice(0, 10);
+    setRanking(top10);
+    
+    // Buscar posição do usuário atual
+    const currentUser = rankingOrdenado.find(u => u.is_current_user);
+    setCurrentUserRanking(currentUser || null);
+
+    if (currentUser) {
+      console.log('Usuário atual encontrado no ranking:', {
+        position: currentUser.position,
+        apelido: currentUser.apelido,
+        volume: currentUser.volume_total_mensal
+      });
+    } else {
+      console.log('Usuário atual não encontrado no ranking');
     }
   };
 
@@ -226,9 +258,11 @@ export const useRanking = () => {
         description: "Apelido atualizado com sucesso!",
       });
 
-      fetchRanking();
+      // Forçar atualização do ranking
+      await fetchRanking();
       return true;
     } catch (error) {
+      console.error('Erro ao atualizar apelido:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -284,7 +318,8 @@ export const useRanking = () => {
         description: `Venda de R$ ${valor.toFixed(2)} registrada com sucesso!`,
       });
 
-      fetchRanking();
+      // Atualizar ranking imediatamente
+      await fetchRanking();
     } catch (error) {
       console.error('Erro ao registrar venda:', error);
       toast({
@@ -298,7 +333,7 @@ export const useRanking = () => {
   useEffect(() => {
     fetchRanking();
 
-    // Escutar mudanças em tempo real nas transações
+    // Escutar mudanças em tempo real
     const channel = supabase
       .channel('ranking-changes')
       .on(
@@ -309,6 +344,7 @@ export const useRanking = () => {
           table: 'usuarios'
         },
         () => {
+          console.log('Mudança detectada na tabela usuarios');
           fetchRanking();
         }
       )
@@ -320,12 +356,11 @@ export const useRanking = () => {
           table: 'transactions'
         },
         (payload) => {
-          // Apenas atualizar se for uma transação de pagamento aprovada
+          console.log('Mudança detectada na tabela transactions:', payload);
+          // Atualizar se for uma transação aprovada relevante
           if (payload.new && 
               typeof payload.new === 'object' && 
-              'type' in payload.new && 
               'status' in payload.new &&
-              payload.new.type === 'payment' && 
               payload.new.status === 'approved') {
             fetchRanking();
           }
