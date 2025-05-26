@@ -15,7 +15,7 @@ export interface RankingUser {
 
 export const useRanking = () => {
   const [ranking, setRanking] = useState<RankingUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [currentUserRanking, setCurrentUserRanking] = useState<RankingUser | null>(null);
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -35,6 +35,13 @@ export const useRanking = () => {
     // Não executar se ainda estiver carregando a autenticação
     if (authLoading) {
       console.log('Aguardando verificação de autenticação...');
+      return;
+    }
+
+    // Se auth carregou mas não há usuário, não executar
+    if (!authLoading && !user) {
+      console.log('Usuário não autenticado, não carregando ranking');
+      setLoading(false);
       return;
     }
 
@@ -342,7 +349,7 @@ export const useRanking = () => {
         },
         () => {
           console.log('Mudança detectada na tabela usuarios');
-          if (!authLoading) {
+          if (!authLoading && user) {
             fetchRanking();
           }
         }
@@ -363,7 +370,7 @@ export const useRanking = () => {
               'type' in payload.new &&
               payload.new.status === 'approved' &&
               payload.new.type === 'deposit' &&
-              !authLoading) {
+              !authLoading && user) {
             fetchRanking();
           }
         }
@@ -377,7 +384,7 @@ export const useRanking = () => {
 
   return {
     ranking,
-    loading: loading || authLoading, // Considerar ambos os loadings
+    loading: authLoading || loading, // Considerar ambos os loadings
     currentUserRanking,
     updateApelido,
     addVenda,

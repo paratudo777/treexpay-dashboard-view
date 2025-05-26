@@ -9,8 +9,8 @@ import { useRanking } from "@/hooks/useRanking";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Ranking() {
-  const { ranking, loading, currentUserRanking, updateApelido } = useRanking();
-  const { loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { ranking, loading: rankingLoading, currentUserRanking, updateApelido } = useRanking();
   const [newApelido, setNewApelido] = useState("");
   const [isEditing, setIsEditing] = useState(false);
 
@@ -66,17 +66,36 @@ export default function Ranking() {
     }
   };
 
-  // Mostrar loading se ainda está verificando autenticação ou carregando ranking
-  if (authLoading || loading) {
+  // Mostrar loading enquanto verifica autenticação
+  if (authLoading) {
     return (
       <DashboardLayout>
         <div className="container mx-auto max-w-4xl space-y-6">
           <div className="flex items-center justify-center min-h-96">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
-              <p className="text-muted-foreground">
-                {authLoading ? "Verificando sessão..." : "Carregando ranking..."}
-              </p>
+              <p className="text-muted-foreground">Verificando sessão...</p>
+            </div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Se não está autenticado após verificação, será redirecionado pelo ProtectedRoute
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Mostrar loading do ranking
+  if (rankingLoading) {
+    return (
+      <DashboardLayout>
+        <div className="container mx-auto max-w-4xl space-y-6">
+          <div className="flex items-center justify-center min-h-96">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Carregando ranking...</p>
             </div>
           </div>
         </div>
@@ -238,7 +257,7 @@ export default function Ranking() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </div>
       </div>
     </DashboardLayout>
   );
