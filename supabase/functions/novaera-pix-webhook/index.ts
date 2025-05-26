@@ -183,27 +183,35 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw updateDepositError;
   }
 
-  // CORREÇÃO: Buscar e atualizar transação pendente existente ao invés de criar nova
+  // CORREÇÃO PRINCIPAL: Buscar transação existente pelo valor bruto e data do depósito
+  const depositDate = new Date(deposit.created_at);
+  const startOfDay = new Date(depositDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(depositDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
   const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
     .select('*')
     .eq('user_id', deposit.user_id)
     .eq('type', 'deposit')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
+    .eq('amount', amount) // Buscar pelo valor bruto original
+    .gte('created_at', startOfDay.toISOString())
+    .lte('created_at', endOfDay.toISOString())
+    .order('created_at', { ascending: true })
     .limit(1)
     .single();
 
   if (!findTransactionError && existingTransaction) {
-    console.log('Atualizando transação pendente existente:', existingTransaction.id);
+    console.log('Atualizando transação existente:', existingTransaction.id);
     
-    // Atualizar transação existente
+    // Atualizar transação existente com valor líquido e status aprovado
     const { error: updateTransactionError } = await supabase
       .from('transactions')
       .update({
         status: 'approved',
         description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)}`,
-        amount: netAmount,
+        amount: netAmount, // Atualizar para valor líquido
         updated_at: new Date().toISOString()
       })
       .eq('id', existingTransaction.id);
@@ -214,13 +222,14 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
 
     console.log('Transação atualizada com sucesso:', {
       transactionId: existingTransaction.id,
-      newAmount: netAmount,
+      originalAmount: amount,
+      netAmount: netAmount,
       newStatus: 'approved'
     });
   } else {
-    console.log('Nenhuma transação pendente encontrada, criando nova');
+    console.log('Nenhuma transação existente encontrada, criando nova');
     
-    // Criar nova transação apenas se não existir uma pendente
+    // Só criar nova transação se não existir uma para este depósito
     const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
     const { error: createTransactionError } = await supabase
@@ -240,12 +249,13 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
 
     console.log('Nova transação criada:', {
       code: transactionCode,
-      amount: netAmount,
+      originalAmount: amount,
+      netAmount: netAmount,
       status: 'approved'
     });
   }
 
-  // Atualizar saldo do usuário
+  // Atualizar saldo do usuário com valor líquido
   const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
     p_user_id: deposit.user_id,
     p_amount: netAmount

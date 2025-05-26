@@ -30,7 +30,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
   const getDateRange = (period: Period) => {
     const now = new Date();
-    // Usar timezone do Brasil (UTC-3)
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     switch (period) {
@@ -57,6 +56,20 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     }
   };
 
+  // Função para extrair valor bruto da descrição
+  const extractGrossValue = (description: string, netAmount: number) => {
+    if (!description) return netAmount;
+    
+    // Procurar por "Valor: R$ XX.XX" na descrição
+    const match = description.match(/Valor:\s*R\$\s*([0-9,\.]+)/);
+    if (match) {
+      const grossValue = parseFloat(match[1].replace(',', '.'));
+      return isNaN(grossValue) ? netAmount : grossValue;
+    }
+    
+    return netAmount;
+  };
+
   const fetchMetrics = async () => {
     if (!user) {
       setLoading(false);
@@ -74,7 +87,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         user: user.id
       });
 
-      // CORREÇÃO: Buscar apenas depósitos aprovados sem duplicação
+      // Buscar apenas depósitos aprovados únicos
       const { data: sales, error: salesError } = await supabase
         .from('transactions')
         .select('*')
@@ -108,17 +121,23 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       console.log('Saques aprovados encontrados:', withdrawals?.length || 0);
 
-      // CORREÇÃO: Calcular métricas de forma simples e correta
-      const totalDeposits = sales?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      // CORREÇÃO: Calcular métricas usando valores brutos extraídos das descrições
+      const salesWithGrossValues = sales?.map(transaction => ({
+        ...transaction,
+        grossAmount: extractGrossValue(transaction.description, transaction.amount)
+      })) || [];
+
+      const totalDeposits = salesWithGrossValues.reduce((sum, t) => sum + t.grossAmount, 0);
       const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      const depositCount = sales?.length || 0;
+      const depositCount = salesWithGrossValues.length;
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
-      // Para taxas, usar um cálculo estimado baseado na diferença padrão
-      const estimatedFees = sales?.reduce((sum, t) => {
-        // Taxa estimada: 1.5 (fixa) + possível taxa percentual
-        return sum + 1.5; // Taxa básica por transação
-      }, 0) || 0;
+      // Calcular taxas estimadas
+      const estimatedFees = salesWithGrossValues.reduce((sum, t) => {
+        const grossValue = t.grossAmount;
+        const netValue = t.amount;
+        return sum + (grossValue - netValue);
+      }, 0);
 
       console.log('Métricas calculadas:', {
         totalDeposits,
@@ -128,7 +147,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         estimatedFees
       });
 
-      const chartData = generateChartData(sales || [], period);
+      const chartData = generateChartData(salesWithGrossValues, period);
 
       setMetrics({
         totalDeposits,
@@ -166,7 +185,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           return transactionDate >= hourStart && transactionDate < hourEnd;
         });
 
-        const hourTotal = hourSales.reduce((sum, t) => sum + Number(t.amount), 0);
+        const hourTotal = hourSales.reduce((sum, t) => sum + (t.grossAmount || t.amount), 0);
         
         data.push({ hora: `${hour.toString().padStart(2, '0')}h`, valor: hourTotal });
       }
@@ -183,7 +202,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           return transactionDate >= dayStart && transactionDate < dayEnd;
         });
 
-        const dayTotal = daySales.reduce((sum, t) => sum + Number(t.amount), 0);
+        const dayTotal = daySales.reduce((sum, t) => sum + (t.grossAmount || t.amount), 0);
         
         const label = period === 'week' ? 
           dayStart.toLocaleDateString('pt-BR', { weekday: 'short' }) :
