@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -121,7 +120,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       console.log('Saques aprovados encontrados:', withdrawals?.length || 0);
 
-      // CORREÇÃO: Calcular métricas usando valores brutos extraídos das descrições
+      // Calcular métricas usando valores brutos extraídos das descrições
       const salesWithGrossValues = sales?.map(transaction => ({
         ...transaction,
         grossAmount: extractGrossValue(transaction.description, transaction.amount)
@@ -129,8 +128,26 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       const totalDeposits = salesWithGrossValues.reduce((sum, t) => sum + t.grossAmount, 0);
       const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-      const depositCount = salesWithGrossValues.length;
-      const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
+      
+      // CORREÇÃO: Para período "today", filtrar apenas transações do dia atual
+      let todayApprovedSales = salesWithGrossValues;
+      if (period === 'today') {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+        
+        todayApprovedSales = salesWithGrossValues.filter(transaction => {
+          const transactionDate = new Date(transaction.updated_at);
+          return transactionDate >= todayStart && transactionDate <= todayEnd;
+        });
+        
+        console.log('Transações aprovadas filtradas para hoje:', todayApprovedSales.length);
+      }
+      
+      const depositCount = todayApprovedSales.length;
+      const todayTotalValue = todayApprovedSales.reduce((sum, t) => sum + t.grossAmount, 0);
+      const averageTicket = depositCount > 0 ? todayTotalValue / depositCount : 0;
 
       // Calcular taxas estimadas
       const estimatedFees = salesWithGrossValues.reduce((sum, t) => {
@@ -144,7 +161,8 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         totalWithdrawals,
         depositCount,
         averageTicket,
-        estimatedFees
+        estimatedFees,
+        todayTotalValue
       });
 
       const chartData = generateChartData(salesWithGrossValues, period);
