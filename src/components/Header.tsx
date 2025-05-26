@@ -20,11 +20,18 @@ export function Header() {
   const { balance, loading } = useUserBalance();
   const [hasNotifications] = useState(true);
   
+  const getUserDisplayName = () => {
+    if (user?.name && user.name !== user?.email) {
+      return user.name;
+    }
+    return 'Usuário';
+  };
+  
   return (
     <header className="h-16 border-b border-border flex items-center justify-between px-4">
       <div className="flex items-center space-x-4">
         <span className="text-sm text-muted-foreground">
-          Bem-vindo, {user?.name || 'Usuário'}
+          Bem-vindo, {getUserDisplayName()}
         </span>
         {user?.profile !== 'admin' && (
           <span className="text-sm text-treexpay-medium font-semibold">

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/use-toast";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useUserBalance } from "@/hooks/useUserBalance";
 
 export default function Financeiro() {
   const [amount, setAmount] = useState("");
@@ -16,7 +17,7 @@ export default function Financeiro() {
   const [pixKey, setPixKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [balance] = useState(3164.31); // Valor mockado de saldo
+  const { balance, loading } = useUserBalance();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -28,7 +29,6 @@ export default function Financeiro() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validações básicas
     if (!amount || parseFloat(amount) <= 0) {
       toast({
         variant: "destructive",
@@ -56,10 +56,8 @@ export default function Financeiro() {
       return;
     }
 
-    // Simulação de processamento
     setIsSubmitting(true);
     
-    // Simular uma chamada de API com um timeout
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSuccess(true);
@@ -69,7 +67,6 @@ export default function Financeiro() {
         description: "Você receberá o valor em até D+0.",
       });
 
-      // Reset do form após 3 segundos
       setTimeout(() => {
         setIsSuccess(false);
         setAmount("");
@@ -107,7 +104,9 @@ export default function Financeiro() {
             <CardDescription>Valor disponível para saque</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-treexpay-medium">{formatCurrency(balance)}</p>
+            <p className="text-3xl font-bold text-treexpay-medium">
+              {loading ? 'Carregando...' : formatCurrency(balance)}
+            </p>
           </CardContent>
         </Card>
 

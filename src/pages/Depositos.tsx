@@ -1,6 +1,5 @@
 
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { NovaEraPaymentTest } from "@/components/payments/NovaEraPaymentTest";
 import { PixDepositWithProfile } from "@/components/payments/PixDepositWithProfile";
 
 export default function Depositos() {
@@ -11,9 +10,6 @@ export default function Depositos() {
         
         {/* PIX Deposit with Profile Completion */}
         <PixDepositWithProfile />
-        
-        {/* NovaEra Payment Test */}
-        <NovaEraPaymentTest />
       </div>
     </DashboardLayout>
   );
