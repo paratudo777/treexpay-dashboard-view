@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -291,10 +290,10 @@ export const PixDepositWithProfile = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <QrCode className="h-5 w-5" />
-            Depósito via PIX - NovaEra
+            Depósito via PIX
           </CardTitle>
           <CardDescription>
-            Gere um código PIX para depositar valores em sua conta usando a integração NovaEra.
+            Gere um código PIX exclusivo para adicionar saldo à sua conta de forma rápida e segura. O valor será liberado automaticamente após a confirmação do pagamento.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
