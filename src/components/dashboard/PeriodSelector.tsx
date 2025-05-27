@@ -17,16 +17,18 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
   };
 
   return (
-    <div className="flex space-x-2">
+    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
       <Button
         variant={activePeriod === 'today' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('today')}
-        className={
-          activePeriod === 'today' 
+        className={`
+          w-full sm:w-auto
+          ${activePeriod === 'today' 
             ? 'bg-treexpay-dark text-white border-treexpay-dark' 
             : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-        }
+          }
+        `}
       >
         Hoje
       </Button>
@@ -34,11 +36,13 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'week' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('week')}
-        className={
-          activePeriod === 'week' 
+        className={`
+          w-full sm:w-auto
+          ${activePeriod === 'week' 
             ? 'bg-treexpay-dark text-white border-treexpay-dark' 
             : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-        }
+          }
+        `}
       >
         Últimos 7 dias
       </Button>
@@ -46,11 +50,13 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'month' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('month')}
-        className={
-          activePeriod === 'month' 
+        className={`
+          w-full sm:w-auto
+          ${activePeriod === 'month' 
             ? 'bg-treexpay-dark text-white border-treexpay-dark' 
             : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-        }
+          }
+        `}
       >
         Este Mês
       </Button>
@@ -58,11 +64,13 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
         variant={activePeriod === 'year' ? 'default' : 'outline'}
         size="sm"
         onClick={() => handlePeriodChange('year')}
-        className={
-          activePeriod === 'year' 
+        className={`
+          w-full sm:w-auto
+          ${activePeriod === 'year' 
             ? 'bg-treexpay-dark text-white border-treexpay-dark' 
             : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-        }
+          }
+        `}
       >
         Este Ano
       </Button>
