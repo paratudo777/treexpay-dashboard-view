@@ -1,8 +1,14 @@
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-type Period = 'today' | 'week' | 'month' | 'year';
+type Period = 'today' | 'week' | '15days' | 'month' | 'monthStart' | 'all';
 
 interface PeriodSelectorProps {
   onPeriodChange: (period: Period) => void;
@@ -16,64 +22,37 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
     onPeriodChange(period);
   };
 
+  const periodOptions = [
+    { value: 'today', label: 'Hoje' },
+    { value: 'week', label: 'Últimos 7 dias' },
+    { value: '15days', label: 'Últimos 15 dias' },
+    { value: 'month', label: 'Últimos 30 dias' },
+    { value: 'monthStart', label: 'Início do Mês' },
+    { value: 'all', label: 'Tempo Todo' }
+  ];
+
+  const getCurrentLabel = () => {
+    return periodOptions.find(option => option.value === activePeriod)?.label || 'Hoje';
+  };
+
   return (
-    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-      <Button
-        variant={activePeriod === 'today' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handlePeriodChange('today')}
-        className={`
-          w-full sm:w-auto
-          ${activePeriod === 'today' 
-            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
-            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-          }
-        `}
-      >
-        Hoje
-      </Button>
-      <Button
-        variant={activePeriod === 'week' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handlePeriodChange('week')}
-        className={`
-          w-full sm:w-auto
-          ${activePeriod === 'week' 
-            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
-            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-          }
-        `}
-      >
-        Últimos 7 dias
-      </Button>
-      <Button
-        variant={activePeriod === 'month' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handlePeriodChange('month')}
-        className={`
-          w-full sm:w-auto
-          ${activePeriod === 'month' 
-            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
-            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-          }
-        `}
-      >
-        Este Mês
-      </Button>
-      <Button
-        variant={activePeriod === 'year' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handlePeriodChange('year')}
-        className={`
-          w-full sm:w-auto
-          ${activePeriod === 'year' 
-            ? 'bg-treexpay-dark text-white border-treexpay-dark' 
-            : 'bg-transparent border-gray-300 text-gray-200 hover:bg-gray-700 hover:text-white hover:border-gray-500'
-          }
-        `}
-      >
-        Este Ano
-      </Button>
+    <div className="w-full sm:w-auto">
+      <Select value={activePeriod} onValueChange={handlePeriodChange}>
+        <SelectTrigger className="w-full sm:w-[180px] bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium">
+          <SelectValue placeholder={getCurrentLabel()} />
+        </SelectTrigger>
+        <SelectContent className="bg-gray-800 border-gray-700">
+          {periodOptions.map((option) => (
+            <SelectItem 
+              key={option.value} 
+              value={option.value}
+              className="text-gray-200 hover:bg-gray-700 focus:bg-gray-700 focus:text-white"
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };

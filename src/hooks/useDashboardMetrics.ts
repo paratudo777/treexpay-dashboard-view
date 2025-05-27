@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export type Period = 'today' | 'week' | 'month' | 'year';
+export type Period = 'today' | 'week' | '15days' | 'month' | 'monthStart' | 'all';
 
 interface DashboardMetrics {
   totalDeposits: number;
@@ -42,14 +42,21 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         const weekStart = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
         weekStart.setHours(0, 0, 0, 0);
         return { start: weekStart, end: new Date() };
+      case '15days':
+        const fifteenDaysStart = new Date(today.getTime() - 15 * 24 * 60 * 60 * 1000);
+        fifteenDaysStart.setHours(0, 0, 0, 0);
+        return { start: fifteenDaysStart, end: new Date() };
       case 'month':
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthStart = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
         monthStart.setHours(0, 0, 0, 0);
         return { start: monthStart, end: new Date() };
-      case 'year':
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-        yearStart.setHours(0, 0, 0, 0);
-        return { start: yearStart, end: new Date() };
+      case 'monthStart':
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        currentMonthStart.setHours(0, 0, 0, 0);
+        return { start: currentMonthStart, end: new Date() };
+      case 'all':
+        const allTimeStart = new Date('2020-01-01');
+        return { start: allTimeStart, end: new Date() };
       default:
         return { start: today, end: new Date(today.getTime() + 24 * 60 * 60 * 1000) };
     }
@@ -210,8 +217,9 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     } else {
       const { start, end } = getDateRange(period);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      const maxDays = period === 'all' ? 30 : Math.min(days, 15);
 
-      for (let i = 0; i < Math.min(days, 12); i++) {
+      for (let i = 0; i < maxDays; i++) {
         const dayStart = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
@@ -222,7 +230,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
         const dayTotal = daySales.reduce((sum, t) => sum + (t.grossAmount || t.amount), 0);
         
-        const label = period === 'week' ? 
+        const label = period === 'week' || period === '15days' ? 
           dayStart.toLocaleDateString('pt-BR', { weekday: 'short' }) :
           dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         
