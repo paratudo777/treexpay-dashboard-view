@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock } from 'lucide-react';
+import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
 import { FeeEditInput } from '@/components/admin/FeeEditInput';
 import { NetBalanceDisplay } from '@/components/admin/NetBalanceDisplay';
+import { UserDetailsModal } from '@/components/admin/UserDetailsModal';
 
 interface User {
   id: string;
@@ -41,6 +41,8 @@ export default function Admin() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
+  const [userDetailsTarget, setUserDetailsTarget] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -285,6 +287,11 @@ export default function Admin() {
   const handleBalanceAdjustment = (user: User) => {
     setSelectedUser(user);
     setIsBalanceModalOpen(true);
+  };
+
+  const handleUserDetails = (user: User) => {
+    setUserDetailsTarget(user);
+    setIsUserDetailsModalOpen(true);
   };
 
   const resetDailyMetrics = async () => {
@@ -600,6 +607,14 @@ export default function Admin() {
                             <Button
                               variant="outline"
                               size="sm"
+                              onClick={() => handleUserDetails(user)}
+                              title="Ver detalhes"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleBalanceAdjustment(user)}
                               title="Ajustar saldo"
                             >
@@ -645,6 +660,15 @@ export default function Admin() {
           }}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+          }}
+        />
+
+        <UserDetailsModal
+          user={userDetailsTarget}
+          isOpen={isUserDetailsModalOpen}
+          onClose={() => {
+            setIsUserDetailsModalOpen(false);
+            setUserDetailsTarget(null);
           }}
         />
       </div>
