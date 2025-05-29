@@ -150,9 +150,12 @@ serve(async (req) => {
       );
     }
 
-    // Get the current domain from the request
-    const url = new URL(req.url);
-    const baseUrl = `${url.protocol}//${url.host}`;
+    // Get base URL from environment variable, fallback to request host if not set
+    const baseUrl = Deno.env.get('BASE_URL') || (() => {
+      const url = new URL(req.url);
+      return `${url.protocol}//${url.host}`;
+    })();
+    
     const checkoutUrl = `${baseUrl}/checkout/${checkoutSlug}`;
 
     // Return success response
