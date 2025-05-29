@@ -6,6 +6,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function isValidCpf(cpf: string): boolean {
+  cpf = cpf.replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+  let sum = 0, rest;
+  for (let i = 1; i <= 9; i++) sum += parseInt(cpf[i-1]) * (11 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  if (rest !== parseInt(cpf[9])) return false;
+  sum = 0;
+  for (let i = 1; i <= 10; i++) sum += parseInt(cpf[i-1]) * (12 - i);
+  rest = (sum * 10) % 11;
+  if (rest === 10 || rest === 11) rest = 0;
+  return rest === parseInt(cpf[10]);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -29,6 +44,10 @@ Deno.serve(async (req) => {
 
     if (!checkoutSlug) {
       throw new Error('Checkout slug is required');
+    }
+
+    if (!customerName || !customerName.trim()) {
+      throw new Error('Customer name is required');
     }
 
     console.log('Buscando checkout com slug:', checkoutSlug);
@@ -62,6 +81,12 @@ Deno.serve(async (req) => {
       netAmount
     });
 
+    // Usar CPF válido padrão como no depósito
+    const cpfToValidate = "11144477735";
+    if (!isValidCpf(cpfToValidate)) {
+      throw new Error('CPF inválido');
+    }
+
     // Preparar autenticação Basic como no depósito
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
@@ -88,12 +113,12 @@ Deno.serve(async (req) => {
         }
       ],
       "customer": {
-        "name": customerName || "Cliente",
-        "email": customerEmail || "cliente@email.com",
+        "name": customerName.trim(),
+        "email": customerEmail?.trim() || "cliente@email.com",
         "phone": "5511999999999",
         "document": { 
           "type": "cpf", 
-          "number": "12345678900"
+          "number": cpfToValidate
         }
       },
       "metadata": `{"origin":"TreexPay Checkout","checkout_id":"${checkout.id}"}`,
@@ -128,8 +153,8 @@ Deno.serve(async (req) => {
       .from('checkout_payments')
       .insert({
         checkout_id: checkout.id,
-        customer_name: customerName || 'Cliente',
-        customer_email: customerEmail || null,
+        customer_name: customerName.trim(),
+        customer_email: customerEmail?.trim() || null,
         amount: checkout.amount,
         platform_fee: platformFeeAmount,
         net_amount: netAmount,
