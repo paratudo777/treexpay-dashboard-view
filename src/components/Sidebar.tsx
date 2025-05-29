@@ -1,3 +1,4 @@
+
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +70,11 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <div className="h-screen bg-sidebar flex flex-col border-r border-sidebar-border w-64">
       {/* Logo */}
       <div className="p-4 flex items-center justify-center h-16 border-b border-sidebar-border">
+        <img 
+          src="/lovable-uploads/0d410959-7adc-4358-8d98-ee41985c8c82.png" 
+          alt="TreexPay" 
+          className="h-8 w-8 mr-2"
+        />
         <div className="text-treexpay-medium font-bold text-2xl">TreexPay</div>
       </div>
 

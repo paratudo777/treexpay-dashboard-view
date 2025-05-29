@@ -81,7 +81,14 @@ export function DashboardLayout({
             >
               <Menu className="h-5 w-5 text-foreground" />
             </button>
-            <div className="ml-4 text-xl font-semibold text-treexpay-medium">TreexPay</div>
+            <div className="ml-4 flex items-center">
+              <img 
+                src="/lovable-uploads/0d410959-7adc-4358-8d98-ee41985c8c82.png" 
+                alt="TreexPay" 
+                className="h-8 w-8 mr-2"
+              />
+              <div className="text-xl font-semibold text-treexpay-medium">TreexPay</div>
+            </div>
             <div className="ml-auto">
               <Header />
             </div>
