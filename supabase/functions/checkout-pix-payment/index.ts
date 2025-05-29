@@ -67,6 +67,42 @@ Deno.serve(async (req) => {
 
     console.log('Checkout encontrado:', checkout);
 
+    // Buscar informações do vendedor (dono do checkout)
+    console.log('Buscando informações do vendedor com ID:', checkout.user_id);
+    
+    const { data: sellerProfile, error: sellerError } = await supabase
+      .from('profiles')
+      .select('id, name, email, phone, cpf')
+      .eq('id', checkout.user_id)
+      .single();
+
+    if (sellerError || !sellerProfile) {
+      console.error('Erro ao buscar perfil do vendedor:', sellerError);
+      throw new Error('Seller profile not found');
+    }
+
+    console.log('Perfil do vendedor encontrado:', {
+      id: sellerProfile.id,
+      name: sellerProfile.name,
+      email: sellerProfile.email,
+      hasCpf: !!sellerProfile.cpf,
+      hasPhone: !!sellerProfile.phone
+    });
+
+    // Validar dados obrigatórios do vendedor
+    if (!sellerProfile.cpf) {
+      throw new Error('Vendedor não possui CPF cadastrado');
+    }
+
+    if (!sellerProfile.phone) {
+      throw new Error('Vendedor não possui telefone cadastrado');
+    }
+
+    // Validar CPF do vendedor
+    if (!isValidCpf(sellerProfile.cpf)) {
+      throw new Error('CPF do vendedor é inválido');
+    }
+
     const amountInCents = Math.round(checkout.amount * 100);
 
     // Configurar taxa da plataforma (3% padrão)
@@ -81,13 +117,7 @@ Deno.serve(async (req) => {
       netAmount
     });
 
-    // Usar CPF válido padrão exatamente como no depósito
-    const cpfToValidate = "11144477735";
-    if (!isValidCpf(cpfToValidate)) {
-      throw new Error('CPF inválido');
-    }
-
-    // Preparar autenticação Basic exatamente como no depósito
+    // Preparar autenticação Basic
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
@@ -95,37 +125,43 @@ Deno.serve(async (req) => {
 
     // Usar EXATAMENTE a mesma estrutura de dados que funciona no depósito
     const pixPayload = {
-      "paymentMethod": "pix",
-      "amount": amountInCents,
-      "externalRef": externalRef,
-      "postbackUrl": `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
-      "pix": {
-        "pixKey": "treex@tecnologia.com.br",
-        "pixKeyType": "email",
-        "expiresInSeconds": 3600
+      amount: amountInCents,
+      paymentMethod: "pix",
+      externalRef: externalRef,
+      postbackUrl: `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
+      customer: {
+        name: sellerProfile.name,
+        email: sellerProfile.email,
+        phone: sellerProfile.phone,
+        document: {
+          type: "cpf",
+          number: sellerProfile.cpf
+        }
       },
-      "items": [
+      pix: {
+        pixKey: "treex@tecnologia.com.br",
+        pixKeyType: "email",
+        expiresInSeconds: 3600
+      },
+      items: [
         { 
-          "title": checkout.title, 
-          "quantity": 1, 
-          "tangible": false, 
-          "unitPrice": amountInCents 
+          title: checkout.title, 
+          quantity: 1, 
+          tangible: false, 
+          unitPrice: amountInCents 
         }
       ],
-      "customer": {
-        "name": customerName.trim(),
-        "email": customerEmail?.trim() || "cliente@email.com",
-        "phone": "5511999999999",
-        "document": { 
-          "type": "cpf", 
-          "number": cpfToValidate
-        }
-      },
-      "metadata": "{\"origin\":\"TreexPay Checkout\"}",
-      "traceable": false
+      metadata: "{\"origin\":\"TreexPay Checkout\"}",
+      traceable: false
     };
 
-    console.log('Enviando dados para NovaEra:', pixPayload);
+    console.log('Enviando dados para NovaEra com CPF do vendedor:', {
+      ...pixPayload,
+      customer: {
+        ...pixPayload.customer,
+        document: { type: "cpf", number: "[MASKED]" }
+      }
+    });
 
     // Usar o mesmo endpoint que funciona no depósito: /transactions
     const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
