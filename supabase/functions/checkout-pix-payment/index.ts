@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
       throw new Error('Checkout slug is required');
     }
 
-    if (!customerName || !customerName.trim()) {
-      throw new Error('Customer name is required');
+    if (!customerName || !customerName.trim() || customerName.trim().length < 3) {
+      throw new Error('Nome do cliente deve ter pelo menos 3 caracteres');
     }
 
     console.log('Buscando checkout com slug:', checkoutSlug);
@@ -81,19 +81,19 @@ Deno.serve(async (req) => {
       netAmount
     });
 
-    // Usar CPF válido padrão como no depósito
+    // Usar CPF válido padrão exatamente como no depósito
     const cpfToValidate = "11144477735";
     if (!isValidCpf(cpfToValidate)) {
       throw new Error('CPF inválido');
     }
 
-    // Preparar autenticação Basic como no depósito
+    // Preparar autenticação Basic exatamente como no depósito
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
     const externalRef = `checkout_${checkout.id}_${Date.now()}`;
 
-    // Usar a mesma estrutura de dados que funciona no depósito
+    // Usar EXATAMENTE a mesma estrutura de dados que funciona no depósito
     const pixPayload = {
       "paymentMethod": "pix",
       "amount": amountInCents,
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
           "number": cpfToValidate
         }
       },
-      "metadata": `{"origin":"TreexPay Checkout","checkout_id":"${checkout.id}"}`,
+      "metadata": "{\"origin\":\"TreexPay Checkout\"}",
       "traceable": false
     };
 

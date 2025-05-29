@@ -31,6 +31,7 @@ export default function CheckoutPublic() {
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [pixData, setPixData] = useState<PixData | null>(null);
+  const [nameError, setNameError] = useState('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,6 +39,24 @@ export default function CheckoutPublic() {
       fetchCheckout();
     }
   }, [slug]);
+
+  const validateName = (name: string) => {
+    const trimmedName = name.trim();
+    if (trimmedName.length < 3) {
+      setNameError('O nome deve ter pelo menos 3 caracteres');
+      return false;
+    }
+    setNameError('');
+    return true;
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomerName(value);
+    if (value) {
+      validateName(value);
+    }
+  };
 
   const fetchCheckout = async () => {
     try {
@@ -73,27 +92,42 @@ export default function CheckoutPublic() {
   };
 
   const processPayment = async () => {
-    if (!checkout || !customerName.trim()) {
+    if (!checkout) return;
+
+    const trimmedName = customerName.trim();
+    
+    if (!trimmedName || trimmedName.length < 3) {
+      setNameError('O nome deve ter pelo menos 3 caracteres');
       toast({
         variant: "destructive",
-        title: "Dados incompletos",
-        description: "Por favor, preencha seu nome.",
+        title: "Nome inválido",
+        description: "Por favor, digite um nome com pelo menos 3 caracteres.",
       });
       return;
     }
 
     setProcessingPayment(true);
+    setNameError('');
 
     try {
+      console.log('Enviando dados:', {
+        checkoutSlug: checkout.url_slug,
+        customerName: trimmedName,
+        customerEmail: customerEmail.trim() || undefined
+      });
+
       const { data, error } = await supabase.functions.invoke('checkout-pix-payment', {
         body: {
           checkoutSlug: checkout.url_slug,
-          customerName: customerName.trim(),
+          customerName: trimmedName,
           customerEmail: customerEmail.trim() || undefined
         }
       });
 
+      console.log('Resposta recebida:', data);
+
       if (error) {
+        console.error('Erro da função:', error);
         throw error;
       }
 
@@ -168,6 +202,8 @@ export default function CheckoutPublic() {
     );
   }
 
+  const isNameValid = customerName.trim().length >= 3;
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -181,14 +217,23 @@ export default function CheckoutPublic() {
           {!pixData ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="customerName">Seu nome *</Label>
+                <Label htmlFor="customerName">Seu nome completo *</Label>
                 <Input
                   id="customerName"
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Digite seu nome completo"
+                  onChange={handleNameChange}
+                  placeholder="Digite seu nome completo (mínimo 3 caracteres)"
                   required
+                  className={nameError ? "border-red-500" : ""}
                 />
+                {nameError && (
+                  <p className="text-sm text-red-500">{nameError}</p>
+                )}
+                {customerName.trim().length > 0 && customerName.trim().length < 3 && (
+                  <p className="text-sm text-yellow-600">
+                    {3 - customerName.trim().length} caractere(s) restante(s)
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerEmail">E-mail (opcional)</Label>
@@ -202,7 +247,7 @@ export default function CheckoutPublic() {
               </div>
               <Button 
                 onClick={processPayment} 
-                disabled={processingPayment || !customerName.trim()}
+                disabled={processingPayment || !isNameValid}
                 className="w-full"
                 size="lg"
               >
@@ -218,6 +263,11 @@ export default function CheckoutPublic() {
                   </>
                 )}
               </Button>
+              {!isNameValid && customerName && (
+                <p className="text-xs text-muted-foreground text-center">
+                  O nome deve ter pelo menos 3 caracteres para continuar
+                </p>
+              )}
             </>
           ) : (
             <div className="space-y-4">
