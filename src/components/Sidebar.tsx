@@ -74,7 +74,7 @@ export function Sidebar({
   return <div className="h-screen bg-sidebar flex flex-col border-r border-sidebar-border w-64">
       {/* Logo */}
       <div className="p-4 flex items-center justify-center h-16 border-b border-sidebar-border">
-        <img alt="TreexPay" src="/lovable-uploads/68727f7e-be18-4989-bf6e-2bab257119ad.png" className="h-8 w-8 mr-2 object-contain" />
+        <img alt="TreexPay" src="/lovable-uploads/68727f7e-be18-4989-bf6e-2bab257119ad.png" className="h-10 w-10 mr-2 object-contain ml-[-95px]" />
         <div className="text-treexpay-medium font-bold text-2xl">TreexPay</div>
       </div>
 
