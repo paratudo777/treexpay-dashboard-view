@@ -62,30 +62,54 @@ Deno.serve(async (req) => {
       netAmount
     });
 
-    // Criar PIX via NovaEra - usando endpoint correto
-    const pixData = {
-      externalId: `checkout_${checkout.id}_${Date.now()}`,
-      amount: amountInCents,
-      description: `Pagamento: ${checkout.title}`,
-      buyer: {
-        name: customerName || "Cliente",
-        email: customerEmail || "cliente@email.com",
-        phone: "11999999999",
-        document: "12345678900"
-      }
+    // Preparar autenticação Basic como no depósito
+    const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
+    const authHeader = `Basic ${credentials}`;
+
+    const externalRef = `checkout_${checkout.id}_${Date.now()}`;
+
+    // Usar a mesma estrutura de dados que funciona no depósito
+    const pixPayload = {
+      "paymentMethod": "pix",
+      "amount": amountInCents,
+      "externalRef": externalRef,
+      "postbackUrl": `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
+      "pix": {
+        "pixKey": "treex@tecnologia.com.br",
+        "pixKeyType": "email",
+        "expiresInSeconds": 3600
+      },
+      "items": [
+        { 
+          "title": checkout.title, 
+          "quantity": 1, 
+          "tangible": false, 
+          "unitPrice": amountInCents 
+        }
+      ],
+      "customer": {
+        "name": customerName || "Cliente",
+        "email": customerEmail || "cliente@email.com",
+        "phone": "5511999999999",
+        "document": { 
+          "type": "cpf", 
+          "number": "12345678900"
+        }
+      },
+      "metadata": `{"origin":"TreexPay Checkout","checkout_id":"${checkout.id}"}`,
+      "traceable": false
     };
 
-    console.log('Enviando dados para NovaEra:', pixData);
+    console.log('Enviando dados para NovaEra:', pixPayload);
 
-    // Usar apenas /pix pois NOVAERA_BASE_URL já contém /api/v1
-    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/pix`, {
+    // Usar o mesmo endpoint que funciona no depósito: /transactions
+    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
+        'Authorization': authHeader,
         'Content-Type': 'application/json',
-        'Client-Id': NOVAERA_PK,
-        'Client-Secret': NOVAERA_SK,
       },
-      body: JSON.stringify(pixData)
+      body: JSON.stringify(pixPayload)
     });
 
     console.log('Resposta NovaEra status:', novaEraResponse.status);
@@ -122,12 +146,18 @@ Deno.serve(async (req) => {
 
     console.log('Pagamento criado com sucesso:', payment.id);
 
+    // Retornar dados no formato esperado pela página de checkout
     return new Response(
       JSON.stringify({
         success: true,
         payment,
         checkout,
-        pix: novaEraData.data || novaEraData
+        pix: {
+          qrcode: novaEraData.data.pix.qrcode,
+          qrcodeText: novaEraData.data.pix.qrcode,
+          expiresAt: novaEraData.data.pix.expirationDate,
+          expirationDate: novaEraData.data.pix.expirationDate
+        }
       }),
       { 
         status: 200,

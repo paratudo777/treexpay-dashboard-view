@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { QrCode, Loader } from 'lucide-react';
+import { QrCode, Loader, Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { qrImage, fmtDate } from '@/utils/pixHelpers';
@@ -119,6 +118,24 @@ export default function CheckoutPublic() {
     }
   };
 
+  const copyPixCode = async () => {
+    if (pixData?.qrcode) {
+      try {
+        await navigator.clipboard.writeText(pixData.qrcode);
+        toast({
+          title: "Código copiado!",
+          description: "O código PIX foi copiado para a área de transferência.",
+        });
+      } catch (error) {
+        toast({
+          title: "Erro ao copiar",
+          description: "Não foi possível copiar o código. Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -212,10 +229,30 @@ export default function CheckoutPublic() {
               </div>
               <div className="flex justify-center">
                 <img 
-                  src={qrImage(pixData.qrcodeText)} 
+                  src={qrImage(pixData.qrcode)} 
                   alt="QR Code PIX" 
                   className="w-48 h-48 rounded border"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pixCode">PIX Copia e Cola</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="pixCode"
+                    type="text"
+                    value={pixData.qrcode}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    onClick={copyPixCode}
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
