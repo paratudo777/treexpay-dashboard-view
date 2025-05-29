@@ -151,12 +151,24 @@ serve(async (req) => {
     }
 
     // Get base URL from environment variable, fallback to request host if not set
-    const baseUrl = Deno.env.get('BASE_URL') || (() => {
-      const url = new URL(req.url);
-      return `${url.protocol}//${url.host}`;
-    })();
+    const baseUrl = Deno.env.get('BASE_URL');
+    if (!baseUrl) {
+      console.error('BASE_URL environment variable not set');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Server configuration error: BASE_URL not configured' 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
     
     const checkoutUrl = `${baseUrl}/checkout/${checkoutSlug}`;
+
+    console.log(`Created checkout with URL: ${checkoutUrl}`);
 
     // Return success response
     return new Response(
