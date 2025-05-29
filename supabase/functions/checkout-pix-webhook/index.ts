@@ -22,7 +22,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
 
-    console.log('Webhook checkout PIX recebido:', JSON.stringify(body, null, 2));
+    console.log('=== WEBHOOK CHECKOUT PIX RECEBIDO ===');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('Body completo:', JSON.stringify(body, null, 2));
 
     const isApproved = body?.status === "approved" || 
                       body?.transaction?.status === "approved" || 
@@ -30,8 +32,11 @@ Deno.serve(async (req) => {
                       body?.status === "Compra Aprovada" ||
                       body?.data?.status === "paid";
 
+    console.log('Status de aprovação:', isApproved);
+    console.log('Status recebido:', body?.status || body?.data?.status);
+
     if (!isApproved) {
-      console.log('Pagamento não aprovado, status:', body?.status || body?.data?.status);
+      console.log('❌ Pagamento não aprovado, ignorando webhook');
       return new Response("ok", { 
         status: 200,
         headers: corsHeaders 
@@ -47,16 +52,16 @@ Deno.serve(async (req) => {
                           body?.id ||
                           body?.data?.id;
 
+    console.log('Referência da transação encontrada:', transactionRef);
+
     if (!transactionRef) {
-      console.error('Transaction reference not found in webhook payload');
+      console.error('❌ Transaction reference not found in webhook payload');
       throw new Error('Transaction reference not found');
     }
 
-    console.log('Referência da transação encontrada:', transactionRef);
-
     // Verificar se é pagamento de checkout
     if (!transactionRef.startsWith('checkout_')) {
-      console.log('Não é um pagamento de checkout, ignorando:', transactionRef);
+      console.log('❌ Não é um pagamento de checkout, ignorando:', transactionRef);
       return new Response("Not a checkout payment", { 
         status: 200,
         headers: corsHeaders 
@@ -69,18 +74,15 @@ Deno.serve(async (req) => {
     }
 
     const amountInReais = paidAmount / 100;
+    console.log('💰 Valor pago:', amountInReais, 'reais');
 
-    console.log('Processando webhook PIX Checkout:', {
-      transactionRef,
-      amountInReais,
-      timestamp: new Date().toISOString()
-    });
+    // Extrair checkout_id do formato: checkout_{id}_{timestamp}
+    const checkoutId = transactionRef.split('_')[1];
+    console.log('🎯 Checkout ID extraído:', checkoutId);
 
-    // Buscar pagamento de checkout pendente usando o externalRef que contém o checkout_id
-    const checkoutId = transactionRef.split('_')[1]; // extrair checkout_id do formato: checkout_{id}_{timestamp}
-    
-    console.log('Buscando checkout payment para checkout_id:', checkoutId);
+    console.log('🔍 Buscando checkout payment para checkout_id:', checkoutId);
 
+    // Buscar pagamento de checkout pendente
     const { data: payment, error: paymentError } = await supabase
       .from('checkout_payments')
       .select(`
@@ -99,12 +101,12 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (paymentError) {
-      console.error('Erro ao buscar pagamento:', paymentError);
+      console.error('❌ Erro ao buscar pagamento:', paymentError);
       throw paymentError;
     }
 
     if (!payment) {
-      console.log('Pagamento de checkout não encontrado para checkout_id:', checkoutId);
+      console.log('❌ Pagamento de checkout não encontrado para checkout_id:', checkoutId);
       
       return new Response(
         JSON.stringify({ 
@@ -119,18 +121,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log('Pagamento encontrado:', {
+    console.log('✅ Pagamento encontrado:', {
       paymentId: payment.id,
       checkoutId: payment.checkout_id,
       amount: payment.amount,
-      status: payment.status
+      status: payment.status,
+      customerName: payment.customer_name
     });
 
     // Verificar se o valor confere
-    if (payment.amount !== amountInReais) {
-      console.log('Valor do pagamento não confere:', {
+    if (Math.abs(payment.amount - amountInReais) > 0.01) { // tolerância de 1 centavo
+      console.log('❌ Valor do pagamento não confere:', {
         expected: payment.amount,
-        received: amountInReais
+        received: amountInReais,
+        difference: Math.abs(payment.amount - amountInReais)
       });
       
       return new Response(
@@ -147,8 +151,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('💳 Atualizando status do pagamento para paid...');
+
     // Atualizar status do pagamento para paid
-    console.log('Atualizando status do pagamento para paid');
     const { error: updatePaymentError } = await supabase
       .from('checkout_payments')
       .update({ 
@@ -158,14 +163,15 @@ Deno.serve(async (req) => {
       .eq('id', payment.id);
 
     if (updatePaymentError) {
-      console.error('Erro ao atualizar pagamento:', updatePaymentError);
+      console.error('❌ Erro ao atualizar pagamento:', updatePaymentError);
       throw updatePaymentError;
     }
 
-    console.log('Status do pagamento atualizado com sucesso');
+    console.log('✅ Status do pagamento atualizado com sucesso');
 
     // Buscar e atualizar a transação pendente correspondente
-    console.log('Buscando transação pendente para atualizar');
+    console.log('🔍 Buscando transação pendente para atualizar...');
+    
     const { data: transactions, error: findTransactionError } = await supabase
       .from('transactions')
       .select('*')
@@ -178,11 +184,11 @@ Deno.serve(async (req) => {
       .limit(1);
 
     if (findTransactionError) {
-      console.error('Erro ao buscar transação:', findTransactionError);
+      console.error('❌ Erro ao buscar transação:', findTransactionError);
       // Continua o processo mesmo com erro na busca da transação
     } else if (transactions && transactions.length > 0) {
       const transaction = transactions[0];
-      console.log('Transação encontrada, atualizando para approved:', transaction.id);
+      console.log('✅ Transação encontrada, atualizando para approved:', transaction.id);
       
       const { error: updateTransactionError } = await supabase
         .from('transactions')
@@ -194,17 +200,17 @@ Deno.serve(async (req) => {
         .eq('id', transaction.id);
 
       if (updateTransactionError) {
-        console.error('Erro ao atualizar transação:', updateTransactionError);
+        console.error('❌ Erro ao atualizar transação:', updateTransactionError);
         // Continua o processo mesmo com erro na transação
       } else {
-        console.log('Transação atualizada para approved com sucesso');
+        console.log('✅ Transação atualizada para approved com sucesso');
       }
     } else {
-      console.log('Nenhuma transação pendente encontrada para atualizar');
+      console.log('⚠️  Nenhuma transação pendente encontrada para atualizar');
     }
 
     // Creditar valor líquido na conta do dono do checkout
-    console.log('Creditando valor líquido na conta do vendedor:', {
+    console.log('💰 Creditando valor líquido na conta do vendedor:', {
       userId: payment.checkouts.user_id,
       netAmount: payment.net_amount
     });
@@ -215,15 +221,18 @@ Deno.serve(async (req) => {
     });
 
     if (balanceError) {
-      console.error('Erro ao incrementar saldo:', balanceError);
+      console.error('❌ Erro ao incrementar saldo:', balanceError);
       throw balanceError;
     }
 
-    console.log('Saldo incrementado com sucesso');
+    console.log('✅ Saldo incrementado com sucesso');
 
-    console.log('Pagamento de checkout processado com sucesso:', {
+    console.log('🎉 PAGAMENTO DE CHECKOUT PROCESSADO COM SUCESSO!');
+    console.log('Resumo:', {
       paymentId: payment.id,
       checkoutTitle: payment.checkouts.title,
+      customerName: payment.customer_name,
+      amount: payment.amount,
       netAmount: payment.net_amount,
       userId: payment.checkouts.user_id,
       transactionRef
@@ -243,7 +252,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Erro no webhook PIX Checkout:', error);
+    console.error('💥 ERRO NO WEBHOOK PIX CHECKOUT:', error);
+    console.error('Stack trace:', error.stack);
+    
     return new Response(
       JSON.stringify({ 
         success: false, 

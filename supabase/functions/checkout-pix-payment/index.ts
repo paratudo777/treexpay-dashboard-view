@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -123,12 +122,17 @@ Deno.serve(async (req) => {
 
     const externalRef = `checkout_${checkout.id}_${Date.now()}`;
 
+    // CORRIGIR O POSTBACK URL PARA APONTAR PARA O WEBHOOK CORRETO
+    const postbackUrl = `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
+    
+    console.log('🎯 PostbackUrl configurado:', postbackUrl);
+
     // Usar EXATAMENTE a mesma estrutura de dados que funciona no depósito
     const pixPayload = {
       amount: amountInCents,
       paymentMethod: "pix",
       externalRef: externalRef,
-      postbackUrl: `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
+      postbackUrl: postbackUrl, // URL corrigida aqui
       customer: {
         name: sellerProfile.name,
         email: sellerProfile.email,
@@ -155,7 +159,7 @@ Deno.serve(async (req) => {
       traceable: false
     };
 
-    console.log('Enviando dados para NovaEra com CPF do vendedor:', {
+    console.log('📤 Enviando dados para NovaEra:', {
       ...pixPayload,
       customer: {
         ...pixPayload.customer,

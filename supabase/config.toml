@@ -49,3 +49,6 @@ verify_jwt = true
 
 [functions.novaera-pix-webhook]
 verify_jwt = false
+
+[functions.checkout-pix-webhook]
+verify_jwt = false
