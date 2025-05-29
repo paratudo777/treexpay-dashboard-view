@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -62,15 +63,25 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     }
   };
 
-  // Função para extrair valor bruto da descrição
+  // Enhanced function to extract gross value from description with validation
   const extractGrossValue = (description: string, netAmount: number) => {
-    if (!description) return netAmount;
+    if (!description || typeof description !== 'string') return netAmount;
     
-    // Procurar por "Valor: R$ XX.XX" na descrição
-    const match = description.match(/Valor:\s*R\$\s*([0-9,\.]+)/);
-    if (match) {
-      const grossValue = parseFloat(match[1].replace(',', '.'));
-      return isNaN(grossValue) ? netAmount : grossValue;
+    // Enhanced pattern matching with validation
+    const patterns = [
+      /Bruto:\s*R\$\s*([0-9,\.]+)/,
+      /Valor:\s*R\$\s*([0-9,\.]+)/,
+      /Total:\s*R\$\s*([0-9,\.]+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = description.match(pattern);
+      if (match) {
+        const grossValue = parseFloat(match[1].replace(',', '.'));
+        if (!isNaN(grossValue) && grossValue > 0 && grossValue >= netAmount) {
+          return grossValue;
+        }
+      }
     }
     
     return netAmount;
@@ -86,14 +97,14 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       setLoading(true);
       const { start, end } = getDateRange(period);
 
-      console.log('Buscando métricas do dashboard:', {
+      console.log('Fetching dashboard metrics with enhanced security:', {
         period,
         start: start.toISOString(),
         end: end.toISOString(),
         user: user.id
       });
 
-      // Buscar apenas depósitos aprovados únicos
+      // Enhanced security: Explicit user validation in query
       const { data: sales, error: salesError } = await supabase
         .from('transactions')
         .select('*')
@@ -105,13 +116,20 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         .order('updated_at', { ascending: false });
 
       if (salesError) {
-        console.error('Erro ao buscar depósitos:', salesError);
+        console.error('Error fetching deposits:', salesError);
         throw salesError;
       }
 
-      console.log('Depósitos aprovados encontrados:', sales?.length || 0, sales);
+      // Additional client-side validation
+      const validatedSales = (sales || []).filter(transaction => 
+        transaction.user_id === user.id && 
+        transaction.amount > 0 &&
+        transaction.status === 'approved'
+      );
 
-      // Buscar saques aprovados
+      console.log('Validated approved deposits:', validatedSales.length);
+
+      // Fetch withdrawals with same security measures
       const { data: withdrawals, error: withdrawalsError } = await supabase
         .from('transactions')
         .select('*')
@@ -122,21 +140,25 @@ export const useDashboardMetrics = (period: Period = 'today') => {
         .lte('updated_at', end.toISOString());
 
       if (withdrawalsError) {
-        console.error('Erro ao buscar saques:', withdrawalsError);
+        console.error('Error fetching withdrawals:', withdrawalsError);
       }
 
-      console.log('Saques aprovados encontrados:', withdrawals?.length || 0);
+      const validatedWithdrawals = (withdrawals || []).filter(transaction => 
+        transaction.user_id === user.id && 
+        transaction.amount > 0 &&
+        transaction.status === 'approved'
+      );
 
-      // Calcular métricas usando valores brutos extraídos das descrições
-      const salesWithGrossValues = sales?.map(transaction => ({
+      // Calculate metrics with enhanced validation
+      const salesWithGrossValues = validatedSales.map(transaction => ({
         ...transaction,
         grossAmount: extractGrossValue(transaction.description, transaction.amount)
-      })) || [];
+      }));
 
       const totalDeposits = salesWithGrossValues.reduce((sum, t) => sum + t.grossAmount, 0);
-      const totalWithdrawals = withdrawals?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+      const totalWithdrawals = validatedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
       
-      // CORREÇÃO: Para período "today", filtrar apenas transações do dia atual
+      // Enhanced period filtering for today
       let todayApprovedSales = salesWithGrossValues;
       if (period === 'today') {
         const todayStart = new Date();
@@ -148,22 +170,21 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           const transactionDate = new Date(transaction.updated_at);
           return transactionDate >= todayStart && transactionDate <= todayEnd;
         });
-        
-        console.log('Transações aprovadas filtradas para hoje:', todayApprovedSales.length);
       }
       
       const depositCount = todayApprovedSales.length;
       const todayTotalValue = todayApprovedSales.reduce((sum, t) => sum + t.grossAmount, 0);
       const averageTicket = depositCount > 0 ? todayTotalValue / depositCount : 0;
 
-      // Calcular taxas estimadas
+      // Calculate fees with validation
       const estimatedFees = salesWithGrossValues.reduce((sum, t) => {
         const grossValue = t.grossAmount;
         const netValue = t.amount;
-        return sum + (grossValue - netValue);
+        const feeAmount = grossValue - netValue;
+        return sum + (feeAmount > 0 ? feeAmount : 0);
       }, 0);
 
-      console.log('Métricas calculadas:', {
+      console.log('Enhanced metrics calculated:', {
         totalDeposits,
         totalWithdrawals,
         depositCount,
@@ -184,7 +205,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       });
 
     } catch (error) {
-      console.error('Erro ao buscar métricas:', error);
+      console.error('Error fetching metrics:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -248,6 +269,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
   useEffect(() => {
     if (!user) return;
 
+    // Enhanced real-time subscription with additional security
     const channel = supabase
       .channel('dashboard-metrics-changes')
       .on(
@@ -262,9 +284,11 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           const newRecord = payload.new as any;
           const oldRecord = payload.old as any;
           
-          console.log('Mudança detectada nas transações:', payload);
+          console.log('Transaction change detected:', payload);
           
-          if (newRecord?.status === 'approved' || oldRecord?.status === 'approved') {
+          // Additional validation before refetching
+          if ((newRecord?.user_id === user.id && newRecord?.status === 'approved') || 
+              (oldRecord?.user_id === user.id && oldRecord?.status === 'approved')) {
             fetchMetrics();
           }
         }

@@ -19,6 +19,7 @@ export const useUserBalance = () => {
     try {
       setLoading(true);
       
+      // Enhanced security: Explicit user validation and data fetching
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -26,6 +27,7 @@ export const useUserBalance = () => {
         .single();
 
       if (profileError) {
+        console.error('Error fetching balance:', profileError);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -34,8 +36,16 @@ export const useUserBalance = () => {
         return;
       }
 
-      setBalance(Number(profileData.balance) || 0);
+      // Additional validation to ensure balance is a valid number
+      const validatedBalance = Number(profileData.balance) || 0;
+      if (validatedBalance < 0) {
+        console.warn('Negative balance detected, setting to 0');
+        setBalance(0);
+      } else {
+        setBalance(validatedBalance);
+      }
     } catch (error) {
+      console.error('Error in fetchBalance:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -53,6 +63,7 @@ export const useUserBalance = () => {
   useEffect(() => {
     if (!user) return;
 
+    // Enhanced real-time subscription with additional validation
     const channel = supabase
       .channel('profile-balance-changes')
       .on(
@@ -64,8 +75,11 @@ export const useUserBalance = () => {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          const newBalance = payload.new as any;
-          setBalance(Number(newBalance.balance) || 0);
+          const newRecord = payload.new as any;
+          if (newRecord && newRecord.id === user.id) {
+            const validatedBalance = Number(newRecord.balance) || 0;
+            setBalance(validatedBalance >= 0 ? validatedBalance : 0);
+          }
         }
       )
       .subscribe();

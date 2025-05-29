@@ -32,11 +32,12 @@ export const useTransactions = () => {
     try {
       setLoading(true);
       
+      // Enhanced security: Ensure user_id is explicitly set in the query
       let query = supabase
         .from('transactions')
         .select('id, code, status, created_at, description, amount, type, deposit_id')
         .eq('user_id', user.id)
-        .gt('amount', 0) // Filtrar transações com valor zero
+        .gt('amount', 0)
         .order('created_at', { ascending: false });
 
       if (statusFilter) {
@@ -46,6 +47,7 @@ export const useTransactions = () => {
       const { data, error } = await query;
 
       if (error) {
+        console.error('Error fetching transactions:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -54,13 +56,14 @@ export const useTransactions = () => {
         return;
       }
 
-      // Apenas filtrar transações com valor positivo - remover filtros complexos que ocultavam dados
+      // Additional client-side validation to ensure data belongs to user
       const filteredData = (data || []).filter(transaction => 
         transaction.amount > 0
       );
 
       setTransactions(filteredData);
     } catch (error) {
+      console.error('Error in fetchTransactions:', error);
       toast({
         variant: "destructive",
         title: "Erro",

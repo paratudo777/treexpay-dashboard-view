@@ -37,7 +37,12 @@ export const useUserDetails = (userId: string | null) => {
     try {
       setLoading(true);
       
-      // Buscar dados do usuário
+      // Enhanced security: Validate user ID format
+      if (!id || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        throw new Error('Invalid user ID format');
+      }
+      
+      // Fetch user data with explicit security checks
       const { data: userData, error: userError } = await supabase
         .from('profiles')
         .select('*')
@@ -56,12 +61,12 @@ export const useUserDetails = (userId: string | null) => {
 
       setUserDetails(userData);
 
-      // Buscar transações do usuário - removendo filtros complexos
+      // Fetch transactions with enhanced security validation
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', id)
-        .gt('amount', 0) // Filtrar transações com valor zero
+        .gt('amount', 0)
         .order('created_at', { ascending: false });
 
       if (transactionsError) {
@@ -74,9 +79,9 @@ export const useUserDetails = (userId: string | null) => {
         return;
       }
 
-      // Apenas filtrar transações com valor positivo - simplificar filtros
+      // Additional validation and sanitization
       const filteredTransactions = (transactionsData || []).filter(transaction => 
-        transaction.amount > 0
+        transaction.amount > 0 && transaction.user_id === id
       );
 
       setTransactions(filteredTransactions);
