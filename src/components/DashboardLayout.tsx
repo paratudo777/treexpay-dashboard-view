@@ -1,7 +1,7 @@
 
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Menu } from 'lucide-react';
@@ -15,14 +15,42 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const layoutRef = useRef<HTMLDivElement>(null);
 
   const handleSidebarNavigation = () => {
     // Sempre fechar a sidebar após navegação, sem condições
     setSidebarOpen(false);
   };
 
+  // Garantir limpeza adequada dos event listeners
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isMobile && sidebarOpen && layoutRef.current) {
+        const target = event.target as Node;
+        if (!layoutRef.current.contains(target)) {
+          setSidebarOpen(false);
+        }
+      }
+    };
+
+    if (isMobile && sidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobile, sidebarOpen]);
+
+  // Limpar estado ao desmontar
+  useEffect(() => {
+    return () => {
+      setSidebarOpen(false);
+    };
+  }, []);
+
   return (
-    <div className="flex h-screen bg-background dark">
+    <div ref={layoutRef} className="flex h-screen bg-background dark">
       {/* Backdrop for mobile - deve ficar atrás do sidebar */}
       {isMobile && sidebarOpen && (
         <div 

@@ -1,2 +1,17 @@
 
+# Handle client-side routing for SPA
+# All routes should fallback to index.html with 200 status
 /*    /index.html   200
+
+# Specific routes for better handling
+/dashboard    /index.html   200
+/transactions    /index.html   200
+/depositos    /index.html   200
+/financeiro    /index.html   200
+/ranking    /index.html   200
+/perfil    /index.html   200
+/admin    /index.html   200
+
+# Ensure static assets are served correctly
+/assets/*    /assets/:splat   200
+/favicon.ico    /favicon.ico   200
