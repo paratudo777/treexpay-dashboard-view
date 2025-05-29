@@ -71,64 +71,12 @@ export default function Ranking() {
         {/* Header com título e badge - layout responsivo */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-2xl md:text-3xl font-bold text-treexpay-medium break-words">
-            🏆 Ranking de Vendas
+            🏆 Top 5 Vendedores
           </h1>
           <Badge variant="outline" className="text-xs md:text-sm self-start md:self-auto">
             Ranking Mensal - {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </Badge>
         </div>
-
-        {/* Sua posição no ranking */}
-        {currentUserRanking && (
-          <Card className="bg-treexpay-light/10 border-treexpay-medium">
-            <CardHeader className="p-4 md:p-6">
-              <CardTitle className="text-base md:text-lg">Sua Posição no Ranking</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                  {/* Posição com ícone */}
-                  <div className={`
-                    w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-base flex-shrink-0
-                    ${getPositionColor(currentUserRanking.position)}
-                  `}>
-                    {getPositionIcon(currentUserRanking.position) || `${currentUserRanking.position}º`}
-                  </div>
-                  
-                  {/* Informações do usuário */}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-lg md:text-xl break-all">
-                        {currentUserRanking.apelido}
-                      </span>
-                      <Badge variant="default" className="text-xs bg-treexpay-medium flex-shrink-0">
-                        você
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Posição #{currentUserRanking.position} de {ranking.length + (currentUserRanking.volume_total_mensal === 0 ? 1 : 0)}
-                    </div>
-                    {currentUserRanking.ultima_venda_em && (
-                      <div className="text-xs text-muted-foreground">
-                        Última venda: {new Date(currentUserRanking.ultima_venda_em).toLocaleDateString('pt-BR')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Volume de vendas */}
-                <div className="text-right flex-shrink-0">
-                  <div className="text-xl md:text-2xl font-bold text-treexpay-medium break-all">
-                    {formatCurrency(currentUserRanking.volume_total_mensal)}
-                  </div>
-                  <div className="text-xs text-muted-foreground whitespace-nowrap">
-                    volume mensal
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Campo de edição de apelido - layout mobile otimizado */}
         <Card>
@@ -193,10 +141,10 @@ export default function Ranking() {
           </CardContent>
         </Card>
 
-        {/* Ranking completo - layout mobile otimizado */}
+        {/* Ranking - layout mobile otimizado */}
         <Card>
           <CardHeader className="p-4 md:p-6">
-            <CardTitle className="text-lg md:text-xl">Todos os Vendedores do Mês</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Ranking do Mês</CardTitle>
           </CardHeader>
           <CardContent className="p-4 md:p-6">
             {loading ? (
