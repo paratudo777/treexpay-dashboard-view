@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,9 +28,8 @@ export const useRanking = () => {
     const year = now.getFullYear();
     const month = now.getMonth();
     
-    // Usar UTC para evitar problemas de timezone
-    const startOfMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
-    const endOfMonth = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
     console.log('Período do mês atual:', {
       startOfMonth: startOfMonth.toISOString(),
@@ -69,7 +69,6 @@ export const useRanking = () => {
       }
 
       console.log('Transações aprovadas encontradas:', transactions?.length || 0);
-      console.log('Primeiras 3 transações:', transactions?.slice(0, 3));
 
       // Buscar todos os profiles dos usuários
       const { data: profiles, error: profilesError } = await supabase
@@ -83,19 +82,7 @@ export const useRanking = () => {
 
       console.log('Profiles encontrados:', profiles?.length || 0);
 
-      // Buscar usuários que têm apelido definido
-      const { data: usuarios, error: usuariosError } = await supabase
-        .from('usuarios')
-        .select('*');
-
-      if (usuariosError) {
-        console.error('Erro ao buscar usuários:', usuariosError);
-        throw usuariosError;
-      }
-
-      console.log('Usuários com apelido:', usuarios?.length || 0);
-
-      await processarRanking(transactions || [], profiles || [], usuarios || []);
+      await processarRanking(transactions || [], profiles || []);
 
     } catch (error) {
       console.error('Erro completo no fetchRanking:', error);
@@ -110,21 +97,34 @@ export const useRanking = () => {
   };
 
   const extractGrossValue = (description: string, amount: number) => {
-    // Melhorar a extração do valor bruto da descrição
     console.log('Extraindo valor de:', { description, amount });
+    
+    // Se não há descrição, usar o amount diretamente
+    if (!description) {
+      console.log('Sem descrição, usando amount:', amount);
+      return amount;
+    }
     
     // Tentar extrair valor de diferentes padrões na descrição
     const patterns = [
       /Valor(?:\s+bruto)?:\s*R\$?\s*([\d.,]+)/i,
       /R\$\s*([\d.,]+)/i,
-      /(\d+[.,]\d+)/
+      /(\d+[.,]\d{2})/
     ];
     
     for (const pattern of patterns) {
       const match = description.match(pattern);
       if (match) {
-        // Normalizar o valor: trocar vírgula por ponto e remover pontos de milhares
-        const valueStr = match[1].replace(/\./g, '').replace(',', '.');
+        // Normalizar o valor: trocar vírgula por ponto e remover pontos de milhares se necessário
+        let valueStr = match[1];
+        // Se tem vírgula como separador decimal
+        if (valueStr.includes(',') && valueStr.indexOf(',') > valueStr.length - 4) {
+          valueStr = valueStr.replace(/\./g, '').replace(',', '.');
+        } else {
+          // Se usa ponto como decimal ou não tem decimal
+          valueStr = valueStr.replace(/,/g, '');
+        }
+        
         const value = parseFloat(valueStr);
         if (!isNaN(value) && value > 0) {
           console.log('Valor extraído da descrição:', value);
@@ -133,15 +133,14 @@ export const useRanking = () => {
       }
     }
     
-    console.log('Usando amount da transação:', amount);
+    console.log('Não foi possível extrair da descrição, usando amount:', amount);
     return amount;
   };
 
-  const processarRanking = async (transactions: any[], profiles: any[], usuarios: any[]) => {
+  const processarRanking = async (transactions: any[], profiles: any[]) => {
     console.log('Processando ranking com:', {
       transacoes: transactions.length,
-      profiles: profiles.length,
-      usuarios: usuarios.length
+      profiles: profiles.length
     });
 
     // Calcular volume por usuário baseado em transações aprovadas do mês
@@ -168,54 +167,66 @@ export const useRanking = () => {
     console.log('Volume por usuário calculado:', volumePorUsuario);
 
     // Criar lista de usuários para o ranking
-    const usuariosCompletos = [];
+    const usuariosCompletos: RankingUser[] = [];
     
-    // Primeiro, adicionar usuários com vendas aprovadas no mês
+    // Adicionar usuários com vendas aprovadas no mês
     for (const userId of Object.keys(volumePorUsuario)) {
       const profile = profiles.find(p => p.id === userId);
-      let usuario = usuarios.find(u => u.user_id === userId);
       
-      if (!usuario && profile) {
-        // Criar usuário temporário se não existir na tabela usuarios
-        usuario = {
-          id: `temp-${userId}`,
+      if (profile) {
+        const userWithVolume: RankingUser = {
+          id: `${userId}-ranking`,
           user_id: userId,
           apelido: profile.name || `User${userId.slice(0, 8)}`,
-          volume_total_mensal: 0,
-          ultima_venda_em: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        console.log('Criando usuário temporário:', usuario);
-      }
-      
-      if (usuario) {
-        const userWithVolume = {
-          ...usuario,
-          name: profile?.name,
-          email: profile?.email,
+          name: profile.name,
+          email: profile.email,
           volume_total_mensal: volumePorUsuario[userId].volume,
-          ultima_venda_em: volumePorUsuario[userId].ultimaVenda
+          ultima_venda_em: volumePorUsuario[userId].ultimaVenda,
+          position: 0, // Será definido após ordenação
+          is_current_user: userId === user?.id
         };
         console.log('Adicionando usuário com vendas:', userWithVolume);
         usuariosCompletos.push(userWithVolume);
       }
     }
 
-    // Depois, adicionar usuários com apelidos mas sem vendas no mês atual
-    for (const usuario of usuarios) {
-      if (!volumePorUsuario[usuario.user_id]) {
-        const profile = profiles.find(p => p.id === usuario.user_id);
-        const userWithoutVolume = {
-          ...usuario,
-          name: profile?.name,
-          email: profile?.email,
-          volume_total_mensal: 0,
-          ultima_venda_em: null
-        };
-        console.log('Adicionando usuário sem vendas no mês:', userWithoutVolume);
-        usuariosCompletos.push(userWithoutVolume);
-      }
+    // Buscar usuários da tabela usuarios para completar com apelidos personalizados
+    const { data: usuarios, error: usuariosError } = await supabase
+      .from('usuarios')
+      .select('*');
+
+    if (!usuariosError && usuarios) {
+      console.log('Usuários com apelido:', usuarios.length);
+      
+      // Atualizar apelidos dos usuários que já estão no ranking
+      usuariosCompletos.forEach(user => {
+        const usuarioCustom = usuarios.find(u => u.user_id === user.user_id);
+        if (usuarioCustom && usuarioCustom.apelido) {
+          user.apelido = usuarioCustom.apelido;
+        }
+      });
+
+      // Adicionar usuários com apelidos personalizados mas sem vendas no mês atual
+      usuarios.forEach(usuario => {
+        if (!volumePorUsuario[usuario.user_id]) {
+          const profile = profiles.find(p => p.id === usuario.user_id);
+          if (profile) {
+            const userWithoutVolume: RankingUser = {
+              id: usuario.id,
+              user_id: usuario.user_id,
+              apelido: usuario.apelido,
+              name: profile.name,
+              email: profile.email,
+              volume_total_mensal: 0,
+              ultima_venda_em: null,
+              position: 0, // Será definido após ordenação
+              is_current_user: usuario.user_id === user?.id
+            };
+            console.log('Adicionando usuário sem vendas no mês:', userWithoutVolume);
+            usuariosCompletos.push(userWithoutVolume);
+          }
+        }
+      });
     }
 
     console.log('Total de usuários completos:', usuariosCompletos.length);
@@ -225,8 +236,7 @@ export const useRanking = () => {
       .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
       .map((usuario, index) => ({
         ...usuario,
-        position: index + 1,
-        is_current_user: usuario.user_id === user?.id
+        position: index + 1
       }));
 
     console.log('Ranking ordenado (top 5):', rankingOrdenado.slice(0, 5));
