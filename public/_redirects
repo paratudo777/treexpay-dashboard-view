@@ -7,10 +7,12 @@
 /dashboard    /index.html   200
 /transactions    /index.html   200
 /depositos    /index.html   200
+/checkouts    /index.html   200
 /financeiro    /index.html   200
 /ranking    /index.html   200
 /perfil    /index.html   200
 /admin    /index.html   200
+/checkout/*    /index.html   200
 
 # Ensure static assets are served correctly
 /assets/*    /assets/:splat   200

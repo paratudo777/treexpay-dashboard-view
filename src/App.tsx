@@ -9,6 +9,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Depositos from "./pages/Depositos";
+import Checkouts from "./pages/Checkouts";
+import CheckoutPublic from "./pages/CheckoutPublic";
 import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
 import Ranking from "./pages/Ranking";
@@ -87,6 +89,14 @@ const App = () => {
                     } 
                   />
                   <Route 
+                    path="/checkouts" 
+                    element={
+                      <ProtectedRoute>
+                        <Checkouts />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/financeiro" 
                     element={
                       <ProtectedRoute>
@@ -118,6 +128,7 @@ const App = () => {
                       </AdminRoute>
                     } 
                   />
+                  <Route path="/checkout/:slug" element={<CheckoutPublic />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

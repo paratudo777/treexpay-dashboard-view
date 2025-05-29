@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -20,14 +19,18 @@ const RouterFallback = () => {
         '/dashboard',
         '/transactions',
         '/depositos',
+        '/checkouts',
         '/financeiro',
         '/ranking',
         '/perfil',
         '/admin'
       ];
 
+      // Verificar se é uma rota de checkout público
+      const isCheckoutRoute = /^\/checkout\/[a-zA-Z0-9]+$/.test(currentPath);
+
       // Verificar se a rota é válida
-      const isValidRoute = validRoutes.includes(currentPath);
+      const isValidRoute = validRoutes.includes(currentPath) || isCheckoutRoute;
       
       // Se a rota não é válida e não é a root, redirecionar
       if (!isValidRoute && currentPath !== '/') {

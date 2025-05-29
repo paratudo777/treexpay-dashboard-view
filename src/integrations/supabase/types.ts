@@ -9,6 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      checkout_payments: {
+        Row: {
+          amount: number
+          checkout_id: string
+          created_at: string
+          customer_email: string | null
+          customer_name: string | null
+          id: string
+          net_amount: number
+          paid_at: string | null
+          pix_data: Json | null
+          platform_fee: number
+          status: string
+        }
+        Insert: {
+          amount: number
+          checkout_id: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          id?: string
+          net_amount: number
+          paid_at?: string | null
+          pix_data?: Json | null
+          platform_fee?: number
+          status?: string
+        }
+        Update: {
+          amount?: number
+          checkout_id?: string
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string | null
+          id?: string
+          net_amount?: number
+          paid_at?: string | null
+          pix_data?: Json | null
+          platform_fee?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkout_payments_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "checkouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checkouts: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+          url_slug: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          created_at?: string
+          id?: string
+          title: string
+          updated_at?: string
+          url_slug: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+          url_slug?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       deposits: {
         Row: {
           amount: number
@@ -359,6 +442,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_checkout_slug: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_transaction_code: {
         Args: Record<PropertyKey, never>
         Returns: string
