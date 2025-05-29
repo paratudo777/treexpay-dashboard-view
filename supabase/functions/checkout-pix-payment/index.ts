@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
       throw new Error('Checkout slug is required');
     }
 
-    // Buscar checkout ativo
+    console.log('Buscando checkout com slug:', checkoutSlug);
+
+    // Buscar checkout ativo usando o slug
     const { data: checkout, error: checkoutError } = await supabase
       .from('checkouts')
       .select('*')
@@ -40,8 +42,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (checkoutError || !checkout) {
+      console.error('Erro ao buscar checkout:', checkoutError);
       throw new Error('Checkout not found or inactive');
     }
+
+    console.log('Checkout encontrado:', checkout);
 
     const amountInCents = Math.round(checkout.amount * 100);
 
@@ -49,6 +54,13 @@ Deno.serve(async (req) => {
     const platformFeePercent = 3; // 3%
     const platformFeeAmount = (checkout.amount * platformFeePercent) / 100;
     const netAmount = checkout.amount - platformFeeAmount;
+
+    console.log('Valores calculados:', {
+      amount: checkout.amount,
+      amountInCents,
+      platformFeeAmount,
+      netAmount
+    });
 
     // Criar PIX via NovaEra
     const pixData = {
@@ -63,6 +75,8 @@ Deno.serve(async (req) => {
       }
     };
 
+    console.log('Enviando dados para NovaEra:', pixData);
+
     const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/pix`, {
       method: 'POST',
       headers: {
@@ -73,19 +87,24 @@ Deno.serve(async (req) => {
       body: JSON.stringify(pixData)
     });
 
+    console.log('Resposta NovaEra status:', novaEraResponse.status);
+
     if (!novaEraResponse.ok) {
-      throw new Error('Failed to create PIX payment');
+      const errorText = await novaEraResponse.text();
+      console.error('Erro na resposta NovaEra:', errorText);
+      throw new Error(`Failed to create PIX payment: ${errorText}`);
     }
 
     const novaEraData = await novaEraResponse.json();
+    console.log('Dados recebidos da NovaEra:', novaEraData);
 
     // Salvar pagamento no banco
     const { data: payment, error: paymentError } = await supabase
       .from('checkout_payments')
       .insert({
         checkout_id: checkout.id,
-        customer_name: customerName,
-        customer_email: customerEmail,
+        customer_name: customerName || 'Cliente',
+        customer_email: customerEmail || null,
         amount: checkout.amount,
         platform_fee: platformFeeAmount,
         net_amount: netAmount,
@@ -96,15 +115,18 @@ Deno.serve(async (req) => {
       .single();
 
     if (paymentError) {
+      console.error('Erro ao criar registro de pagamento:', paymentError);
       throw new Error('Failed to create payment record');
     }
+
+    console.log('Pagamento criado com sucesso:', payment.id);
 
     return new Response(
       JSON.stringify({
         success: true,
         payment,
         checkout,
-        pix: novaEraData.data
+        pix: novaEraData.data || novaEraData
       }),
       { 
         status: 200,
