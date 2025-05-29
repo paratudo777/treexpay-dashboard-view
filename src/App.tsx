@@ -16,13 +16,7 @@ import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
-
-// Create empty placeholder pages for sidebar navigation
-const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="min-h-screen bg-background flex items-center justify-center">
-    <h1 className="text-2xl font-bold text-treexpay-medium">{title}</h1>
-  </div>
-);
+import RouterFallback from "./components/RouterFallback";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +27,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <RouterFallback />
           <div className="dark">
             <Routes>
               <Route path="/" element={<Login />} />
