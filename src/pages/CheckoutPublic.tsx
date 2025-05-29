@@ -39,8 +39,7 @@ export default function CheckoutPublic() {
   const [pixData, setPixData] = useState<PixData | null>(null);
   const [nameError, setNameError] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>({ paid: false });
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [externalRef, setExternalRef] = useState<string>('');
+  const [paymentId, setPaymentId] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,26 +48,79 @@ export default function CheckoutPublic() {
     }
   }, [slug]);
 
-  // Verificar status do pagamento a cada 5 segundos quando PIX estiver ativo
+  // Implementar realtime subscription ao invés de polling
   useEffect(() => {
-    if (!pixData || paymentStatus.paid) return;
+    if (!checkout || !paymentId) return;
+
+    console.log('Configurando realtime subscription para checkout:', checkout.id);
+
+    // Subscription para checkout_payments
+    const paymentsChannel = supabase
+      .channel('checkout-payments-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'checkout_payments',
+          filter: `checkout_id=eq.${checkout.id}`
+        },
+        (payload) => {
+          console.log('Payment status changed:', payload);
+          const newRecord = payload.new as any;
+          
+          if (newRecord.status === 'paid') {
+            setPaymentStatus({
+              paid: true,
+              paidAt: newRecord.paid_at
+            });
+            
+            toast({
+              title: "Pagamento confirmado! ✅",
+              description: "Seu pagamento foi processado com sucesso.",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('Limpando realtime subscription');
+      supabase.removeChannel(paymentsChannel);
+    };
+  }, [checkout, paymentId]);
+
+  // Fallback polling mais inteligente com limite de tentativas
+  useEffect(() => {
+    if (!pixData || paymentStatus.paid || !checkout) return;
+
+    let attempts = 0;
+    const maxAttempts = 60; // 5 minutos com intervalos de 5 segundos
 
     const checkPaymentStatus = async () => {
-      if (checkingPayment) return;
+      if (attempts >= maxAttempts) {
+        console.log('Limite de tentativas atingido, parando verificação');
+        return;
+      }
+
+      attempts++;
       
-      setCheckingPayment(true);
       try {
-        const { data } = await supabase
+        console.log(`Verificando status do pagamento (tentativa ${attempts}/${maxAttempts})`);
+        
+        const { data: paymentData } = await supabase
           .from('checkout_payments')
           .select('status, paid_at')
+          .eq('checkout_id', checkout.id)
           .eq('status', 'paid')
-          .like('pix_data', `%${externalRef}%`)
           .maybeSingle();
 
-        if (data) {
+        if (paymentData) {
+          console.log('Pagamento confirmado via polling:', paymentData);
           setPaymentStatus({
             paid: true,
-            paidAt: data.paid_at
+            paidAt: paymentData.paid_at
           });
           
           toast({
@@ -78,14 +130,14 @@ export default function CheckoutPublic() {
         }
       } catch (error) {
         console.error('Erro ao verificar status do pagamento:', error);
-      } finally {
-        setCheckingPayment(false);
       }
     };
 
+    // Verificar a cada 5 segundos
     const interval = setInterval(checkPaymentStatus, 5000);
+    
     return () => clearInterval(interval);
-  }, [pixData, paymentStatus.paid, externalRef, checkingPayment]);
+  }, [pixData, paymentStatus.paid, checkout]);
 
   const validateName = (name: string) => {
     const trimmedName = name.trim();
@@ -157,11 +209,7 @@ export default function CheckoutPublic() {
     setNameError('');
 
     try {
-      console.log('Enviando dados:', {
-        checkoutSlug: checkout.url_slug,
-        customerName: trimmedName,
-        customerEmail: customerEmail.trim() || undefined
-      });
+      console.log('Processando pagamento para checkout:', checkout.id);
 
       const { data, error } = await supabase.functions.invoke('checkout-pix-payment', {
         body: {
@@ -171,7 +219,7 @@ export default function CheckoutPublic() {
         }
       });
 
-      console.log('Resposta recebida:', data);
+      console.log('Resposta do processamento:', data);
 
       if (error) {
         console.error('Erro da função:', error);
@@ -180,7 +228,8 @@ export default function CheckoutPublic() {
 
       if (data.success) {
         setPixData(data.pix);
-        setExternalRef(data.externalRef);
+        setPaymentId(data.payment.id);
+        
         toast({
           title: "PIX gerado com sucesso!",
           description: "Utilize o QR Code para realizar o pagamento.",
@@ -355,12 +404,6 @@ export default function CheckoutPublic() {
                     <p className="text-sm text-muted-foreground mb-4">
                       Escaneie o QR Code ou copie o código PIX
                     </p>
-                    {checkingPayment && (
-                      <p className="text-xs text-treexpay-medium flex items-center justify-center gap-1">
-                        <Loader className="h-3 w-3 animate-spin" />
-                        Verificando pagamento...
-                      </p>
-                    )}
                   </div>
                   <div className="flex justify-center">
                     <img 
