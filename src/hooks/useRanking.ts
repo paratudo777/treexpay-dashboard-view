@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,8 +27,15 @@ export const useRanking = () => {
     const year = now.getFullYear();
     const month = now.getMonth();
     
-    const startOfMonth = new Date(year, month, 1, 0, 0, 0, 0);
-    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    // Usar UTC para evitar problemas de timezone
+    const startOfMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
+
+    console.log('Período do mês atual:', {
+      startOfMonth: startOfMonth.toISOString(),
+      endOfMonth: endOfMonth.toISOString(),
+      currentTime: now.toISOString()
+    });
 
     return { startOfMonth, endOfMonth };
   };
@@ -39,6 +45,8 @@ export const useRanking = () => {
       setLoading(true);
       
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
+
+      console.log('Buscando transações aprovadas do período...');
 
       // Buscar todas as transações aprovadas do tipo 'deposit' do mês atual
       const { data: transactions, error: transactionsError } = await supabase
@@ -56,8 +64,12 @@ export const useRanking = () => {
         .order('created_at', { ascending: false });
 
       if (transactionsError) {
+        console.error('Erro ao buscar transações:', transactionsError);
         throw transactionsError;
       }
+
+      console.log('Transações aprovadas encontradas:', transactions?.length || 0);
+      console.log('Primeiras 3 transações:', transactions?.slice(0, 3));
 
       // Buscar todos os profiles dos usuários
       const { data: profiles, error: profilesError } = await supabase
@@ -65,8 +77,11 @@ export const useRanking = () => {
         .select('*');
 
       if (profilesError) {
+        console.error('Erro ao buscar profiles:', profilesError);
         throw profilesError;
       }
+
+      console.log('Profiles encontrados:', profiles?.length || 0);
 
       // Buscar usuários que têm apelido definido
       const { data: usuarios, error: usuariosError } = await supabase
@@ -74,12 +89,16 @@ export const useRanking = () => {
         .select('*');
 
       if (usuariosError) {
+        console.error('Erro ao buscar usuários:', usuariosError);
         throw usuariosError;
       }
+
+      console.log('Usuários com apelido:', usuarios?.length || 0);
 
       await processarRanking(transactions || [], profiles || [], usuarios || []);
 
     } catch (error) {
+      console.error('Erro completo no fetchRanking:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -91,18 +110,40 @@ export const useRanking = () => {
   };
 
   const extractGrossValue = (description: string, amount: number) => {
-    // Procurar por "Valor: R$ XX" ou "Valor bruto: R$ XX" na descrição
-    const grossValueMatch = description.match(/Valor(?:\s+bruto)?:\s*R\$\s*([\d,]+\.?\d*)/i);
-    if (grossValueMatch) {
-      const value = parseFloat(grossValueMatch[1].replace(',', ''));
-      return isNaN(value) ? amount : value;
+    // Melhorar a extração do valor bruto da descrição
+    console.log('Extraindo valor de:', { description, amount });
+    
+    // Tentar extrair valor de diferentes padrões na descrição
+    const patterns = [
+      /Valor(?:\s+bruto)?:\s*R\$?\s*([\d.,]+)/i,
+      /R\$\s*([\d.,]+)/i,
+      /(\d+[.,]\d+)/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = description.match(pattern);
+      if (match) {
+        // Normalizar o valor: trocar vírgula por ponto e remover pontos de milhares
+        const valueStr = match[1].replace(/\./g, '').replace(',', '.');
+        const value = parseFloat(valueStr);
+        if (!isNaN(value) && value > 0) {
+          console.log('Valor extraído da descrição:', value);
+          return value;
+        }
+      }
     }
     
-    // Se não encontrar padrão específico, usar o amount da transação
+    console.log('Usando amount da transação:', amount);
     return amount;
   };
 
   const processarRanking = async (transactions: any[], profiles: any[], usuarios: any[]) => {
+    console.log('Processando ranking com:', {
+      transacoes: transactions.length,
+      profiles: profiles.length,
+      usuarios: usuarios.length
+    });
+
     // Calcular volume por usuário baseado em transações aprovadas do mês
     const volumePorUsuario = transactions.reduce((acc, transaction) => {
       const userId = transaction.user_id;
@@ -124,6 +165,8 @@ export const useRanking = () => {
       return acc;
     }, {} as Record<string, { volume: number; ultimaVenda: string }>);
 
+    console.log('Volume por usuário calculado:', volumePorUsuario);
+
     // Criar lista de usuários para o ranking
     const usuariosCompletos = [];
     
@@ -133,7 +176,7 @@ export const useRanking = () => {
       let usuario = usuarios.find(u => u.user_id === userId);
       
       if (!usuario && profile) {
-        // Criar usuário temporário se não existir
+        // Criar usuário temporário se não existir na tabela usuarios
         usuario = {
           id: `temp-${userId}`,
           user_id: userId,
@@ -143,16 +186,19 @@ export const useRanking = () => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
+        console.log('Criando usuário temporário:', usuario);
       }
       
       if (usuario) {
-        usuariosCompletos.push({
+        const userWithVolume = {
           ...usuario,
           name: profile?.name,
           email: profile?.email,
           volume_total_mensal: volumePorUsuario[userId].volume,
           ultima_venda_em: volumePorUsuario[userId].ultimaVenda
-        });
+        };
+        console.log('Adicionando usuário com vendas:', userWithVolume);
+        usuariosCompletos.push(userWithVolume);
       }
     }
 
@@ -160,15 +206,19 @@ export const useRanking = () => {
     for (const usuario of usuarios) {
       if (!volumePorUsuario[usuario.user_id]) {
         const profile = profiles.find(p => p.id === usuario.user_id);
-        usuariosCompletos.push({
+        const userWithoutVolume = {
           ...usuario,
           name: profile?.name,
           email: profile?.email,
           volume_total_mensal: 0,
           ultima_venda_em: null
-        });
+        };
+        console.log('Adicionando usuário sem vendas no mês:', userWithoutVolume);
+        usuariosCompletos.push(userWithoutVolume);
       }
     }
+
+    console.log('Total de usuários completos:', usuariosCompletos.length);
 
     // Ordenar por volume total e criar ranking
     const rankingOrdenado = usuariosCompletos
@@ -179,6 +229,8 @@ export const useRanking = () => {
         is_current_user: usuario.user_id === user?.id
       }));
 
+    console.log('Ranking ordenado (top 5):', rankingOrdenado.slice(0, 5));
+
     // Mostrar top 10 no ranking principal
     const top10 = rankingOrdenado.slice(0, 10);
     setRanking(top10);
@@ -186,6 +238,11 @@ export const useRanking = () => {
     // Buscar posição do usuário atual
     const currentUser = rankingOrdenado.find(u => u.is_current_user);
     setCurrentUserRanking(currentUser || null);
+
+    console.log('Ranking final definido:', {
+      top10Count: top10.length,
+      currentUser: currentUser ? `${currentUser.apelido} - Posição ${currentUser.position}` : 'Não encontrado'
+    });
   };
 
   const updateApelido = async (newApelido: string) => {
@@ -265,6 +322,7 @@ export const useRanking = () => {
           table: 'usuarios'
         },
         () => {
+          console.log('Mudança na tabela usuarios detectada, atualizando ranking...');
           fetchRanking();
         }
       )
@@ -283,6 +341,7 @@ export const useRanking = () => {
               'type' in payload.new &&
               payload.new.status === 'approved' &&
               payload.new.type === 'deposit') {
+            console.log('Nova transação aprovada detectada, atualizando ranking...');
             fetchRanking();
           }
         }
@@ -295,6 +354,7 @@ export const useRanking = () => {
           table: 'profiles'
         },
         () => {
+          console.log('Mudança na tabela profiles detectada, atualizando ranking...');
           fetchRanking();
         }
       )
