@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
 
     console.log('Enviando dados para NovaEra:', pixData);
 
-    // Corrigir a URL do endpoint NovaEra
-    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/v1/pix`, {
+    // Usar apenas /pix pois NOVAERA_BASE_URL já contém /api/v1
+    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/pix`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
