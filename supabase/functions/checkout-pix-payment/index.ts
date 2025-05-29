@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       netAmount
     });
 
-    // Criar PIX via NovaEra
+    // Criar PIX via NovaEra - usando endpoint correto
     const pixData = {
       externalId: `checkout_${checkout.id}_${Date.now()}`,
       amount: amountInCents,
@@ -77,7 +77,8 @@ Deno.serve(async (req) => {
 
     console.log('Enviando dados para NovaEra:', pixData);
 
-    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/pix`, {
+    // Corrigir a URL do endpoint NovaEra
+    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/v1/pix`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
