@@ -22,6 +22,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
 
+    console.log('Webhook recebido:', body);
+
     const isApproved = body?.status === "approved" || 
                       body?.transaction?.status === "approved" || 
                       body?.payment?.status === "approved" ||
@@ -29,6 +31,7 @@ Deno.serve(async (req) => {
                       body?.data?.status === "paid";
 
     if (!isApproved) {
+      console.log('Pagamento não aprovado, ignorando webhook');
       return new Response("ok", { 
         status: 200,
         headers: corsHeaders 
@@ -48,8 +51,11 @@ Deno.serve(async (req) => {
       throw new Error('Transaction reference not found');
     }
 
+    console.log('Referência da transação:', transactionRef);
+
     // Verificar se é pagamento de checkout
     if (!transactionRef.startsWith('checkout_')) {
+      console.log('Não é um pagamento de checkout, ignorando');
       return new Response("Not a checkout payment", { 
         status: 200,
         headers: corsHeaders 
@@ -135,6 +141,27 @@ Deno.serve(async (req) => {
       throw updatePaymentError;
     }
 
+    // Atualizar a transação pendente para aprovada
+    const { error: updateTransactionError } = await supabase
+      .from('transactions')
+      .update({ 
+        status: 'approved',
+        description: `Venda Checkout: ${payment.checkouts.title} - Cliente: ${payment.customer_name || 'Anônimo'} (PAGO)`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', payment.checkouts.user_id)
+      .eq('type', 'payment')
+      .eq('amount', payment.net_amount)
+      .eq('status', 'pending')
+      .like('description', `%${payment.checkouts.title}%`);
+
+    if (updateTransactionError) {
+      console.error('Erro ao atualizar transação:', updateTransactionError);
+      // Continua o processo mesmo com erro na transação
+    } else {
+      console.log('Transação atualizada para aprovada');
+    }
+
     // Creditar valor líquido na conta do dono do checkout
     const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
       p_user_id: payment.checkouts.user_id,
@@ -143,24 +170,6 @@ Deno.serve(async (req) => {
 
     if (balanceError) {
       throw balanceError;
-    }
-
-    // Criar transação de recebimento
-    const transactionCode = 'CHK' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-
-    const { error: createTransactionError } = await supabase
-      .from('transactions')
-      .insert({
-        code: transactionCode,
-        user_id: payment.checkouts.user_id,
-        type: 'payment',
-        description: `Pagamento recebido: ${payment.checkouts.title} - Cliente: ${payment.customer_name || 'Anônimo'}`,
-        amount: payment.net_amount,
-        status: 'approved'
-      });
-
-    if (createTransactionError) {
-      throw createTransactionError;
     }
 
     console.log('Pagamento de checkout processado com sucesso:', {

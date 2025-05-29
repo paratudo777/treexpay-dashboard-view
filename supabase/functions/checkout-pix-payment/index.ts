@@ -207,12 +207,35 @@ Deno.serve(async (req) => {
 
     console.log('Pagamento criado com sucesso:', payment.id);
 
+    // Criar transação PENDENTE no banco para o vendedor
+    const transactionCode = 'CHK' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+    const { error: createTransactionError } = await supabase
+      .from('transactions')
+      .insert({
+        code: transactionCode,
+        user_id: checkout.user_id,
+        type: 'payment',
+        description: `Venda Checkout: ${checkout.title} - Cliente: ${customerName} (Aguardando pagamento)`,
+        amount: netAmount,
+        status: 'pending',
+        deposit_id: null
+      });
+
+    if (createTransactionError) {
+      console.error('Erro ao criar transação pendente:', createTransactionError);
+      // Não falha o processo, apenas loga o erro
+    } else {
+      console.log('Transação pendente criada com código:', transactionCode);
+    }
+
     // Retornar dados no formato esperado pela página de checkout
     return new Response(
       JSON.stringify({
         success: true,
         payment,
         checkout,
+        externalRef,
         pix: {
           qrcode: novaEraData.data.pix.qrcode,
           qrcodeText: novaEraData.data.pix.qrcode,
