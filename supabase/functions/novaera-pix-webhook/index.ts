@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
 
     const amountInReais = paidAmount / 100;
 
+    // CORREÇÃO PRINCIPAL: Buscar depósito específico pelo externalRef único
     let depositId = null;
     if (transactionRef.startsWith('deposit_')) {
       depositId = transactionRef.replace('deposit_', '');
@@ -74,6 +75,7 @@ Deno.serve(async (req) => {
       timestamp: new Date().toISOString()
     });
 
+    // Buscar o depósito específico pelo ID único e status waiting
     const { data: depositData, error: findDepositError } = await supabase
       .from('deposits')
       .select('*')
@@ -82,29 +84,42 @@ Deno.serve(async (req) => {
       .single();
 
     if (findDepositError || !depositData) {
-      const { data: altDeposit, error: altError } = await supabase
-        .from('deposits')
-        .select('*')
-        .eq('amount', amountInReais)
-        .eq('status', 'waiting')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (altError || !altDeposit) {
-        throw new Error(`Deposit not found for reference: ${transactionRef}`);
-      }
-
-      await processApprovedDeposit(supabase, altDeposit, amountInReais);
+      console.log('Depósito não encontrado ou já processado:', {
+        depositId,
+        error: findDepositError?.message,
+        timestamp: new Date().toISOString()
+      });
       
       return new Response(
         JSON.stringify({ 
-          success: true, 
-          message: 'PIX payment processed successfully',
-          deposit: altDeposit
+          success: false, 
+          message: 'Deposit not found or already processed',
+          depositId
         }),
         { 
-          status: 200,
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Verificar se o valor do pagamento confere com o valor do depósito
+    if (depositData.amount !== amountInReais) {
+      console.log('Valor do pagamento não confere:', {
+        depositAmount: depositData.amount,
+        paidAmount: amountInReais,
+        timestamp: new Date().toISOString()
+      });
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Payment amount mismatch',
+          expected: depositData.amount,
+          received: amountInReais
+        }),
+        { 
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -116,7 +131,8 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'PIX payment processed successfully',
-        deposit: depositData
+        deposit: depositData,
+        transactionRef
       }),
       { 
         status: 200,
@@ -147,6 +163,21 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     timestamp: new Date().toISOString()
   });
 
+  // Verificar se o depósito já foi processado (proteção adicional)
+  const { data: currentDeposit } = await supabase
+    .from('deposits')
+    .select('status')
+    .eq('id', deposit.id)
+    .single();
+
+  if (currentDeposit?.status !== 'waiting') {
+    console.log('Depósito já processado anteriormente:', {
+      depositId: deposit.id,
+      currentStatus: currentDeposit?.status
+    });
+    return;
+  }
+
   const { data: userSettings, error: settingsError } = await supabase
     .from('settings')
     .select('deposit_fee')
@@ -171,50 +202,46 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     netAmount
   });
 
-  // Atualizar status do depósito
+  // Atualizar status do depósito para 'completed' de forma atômica
   const { error: updateDepositError } = await supabase
     .from('deposits')
     .update({ 
       status: 'completed'
     })
-    .eq('id', deposit.id);
+    .eq('id', deposit.id)
+    .eq('status', 'waiting'); // Condição adicional para evitar race conditions
 
   if (updateDepositError) {
     throw updateDepositError;
   }
 
-  // CORREÇÃO PRINCIPAL: Buscar transação existente pelo valor bruto e data do depósito
-  const depositDate = new Date(deposit.created_at);
-  const startOfDay = new Date(depositDate);
-  startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(depositDate);
-  endOfDay.setHours(23, 59, 59, 999);
-
+  // Buscar transação específica relacionada a este depósito
   const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
     .select('*')
     .eq('user_id', deposit.user_id)
     .eq('type', 'deposit')
-    .eq('amount', amount) // Buscar pelo valor bruto original
-    .gte('created_at', startOfDay.toISOString())
-    .lte('created_at', endOfDay.toISOString())
+    .eq('amount', amount) // Valor bruto original
+    .eq('status', 'pending') // Apenas transações pendentes
+    .gte('created_at', deposit.created_at) // Criada após ou junto com o depósito
     .order('created_at', { ascending: true })
     .limit(1)
     .single();
 
   if (!findTransactionError && existingTransaction) {
-    console.log('Atualizando transação existente:', existingTransaction.id);
+    console.log('Atualizando transação específica encontrada:', existingTransaction.id);
     
-    // Atualizar transação existente com valor líquido e status aprovado
+    // Atualizar transação específica encontrada
     const { error: updateTransactionError } = await supabase
       .from('transactions')
       .update({
         status: 'approved',
-        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)}`,
-        amount: netAmount, // Atualizar para valor líquido
+        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)} (Ref: ${deposit.id})`,
+        amount: netAmount, // Valor líquido
         updated_at: new Date().toISOString()
       })
-      .eq('id', existingTransaction.id);
+      .eq('id', existingTransaction.id)
+      .eq('status', 'pending'); // Condição adicional de segurança
 
     if (updateTransactionError) {
       throw updateTransactionError;
@@ -224,12 +251,13 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
       transactionId: existingTransaction.id,
       originalAmount: amount,
       netAmount: netAmount,
-      newStatus: 'approved'
+      newStatus: 'approved',
+      depositRef: deposit.id
     });
   } else {
-    console.log('Nenhuma transação existente encontrada, criando nova');
+    console.log('Criando nova transação para depósito:', deposit.id);
     
-    // Só criar nova transação se não existir uma para este depósito
+    // Criar nova transação se não encontrar uma pendente específica
     const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
 
     const { error: createTransactionError } = await supabase
@@ -238,7 +266,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
         code: transactionCode,
         user_id: deposit.user_id,
         type: 'deposit',
-        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)}`,
+        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)} (Ref: ${deposit.id})`,
         amount: netAmount,
         status: 'approved'
       });
@@ -251,7 +279,8 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
       code: transactionCode,
       originalAmount: amount,
       netAmount: netAmount,
-      status: 'approved'
+      status: 'approved',
+      depositRef: deposit.id
     });
   }
 
@@ -267,6 +296,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
 
   console.log('Saldo do usuário atualizado:', {
     userId: deposit.user_id,
-    incrementAmount: netAmount
+    incrementAmount: netAmount,
+    depositRef: deposit.id
   });
 }
