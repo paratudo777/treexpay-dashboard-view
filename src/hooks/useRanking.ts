@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +12,8 @@ export interface RankingUser {
   ultima_venda_em: string | null;
   position: number;
   is_current_user: boolean;
+  name?: string;
+  email?: string;
 }
 
 export const useRanking = () => {
@@ -37,28 +40,33 @@ export const useRanking = () => {
       
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
 
-      console.log('Período do ranking:', { 
-        startOfMonth: startOfMonth.toISOString(), 
-        endOfMonth: endOfMonth.toISOString(),
-        currentDate: new Date().toISOString()
-      });
-
-      // Buscar APENAS transações aprovadas do tipo 'deposit' do mês atual
-      const { data: transacoesAprovadas, error: transacoesError } = await supabase
+      // Buscar todas as transações aprovadas do tipo 'deposit' do mês atual
+      const { data: transactions, error: transactionsError } = await supabase
         .from('transactions')
-        .select('user_id, amount, created_at, type, status, code, description')
+        .select(`
+          user_id,
+          amount,
+          created_at,
+          description
+        `)
         .eq('status', 'approved')
         .eq('type', 'deposit')
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString())
         .order('created_at', { ascending: false });
 
-      if (transacoesError) {
-        console.error('Erro ao buscar transações:', transacoesError);
-        throw transacoesError;
+      if (transactionsError) {
+        throw transactionsError;
       }
 
-      console.log('Transações aprovadas do mês encontradas:', transacoesAprovadas?.length || 0);
+      // Buscar todos os profiles dos usuários
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (profilesError) {
+        throw profilesError;
+      }
 
       // Buscar usuários que têm apelido definido
       const { data: usuarios, error: usuariosError } = await supabase
@@ -66,18 +74,12 @@ export const useRanking = () => {
         .select('*');
 
       if (usuariosError) {
-        console.error('Erro ao buscar usuários:', usuariosError);
+        throw usuariosError;
       }
 
-      // Buscar perfis dos usuários
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, name, email');
-
-      await processarRanking(transacoesAprovadas || [], usuarios || [], profiles || []);
+      await processarRanking(transactions || [], profiles || [], usuarios || []);
 
     } catch (error) {
-      console.error('Erro completo no ranking:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -100,44 +102,42 @@ export const useRanking = () => {
     return amount;
   };
 
-  const processarRanking = async (transacoes: any[], usuarios: any[], profiles: any[]) => {
-    // Calcular volume por usuário baseado APENAS em transações aprovadas do mês
-    const volumePorUsuario = transacoes.reduce((acc, transacao) => {
-      const userId = transacao.user_id;
-      const grossValue = extractGrossValue(transacao.description || '', Number(transacao.amount));
+  const processarRanking = async (transactions: any[], profiles: any[], usuarios: any[]) => {
+    // Calcular volume por usuário baseado em transações aprovadas do mês
+    const volumePorUsuario = transactions.reduce((acc, transaction) => {
+      const userId = transaction.user_id;
+      const grossValue = extractGrossValue(transaction.description || '', Number(transaction.amount));
       
       if (!acc[userId]) {
         acc[userId] = {
           volume: 0,
-          ultimaVenda: transacao.created_at
+          ultimaVenda: transaction.created_at
         };
       }
       acc[userId].volume += grossValue;
       
       // Manter a data da venda mais recente
-      if (new Date(transacao.created_at) > new Date(acc[userId].ultimaVenda)) {
-        acc[userId].ultimaVenda = transacao.created_at;
+      if (new Date(transaction.created_at) > new Date(acc[userId].ultimaVenda)) {
+        acc[userId].ultimaVenda = transaction.created_at;
       }
       
       return acc;
     }, {} as Record<string, { volume: number; ultimaVenda: string }>);
-
-    console.log('Volume por usuário calculado (mês atual):', volumePorUsuario);
 
     // Criar lista de usuários para o ranking
     const usuariosCompletos = [];
     
     // Primeiro, adicionar usuários com vendas aprovadas no mês
     for (const userId of Object.keys(volumePorUsuario)) {
-      let usuario = usuarios.find(u => u.user_id === userId);
       const profile = profiles.find(p => p.id === userId);
+      let usuario = usuarios.find(u => u.user_id === userId);
       
-      if (!usuario) {
+      if (!usuario && profile) {
         // Criar usuário temporário se não existir
         usuario = {
           id: `temp-${userId}`,
           user_id: userId,
-          apelido: profile?.name || `User${userId.slice(0, 8)}`,
+          apelido: profile.name || `User${userId.slice(0, 8)}`,
           volume_total_mensal: 0,
           ultima_venda_em: null,
           created_at: new Date().toISOString(),
@@ -145,25 +145,30 @@ export const useRanking = () => {
         };
       }
       
-      usuariosCompletos.push({
-        ...usuario,
-        volume_total_mensal: volumePorUsuario[userId].volume,
-        ultima_venda_em: volumePorUsuario[userId].ultimaVenda
-      });
+      if (usuario) {
+        usuariosCompletos.push({
+          ...usuario,
+          name: profile?.name,
+          email: profile?.email,
+          volume_total_mensal: volumePorUsuario[userId].volume,
+          ultima_venda_em: volumePorUsuario[userId].ultimaVenda
+        });
+      }
     }
 
     // Depois, adicionar usuários com apelidos mas sem vendas no mês atual
     for (const usuario of usuarios) {
       if (!volumePorUsuario[usuario.user_id]) {
+        const profile = profiles.find(p => p.id === usuario.user_id);
         usuariosCompletos.push({
           ...usuario,
+          name: profile?.name,
+          email: profile?.email,
           volume_total_mensal: 0,
           ultima_venda_em: null
         });
       }
     }
-
-    console.log('Usuários completos para ranking:', usuariosCompletos.length);
 
     // Ordenar por volume total e criar ranking
     const rankingOrdenado = usuariosCompletos
@@ -174,8 +179,6 @@ export const useRanking = () => {
         is_current_user: usuario.user_id === user?.id
       }));
 
-    console.log('Ranking final ordenado:', rankingOrdenado);
-
     // Mostrar top 10 no ranking principal
     const top10 = rankingOrdenado.slice(0, 10);
     setRanking(top10);
@@ -183,16 +186,6 @@ export const useRanking = () => {
     // Buscar posição do usuário atual
     const currentUser = rankingOrdenado.find(u => u.is_current_user);
     setCurrentUserRanking(currentUser || null);
-
-    if (currentUser) {
-      console.log('Usuário atual encontrado:', {
-        position: currentUser.position,
-        apelido: currentUser.apelido,
-        volume: currentUser.volume_total_mensal
-      });
-    } else {
-      console.log('Usuário atual não encontrado no ranking');
-    }
   };
 
   const updateApelido = async (newApelido: string) => {
@@ -249,7 +242,6 @@ export const useRanking = () => {
       await fetchRanking();
       return true;
     } catch (error) {
-      console.error('Erro ao atualizar apelido:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -259,70 +251,12 @@ export const useRanking = () => {
     }
   };
 
-  const addVenda = async (valor: number) => {
-    if (!user?.id) return;
-
-    try {
-      // Verificar se o usuário existe na tabela usuarios
-      let { data: usuario } = await supabase
-        .from('usuarios')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!usuario) {
-        // Criar usuário se não existir
-        const { data: newUsuario, error: createError } = await supabase
-          .from('usuarios')
-          .insert({
-            user_id: user.id,
-            apelido: user.name || 'Usuario',
-            volume_total_mensal: 0
-          })
-          .select('id')
-          .single();
-
-        if (createError) throw createError;
-        usuario = newUsuario;
-      }
-
-      // Criar transação de depósito aprovado
-      const { error } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'deposit',
-          amount: valor,
-          status: 'approved',
-          description: `Depósito PIX - Valor: R$ ${valor.toFixed(2)}`,
-          code: `SALE${Date.now()}`
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Venda registrada",
-        description: `Venda de R$ ${valor.toFixed(2)} registrada com sucesso!`,
-      });
-
-      // Atualizar ranking imediatamente
-      await fetchRanking();
-    } catch (error) {
-      console.error('Erro ao registrar venda:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao registrar venda.",
-      });
-    }
-  };
-
   useEffect(() => {
     fetchRanking();
 
-    // Escutar mudanças em tempo real apenas para transações aprovadas
+    // Escutar mudanças em tempo real
     const channel = supabase
-      .channel('ranking-changes')
+      .channel('ranking-realtime')
       .on(
         'postgres_changes',
         {
@@ -331,7 +265,6 @@ export const useRanking = () => {
           table: 'usuarios'
         },
         () => {
-          console.log('Mudança detectada na tabela usuarios');
           fetchRanking();
         }
       )
@@ -343,7 +276,6 @@ export const useRanking = () => {
           table: 'transactions'
         },
         (payload) => {
-          console.log('Mudança detectada na tabela transactions:', payload);
           // Atualizar apenas se for uma transação aprovada de depósito
           if (payload.new && 
               typeof payload.new === 'object' && 
@@ -353,6 +285,17 @@ export const useRanking = () => {
               payload.new.type === 'deposit') {
             fetchRanking();
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        () => {
+          fetchRanking();
         }
       )
       .subscribe();
@@ -367,7 +310,6 @@ export const useRanking = () => {
     loading,
     currentUserRanking,
     updateApelido,
-    addVenda,
     refetch: fetchRanking
   };
 };
