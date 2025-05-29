@@ -52,8 +52,6 @@ export default function CheckoutPublic() {
   useEffect(() => {
     if (!checkout || !paymentId) return;
 
-    console.log('Configurando realtime subscription para checkout:', checkout.id);
-
     // Subscription para checkout_payments
     const paymentsChannel = supabase
       .channel('checkout-payments-changes')
@@ -66,7 +64,6 @@ export default function CheckoutPublic() {
           filter: `checkout_id=eq.${checkout.id}`
         },
         (payload) => {
-          console.log('Payment status changed:', payload);
           const newRecord = payload.new as any;
           
           if (newRecord.status === 'paid') {
@@ -86,7 +83,6 @@ export default function CheckoutPublic() {
 
     // Cleanup subscription on unmount
     return () => {
-      console.log('Limpando realtime subscription');
       supabase.removeChannel(paymentsChannel);
     };
   }, [checkout, paymentId]);
@@ -100,15 +96,12 @@ export default function CheckoutPublic() {
 
     const checkPaymentStatus = async () => {
       if (attempts >= maxAttempts) {
-        console.log('Limite de tentativas atingido, parando verificação');
         return;
       }
 
       attempts++;
       
       try {
-        console.log(`Verificando status do pagamento (tentativa ${attempts}/${maxAttempts})`);
-        
         const { data: paymentData } = await supabase
           .from('checkout_payments')
           .select('status, paid_at')
@@ -117,7 +110,6 @@ export default function CheckoutPublic() {
           .maybeSingle();
 
         if (paymentData) {
-          console.log('Pagamento confirmado via polling:', paymentData);
           setPaymentStatus({
             paid: true,
             paidAt: paymentData.paid_at
@@ -129,7 +121,7 @@ export default function CheckoutPublic() {
           });
         }
       } catch (error) {
-        console.error('Erro ao verificar status do pagamento:', error);
+        // Silently handle error
       }
     };
 
@@ -179,7 +171,6 @@ export default function CheckoutPublic() {
 
       setCheckout(data);
     } catch (error) {
-      console.error('Error fetching checkout:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -209,8 +200,6 @@ export default function CheckoutPublic() {
     setNameError('');
 
     try {
-      console.log('Processando pagamento para checkout:', checkout.id);
-
       const { data, error } = await supabase.functions.invoke('checkout-pix-payment', {
         body: {
           checkoutSlug: checkout.url_slug,
@@ -219,10 +208,7 @@ export default function CheckoutPublic() {
         }
       });
 
-      console.log('Resposta do processamento:', data);
-
       if (error) {
-        console.error('Erro da função:', error);
         throw error;
       }
 
@@ -238,7 +224,6 @@ export default function CheckoutPublic() {
         throw new Error(data.error || "Erro ao gerar PIX");
       }
     } catch (error) {
-      console.error('Error processing payment:', error);
       toast({
         variant: "destructive",
         title: "Erro ao gerar PIX",

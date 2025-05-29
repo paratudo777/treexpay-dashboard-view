@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -49,8 +50,6 @@ Deno.serve(async (req) => {
       throw new Error('Nome do cliente deve ter pelo menos 3 caracteres');
     }
 
-    console.log('Buscando checkout com slug:', checkoutSlug);
-
     // Buscar checkout ativo usando o slug
     const { data: checkout, error: checkoutError } = await supabase
       .from('checkouts')
@@ -60,15 +59,10 @@ Deno.serve(async (req) => {
       .single();
 
     if (checkoutError || !checkout) {
-      console.error('Erro ao buscar checkout:', checkoutError);
       throw new Error('Checkout not found or inactive');
     }
 
-    console.log('Checkout encontrado:', checkout);
-
     // Buscar informações do vendedor (dono do checkout)
-    console.log('Buscando informações do vendedor com ID:', checkout.user_id);
-    
     const { data: sellerProfile, error: sellerError } = await supabase
       .from('profiles')
       .select('id, name, email, phone, cpf')
@@ -76,17 +70,8 @@ Deno.serve(async (req) => {
       .single();
 
     if (sellerError || !sellerProfile) {
-      console.error('Erro ao buscar perfil do vendedor:', sellerError);
       throw new Error('Seller profile not found');
     }
-
-    console.log('Perfil do vendedor encontrado:', {
-      id: sellerProfile.id,
-      name: sellerProfile.name,
-      email: sellerProfile.email,
-      hasCpf: !!sellerProfile.cpf,
-      hasPhone: !!sellerProfile.phone
-    });
 
     // Validar dados obrigatórios do vendedor
     if (!sellerProfile.cpf) {
@@ -109,30 +94,21 @@ Deno.serve(async (req) => {
     const platformFeeAmount = (checkout.amount * platformFeePercent) / 100;
     const netAmount = checkout.amount - platformFeeAmount;
 
-    console.log('Valores calculados:', {
-      amount: checkout.amount,
-      amountInCents,
-      platformFeeAmount,
-      netAmount
-    });
-
     // Preparar autenticação Basic
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
     const externalRef = `checkout_${checkout.id}_${Date.now()}`;
 
-    // CORRIGIR O POSTBACK URL PARA APONTAR PARA O WEBHOOK CORRETO
+    // URL corrigida para o webhook de checkout
     const postbackUrl = `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
-    
-    console.log('🎯 PostbackUrl configurado:', postbackUrl);
 
     // Usar EXATAMENTE a mesma estrutura de dados que funciona no depósito
     const pixPayload = {
       amount: amountInCents,
       paymentMethod: "pix",
       externalRef: externalRef,
-      postbackUrl: postbackUrl, // URL corrigida aqui
+      postbackUrl: postbackUrl,
       customer: {
         name: sellerProfile.name,
         email: sellerProfile.email,
@@ -159,14 +135,6 @@ Deno.serve(async (req) => {
       traceable: false
     };
 
-    console.log('📤 Enviando dados para NovaEra:', {
-      ...pixPayload,
-      customer: {
-        ...pixPayload.customer,
-        document: { type: "cpf", number: "[MASKED]" }
-      }
-    });
-
     // Usar o mesmo endpoint que funciona no depósito: /transactions
     const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
@@ -177,16 +145,12 @@ Deno.serve(async (req) => {
       body: JSON.stringify(pixPayload)
     });
 
-    console.log('Resposta NovaEra status:', novaEraResponse.status);
-
     if (!novaEraResponse.ok) {
       const errorText = await novaEraResponse.text();
-      console.error('Erro na resposta NovaEra:', errorText);
       throw new Error(`Failed to create PIX payment: ${errorText}`);
     }
 
     const novaEraData = await novaEraResponse.json();
-    console.log('Dados recebidos da NovaEra:', novaEraData);
 
     // Salvar pagamento no banco
     const { data: payment, error: paymentError } = await supabase
@@ -205,11 +169,8 @@ Deno.serve(async (req) => {
       .single();
 
     if (paymentError) {
-      console.error('Erro ao criar registro de pagamento:', paymentError);
       throw new Error('Failed to create payment record');
     }
-
-    console.log('Pagamento criado com sucesso:', payment.id);
 
     // Criar transação PENDENTE no banco para o vendedor
     const transactionCode = 'CHK' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -227,10 +188,7 @@ Deno.serve(async (req) => {
       });
 
     if (createTransactionError) {
-      console.error('Erro ao criar transação pendente:', createTransactionError);
       // Não falha o processo, apenas loga o erro
-    } else {
-      console.log('Transação pendente criada com código:', transactionCode);
     }
 
     // Retornar dados no formato esperado pela página de checkout
@@ -254,7 +212,6 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in checkout-pix-payment:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
