@@ -215,21 +215,21 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw updateDepositError;
   }
 
-  // Buscar transação específica relacionada a este depósito
+  // CORREÇÃO PRINCIPAL: Buscar transação existente específica para este depósito
   const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
     .select('*')
     .eq('user_id', deposit.user_id)
     .eq('type', 'deposit')
-    .eq('amount', amount) // Valor bruto original
-    .eq('status', 'pending') // Apenas transações pendentes
+    .eq('status', 'pending')
     .gte('created_at', deposit.created_at) // Criada após ou junto com o depósito
     .order('created_at', { ascending: true })
-    .limit(1)
-    .single();
+    .limit(1);
 
-  if (!findTransactionError && existingTransaction) {
-    console.log('Atualizando transação específica encontrada:', existingTransaction.id);
+  if (!findTransactionError && existingTransaction && existingTransaction.length > 0) {
+    const transactionToUpdate = existingTransaction[0];
+    
+    console.log('Atualizando transação específica encontrada:', transactionToUpdate.id);
     
     // Atualizar transação específica encontrada
     const { error: updateTransactionError } = await supabase
@@ -240,7 +240,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
         amount: netAmount, // Valor líquido
         updated_at: new Date().toISOString()
       })
-      .eq('id', existingTransaction.id)
+      .eq('id', transactionToUpdate.id)
       .eq('status', 'pending'); // Condição adicional de segurança
 
     if (updateTransactionError) {
@@ -248,7 +248,7 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     }
 
     console.log('Transação atualizada com sucesso:', {
-      transactionId: existingTransaction.id,
+      transactionId: transactionToUpdate.id,
       originalAmount: amount,
       netAmount: netAmount,
       newStatus: 'approved',

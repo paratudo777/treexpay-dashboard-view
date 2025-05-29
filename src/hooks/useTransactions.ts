@@ -35,6 +35,7 @@ export const useTransactions = () => {
         .from('transactions')
         .select('id, code, status, created_at, description, amount, type')
         .eq('user_id', user.id)
+        .gt('amount', 0) // Filtrar transações com valor zero
         .order('created_at', { ascending: false });
 
       if (statusFilter) {
@@ -52,7 +53,14 @@ export const useTransactions = () => {
         return;
       }
 
-      setTransactions(data || []);
+      // Filtro adicional para remover transações com valores zerados ou negativos
+      const filteredData = (data || []).filter(transaction => 
+        transaction.amount > 0 && 
+        !transaction.description.includes('Ref:') || // Remover transações com referência técnica
+        transaction.status === 'approved' // Manter apenas aprovadas se tiver referência
+      );
+
+      setTransactions(filteredData);
     } catch (error) {
       toast({
         variant: "destructive",

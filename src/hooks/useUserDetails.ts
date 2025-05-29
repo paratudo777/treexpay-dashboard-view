@@ -55,11 +55,12 @@ export const useUserDetails = (userId: string | null) => {
 
       setUserDetails(userData);
 
-      // Buscar transações do usuário
+      // Buscar transações do usuário com filtros para evitar duplicatas
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', id)
+        .gt('amount', 0) // Filtrar transações com valor zero
         .order('created_at', { ascending: false });
 
       if (transactionsError) {
@@ -72,7 +73,13 @@ export const useUserDetails = (userId: string | null) => {
         return;
       }
 
-      setTransactions(transactionsData || []);
+      // Filtro adicional para remover transações duplicadas ou técnicas
+      const filteredTransactions = (transactionsData || []).filter(transaction => 
+        transaction.amount > 0 && 
+        (!transaction.description.includes('(Ref:') || transaction.status === 'approved')
+      );
+
+      setTransactions(filteredTransactions);
     } catch (error) {
       console.error('Error in fetchUserDetails:', error);
       toast({
