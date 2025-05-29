@@ -150,12 +150,8 @@ serve(async (req) => {
       );
     }
 
-    // Get base URL from environment variable, fallback to request host if not set
-    const baseUrl = Deno.env.get('BASE_URL') || (() => {
-      const url = new URL(req.url);
-      return `${url.protocol}//${url.host}`;
-    })();
-    
+    // Use BASE_URL environment variable with fallback to treexpay.site
+    const baseUrl = Deno.env.get('BASE_URL') || 'https://treexpay.site';
     const checkoutUrl = `${baseUrl}/checkout/${checkoutSlug}`;
 
     console.log(`Created checkout with URL: ${checkoutUrl}`);
