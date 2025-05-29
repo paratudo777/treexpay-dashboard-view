@@ -11,6 +11,7 @@ export type UserTransaction = {
   status: string;
   created_at: string;
   description: string;
+  deposit_id?: string;
 };
 
 export type UserDetails = {
@@ -55,7 +56,7 @@ export const useUserDetails = (userId: string | null) => {
 
       setUserDetails(userData);
 
-      // Buscar transações do usuário com filtros para evitar duplicatas
+      // Buscar transações do usuário - removendo filtros complexos
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
@@ -73,10 +74,9 @@ export const useUserDetails = (userId: string | null) => {
         return;
       }
 
-      // Filtro adicional para remover transações duplicadas ou técnicas
+      // Apenas filtrar transações com valor positivo - simplificar filtros
       const filteredTransactions = (transactionsData || []).filter(transaction => 
-        transaction.amount > 0 && 
-        (!transaction.description.includes('(Ref:') || transaction.status === 'approved')
+        transaction.amount > 0
       );
 
       setTransactions(filteredTransactions);

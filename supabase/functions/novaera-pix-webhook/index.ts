@@ -215,14 +215,16 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
     throw updateDepositError;
   }
 
-  // CORREÇÃO PRINCIPAL: Buscar transação existente específica para este depósito
+  // CORREÇÃO PRINCIPAL: Buscar transação pendente específica vinculada a este depósito
   const { data: existingTransaction, error: findTransactionError } = await supabase
     .from('transactions')
     .select('*')
     .eq('user_id', deposit.user_id)
     .eq('type', 'deposit')
     .eq('status', 'pending')
+    .is('deposit_id', null) // Buscar transações ainda não vinculadas
     .gte('created_at', deposit.created_at) // Criada após ou junto com o depósito
+    .lte('created_at', new Date(new Date(deposit.created_at).getTime() + 60000).toISOString()) // Até 1 minuto após
     .order('created_at', { ascending: true })
     .limit(1);
 
@@ -236,8 +238,9 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
       .from('transactions')
       .update({
         status: 'approved',
-        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)} (Ref: ${deposit.id})`,
-        amount: netAmount, // Valor líquido
+        description: `Depósito PIX - Bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        amount: netAmount, // Valor líquido na transação
+        deposit_id: deposit.id, // Vincular ao depósito específico
         updated_at: new Date().toISOString()
       })
       .eq('id', transactionToUpdate.id)
@@ -266,9 +269,10 @@ async function processApprovedDeposit(supabase: any, deposit: any, amount: numbe
         code: transactionCode,
         user_id: deposit.user_id,
         type: 'deposit',
-        description: `Depósito PIX - Valor: R$ ${amount.toFixed(2)} (Ref: ${deposit.id})`,
-        amount: netAmount,
-        status: 'approved'
+        description: `Depósito PIX - Bruto: R$ ${amount.toFixed(2)} | Líquido: R$ ${netAmount.toFixed(2)}`,
+        amount: netAmount, // Valor líquido na transação
+        status: 'approved',
+        deposit_id: deposit.id // Vincular ao depósito específico
       });
 
     if (createTransactionError) {

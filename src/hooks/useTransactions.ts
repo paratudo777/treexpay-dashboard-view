@@ -14,6 +14,7 @@ export interface Transaction {
   description: string;
   amount: number;
   type: string;
+  deposit_id?: string;
 }
 
 export const useTransactions = () => {
@@ -33,7 +34,7 @@ export const useTransactions = () => {
       
       let query = supabase
         .from('transactions')
-        .select('id, code, status, created_at, description, amount, type')
+        .select('id, code, status, created_at, description, amount, type, deposit_id')
         .eq('user_id', user.id)
         .gt('amount', 0) // Filtrar transações com valor zero
         .order('created_at', { ascending: false });
@@ -53,11 +54,9 @@ export const useTransactions = () => {
         return;
       }
 
-      // Filtro adicional para remover transações com valores zerados ou negativos
+      // Apenas filtrar transações com valor positivo - remover filtros complexos que ocultavam dados
       const filteredData = (data || []).filter(transaction => 
-        transaction.amount > 0 && 
-        !transaction.description.includes('Ref:') || // Remover transações com referência técnica
-        transaction.status === 'approved' // Manter apenas aprovadas se tiver referência
+        transaction.amount > 0
       );
 
       setTransactions(filteredData);

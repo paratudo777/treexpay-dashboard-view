@@ -167,6 +167,7 @@ export type Database = {
           amount: number
           code: string
           created_at: string
+          deposit_id: string | null
           description: string
           id: string
           status: Database["public"]["Enums"]["transaction_status"]
@@ -179,6 +180,7 @@ export type Database = {
           amount: number
           code: string
           created_at?: string
+          deposit_id?: string | null
           description: string
           id?: string
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -191,6 +193,7 @@ export type Database = {
           amount?: number
           code?: string
           created_at?: string
+          deposit_id?: string | null
           description?: string
           id?: string
           status?: Database["public"]["Enums"]["transaction_status"]
@@ -200,6 +203,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "transactions_deposit_id_fkey"
+            columns: ["deposit_id"]
+            isOneToOne: false
+            referencedRelation: "deposits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "transactions_user_id_fkey"
             columns: ["user_id"]
