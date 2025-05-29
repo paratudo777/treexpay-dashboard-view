@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,7 +61,7 @@ export const useRanking = () => {
 
       console.log('Transações aprovadas do mês encontradas:', transacoesAprovadas?.length || 0);
 
-      // Buscar usuários que têm apelido definido
+      // Buscar todos os usuários com apelido definido
       const { data: usuarios, error: usuariosError } = await supabase
         .from('usuarios')
         .select('*');
@@ -69,7 +70,7 @@ export const useRanking = () => {
         console.error('Erro ao buscar usuários:', usuariosError);
       }
 
-      // Buscar perfis dos usuários
+      // Buscar perfis dos usuários para pegar nomes
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, name, email');
@@ -165,8 +166,8 @@ export const useRanking = () => {
 
     console.log('Usuários completos para ranking:', usuariosCompletos.length);
 
-    // Ordenar por volume total e criar ranking
-    const rankingOrdenado = usuariosCompletos
+    // Ordenar por volume total e criar ranking completo
+    const rankingCompleto = usuariosCompletos
       .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
       .map((usuario, index) => ({
         ...usuario,
@@ -174,14 +175,16 @@ export const useRanking = () => {
         is_current_user: usuario.user_id === user?.id
       }));
 
-    console.log('Ranking final ordenado:', rankingOrdenado);
+    console.log('Ranking completo ordenado:', rankingCompleto);
 
-    // Mostrar top 10 no ranking principal
-    const top10 = rankingOrdenado.slice(0, 10);
-    setRanking(top10);
+    // Filtrar apenas usuários com vendas no mês para o ranking principal
+    const rankingComVendas = rankingCompleto.filter(u => u.volume_total_mensal > 0);
     
-    // Buscar posição do usuário atual
-    const currentUser = rankingOrdenado.find(u => u.is_current_user);
+    // Mostrar todos os usuários com vendas no ranking principal
+    setRanking(rankingComVendas);
+    
+    // Buscar posição do usuário atual (mesmo sem vendas)
+    const currentUser = rankingCompleto.find(u => u.is_current_user);
     setCurrentUserRanking(currentUser || null);
 
     if (currentUser) {
