@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  profileError: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -41,6 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           await loadUserProfile(session.user);
         } else {
           setUser(null);
+          setProfileError(null);
           setLoading(false);
         }
       }
@@ -67,9 +71,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loadUserProfile = async (authUser: SupabaseUser) => {
+  const loadUserProfile = async (authUser: SupabaseUser, retryCount = 0) => {
     try {
-      console.log('AuthContext: Carregando perfil do usuário:', authUser.email);
+      console.log('AuthContext: Carregando perfil do usuário:', authUser.email, { retryCount });
+      setProfileError(null);
       
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -79,35 +84,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.error('AuthContext: Erro ao carregar perfil:', error);
-        toast({
-          variant: "destructive",
-          title: "Erro",
-          description: "Erro ao carregar perfil do usuário.",
-        });
-        await supabase.auth.signOut();
+        
+        // Distinguir entre erros temporários e permanentes
+        const isNetworkError = error.message?.includes('network') || 
+                              error.message?.includes('timeout') || 
+                              error.code === 'PGRST301';
+        
+        if (isNetworkError && retryCount < 2) {
+          console.log('AuthContext: Erro de rede detectado, tentando novamente em 1s...');
+          setTimeout(() => {
+            loadUserProfile(authUser, retryCount + 1);
+          }, 1000);
+          return;
+        }
+        
+        // Para outros erros, definir estado de erro mas não fazer logout automático
+        setProfileError('Erro ao carregar perfil do usuário');
         setLoading(false);
         return;
       }
 
       if (!profile) {
         console.error('AuthContext: Perfil não encontrado para usuário:', authUser.email);
-        toast({
-          variant: "destructive",
-          title: "Perfil não encontrado",
-          description: "Perfil de usuário não encontrado.",
-        });
-        await supabase.auth.signOut();
+        setProfileError('Perfil de usuário não encontrado');
         setLoading(false);
         return;
       }
 
       if (!profile.active) {
         console.warn('AuthContext: Usuário inativo:', authUser.email);
-        toast({
-          variant: "destructive",
-          title: "Acesso negado",
-          description: "Usuário inativo. Acesso negado.",
-        });
+        setProfileError('Usuário inativo. Acesso negado.');
+        
+        // Apenas para usuários inativos, fazer logout
         await supabase.auth.signOut();
         setLoading(false);
         return;
@@ -128,13 +136,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       setUser(userData);
+      setProfileError(null);
     } catch (error) {
       console.error('AuthContext: Erro interno ao carregar perfil:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro interno. Tente novamente.",
-      });
+      setProfileError('Erro interno. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -143,6 +148,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+      setProfileError(null);
       
       if (!email?.trim() || !password?.trim()) {
         toast({
@@ -176,40 +182,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (profileError || !profile) {
-        toast({
-          variant: "destructive",
-          title: "Perfil não encontrado",
-          description: "Perfil de usuário não encontrado.",
-        });
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (!profile.active) {
-        toast({
-          variant: "destructive",
-          title: "Acesso negado",
-          description: "Usuário inativo. Acesso negado.",
-        });
-        await supabase.auth.signOut();
-        return;
-      }
-
-      setUser({
-        id: profile.id,
-        email: profile.email,
-        name: profile.name,
-        profile: profile.profile,
-        active: profile.active,
-      });
-
+      // O loadUserProfile será chamado automaticamente pelo onAuthStateChange
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
@@ -231,6 +204,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await supabase.auth.signOut();
       setUser(null);
+      setProfileError(null);
       navigate('/');
       toast({
         title: "Logout realizado",
@@ -245,14 +219,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const isAuthenticated = !!user && !!user.active;
-  const isAdmin = user?.profile === 'admin';
+  const isAuthenticated = !!user && !!user.active && !profileError;
+  const isAdmin = user?.profile === 'admin' && isAuthenticated;
 
   console.log('AuthContext: Estado atual', { 
     hasUser: !!user, 
     isAuthenticated, 
     isAdmin, 
     loading,
+    profileError,
     userProfile: user?.profile 
   });
 
@@ -263,7 +238,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAdmin,
       login, 
       logout,
-      loading
+      loading,
+      profileError
     }}>
       {children}
     </AuthContext.Provider>
