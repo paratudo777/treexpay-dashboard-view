@@ -10,17 +10,39 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
+
+  console.log('Login component - Auth loading:', loading);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login form submitted');
+    
+    if (isSubmitting) {
+      console.log('Login already in progress, skipping');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      console.log('Calling login function');
       await login(email, password);
+      console.log('Login function completed');
+    } catch (error) {
+      console.error('Login error:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Show loading if auth is still initializing
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background dark">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark">
@@ -41,6 +63,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isSubmitting}
                   className="bg-input"
                 />
               </div>
@@ -53,6 +76,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isSubmitting}
                   className="bg-input"
                 />
               </div>

@@ -31,56 +31,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const location = useLocation();
   const { toast } = useToast();
 
-  // Navegação inteligente após login bem-sucedido
-  useEffect(() => {
-    if (user && !loading && location.pathname === '/') {
-      console.log('AuthProvider - User authenticated and on login page, navigating to dashboard');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, loading, location.pathname, navigate]);
+  console.log('AuthProvider render - Current state:', { 
+    loading, 
+    isAuthenticated: !!user && user.active, 
+    userExists: !!user,
+    userActive: user?.active,
+    currentPath: location.pathname
+  });
 
   useEffect(() => {
-    console.log('AuthProvider - Initializing auth check');
+    console.log('AuthProvider - Setting up auth listener');
     
-    // Setup auth state listener primeiro
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthProvider - Auth state changed:', event, session?.user?.id);
+      console.log('AuthProvider - Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
       
       if (event === 'SIGNED_OUT' || !session) {
-        console.log('AuthProvider - User signed out');
+        console.log('AuthProvider - User signed out, clearing state');
         setUser(null);
         setLoading(false);
-      } else if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        return;
+      }
+
+      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         console.log('AuthProvider - User signed in, loading profile');
         await loadUserProfile(session.user);
       }
     });
 
-    // Verificar sessão existente
-    checkSession();
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('AuthProvider - Initial session check:', { hasSession: !!session });
+      if (session?.user) {
+        loadUserProfile(session.user);
+      } else {
+        setLoading(false);
+      }
+    });
 
     return () => {
+      console.log('AuthProvider - Cleaning up auth listener');
       subscription.unsubscribe();
     };
   }, []);
 
-  const checkSession = async () => {
-    try {
-      console.log('AuthProvider - Checking existing session');
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        console.log('AuthProvider - Session found, loading profile');
-        await loadUserProfile(session.user);
-      } else {
-        console.log('AuthProvider - No session found');
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('AuthProvider - Session check error:', error);
-      setLoading(false);
+  // Handle navigation after successful authentication
+  useEffect(() => {
+    if (user && !loading && location.pathname === '/') {
+      console.log('AuthProvider - User authenticated on login page, navigating to dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  };
+  }, [user, loading, location.pathname, navigate]);
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         active: profile.active,
       };
 
-      console.log('AuthProvider - Profile loaded successfully:', { ...userData, profile: userData.profile });
+      console.log('AuthProvider - Profile loaded successfully:', { id: userData.id, profile: userData.profile, active: userData.active });
       setUser(userData);
       setLoading(false);
     } catch (error) {
@@ -150,21 +150,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const login = async (email: string, password: string) => {
-    try {
-      setLoading(true);
-      
-      if (!email?.trim() || !password?.trim()) {
-        toast({
-          variant: "destructive",
-          title: "Dados obrigatórios",
-          description: "Email e senha são obrigatórios.",
-        });
-        setLoading(false);
-        return;
-      }
+    console.log('AuthProvider - Starting login process');
+    
+    if (!email?.trim() || !password?.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Dados obrigatórios",
+        description: "Email e senha são obrigatórios.",
+      });
+      return;
+    }
 
-      console.log('AuthProvider - Starting login process');
-      
+    try {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
@@ -177,7 +174,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
-        setLoading(false);
         return;
       }
 
@@ -187,19 +183,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro",
           description: "Falha na autenticação.",
         });
-        setLoading(false);
         return;
       }
 
-      console.log('AuthProvider - Login API successful, auth state change will handle the rest');
+      console.log('AuthProvider - Login API successful');
       
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
 
-      // Não definir loading como false aqui - deixar o onAuthStateChange gerenciar
-      // Não navegar aqui - deixar o useEffect gerenciar baseado no estado do user
     } catch (error) {
       console.error('AuthProvider - Login catch error:', error);
       toast({
@@ -207,17 +200,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
       console.log('AuthProvider - Starting logout');
-      setLoading(true);
       await supabase.auth.signOut();
       setUser(null);
-      setLoading(false);
       navigate('/');
       toast({
         title: "Logout realizado",
@@ -230,20 +220,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro",
         description: "Erro ao fazer logout.",
       });
-      setLoading(false);
     }
   };
 
   const isAuthenticated = !!user && user.active;
   const isAdmin = user?.profile === 'admin';
-
-  console.log('AuthProvider - Current state:', { 
-    loading, 
-    isAuthenticated, 
-    isAdmin, 
-    userProfile: user?.profile,
-    currentPath: location.pathname
-  });
 
   return (
     <AuthContext.Provider value={{ 
