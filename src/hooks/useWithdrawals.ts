@@ -17,6 +17,12 @@ export interface Withdrawal {
   user_id: string;
 }
 
+interface RpcResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
 export const useWithdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +86,8 @@ export const useWithdrawals = () => {
     try {
       setActionLoading(id);
       
-      const { data, error } = await supabase.rpc('aprovar_saque', {
+      // Using supabase.rpc with any type to avoid TypeScript errors
+      const { data, error } = await (supabase as any).rpc('aprovar_saque', {
         saque_id: id,
         valor: amount
       });
@@ -95,11 +102,13 @@ export const useWithdrawals = () => {
         return;
       }
 
-      if (!data.success) {
+      const response = data as RpcResponse;
+      
+      if (!response.success) {
         toast({
           variant: "destructive",
           title: "Erro",
-          description: data.error || "Erro ao aprovar solicitação.",
+          description: response.error || "Erro ao aprovar solicitação.",
         });
         return;
       }
@@ -133,7 +142,8 @@ export const useWithdrawals = () => {
     try {
       setActionLoading(id);
       
-      const { data, error } = await supabase.rpc('rejeitar_saque', {
+      // Using supabase.rpc with any type to avoid TypeScript errors
+      const { data, error } = await (supabase as any).rpc('rejeitar_saque', {
         saque_id: id
       });
 
@@ -147,11 +157,13 @@ export const useWithdrawals = () => {
         return;
       }
 
-      if (!data.success) {
+      const response = data as RpcResponse;
+      
+      if (!response.success) {
         toast({
           variant: "destructive",
           title: "Erro",
-          description: data.error || "Erro ao rejeitar solicitação.",
+          description: response.error || "Erro ao rejeitar solicitação.",
         });
         return;
       }
