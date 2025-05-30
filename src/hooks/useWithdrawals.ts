@@ -49,7 +49,13 @@ export const useWithdrawals = () => {
         return;
       }
 
-      setWithdrawals(data || []);
+      // Type assertion to ensure status matches our union type
+      const typedData = (data || []).map(item => ({
+        ...item,
+        status: item.status as 'requested' | 'processed' | 'rejected'
+      }));
+
+      setWithdrawals(typedData);
     } catch (error) {
       console.error('Error in fetchUserWithdrawals:', error);
       toast({
@@ -84,13 +90,15 @@ export const useWithdrawals = () => {
         return;
       }
 
-      const formattedData = data?.map(item => ({
+      // Type assertion and data transformation
+      const formattedData = (data || []).map(item => ({
         ...item,
+        status: item.status as 'requested' | 'processed' | 'rejected',
         user: {
           name: item.profiles.name,
           email: item.profiles.email
         }
-      })) || [];
+      }));
 
       setWithdrawals(formattedData);
     } catch (error) {
