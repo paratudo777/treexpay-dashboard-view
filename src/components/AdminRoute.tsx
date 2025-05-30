@@ -9,6 +9,8 @@ interface AdminRouteProps {
 const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
+  console.log('AdminRoute - loading:', loading, 'isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin);
+
   // Aguardar carregamento da autenticação
   if (loading) {
     return (
@@ -18,14 +20,19 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     );
   }
 
+  // Verificar se está autenticado
   if (!isAuthenticated) {
+    console.log('AdminRoute - User not authenticated, redirecting to login');
     return <Navigate to="/" replace />;
   }
 
+  // Verificar se é admin
   if (!isAdmin) {
+    console.log('AdminRoute - User not admin, redirecting to dashboard');
     return <Navigate to="/dashboard" replace />;
   }
 
+  console.log('AdminRoute - Access granted for admin');
   return <>{children}</>;
 };
 

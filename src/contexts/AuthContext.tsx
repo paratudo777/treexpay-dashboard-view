@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
@@ -31,24 +30,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('AuthProvider - Initializing auth check');
     checkSession();
+    
+    // Listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        setLoading(false);
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session.user) {
+          await loadUserProfile(session.user);
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const checkSession = async () => {
     try {
+      console.log('AuthProvider - Checking session');
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
+        console.log('AuthProvider - Session found, loading profile');
         await loadUserProfile(session.user);
+      } else {
+        console.log('AuthProvider - No session found');
+        setLoading(false);
       }
     } catch (error) {
-      // Silent fail for session check
-    } finally {
+      console.error('AuthProvider - Session check error:', error);
       setLoading(false);
     }
   };
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
+      console.log('AuthProvider - Loading profile for user:', authUser.id);
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -56,47 +81,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (error) {
+        console.error('AuthProvider - Profile load error:', error);
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Erro ao carregar perfil do usuário.",
         });
+        setLoading(false);
         return;
       }
 
       if (!profile) {
+        console.log('AuthProvider - Profile not found');
         toast({
           variant: "destructive",
           title: "Perfil não encontrado",
           description: "Perfil de usuário não encontrado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
       if (!profile.active) {
+        console.log('AuthProvider - User inactive');
         toast({
           variant: "destructive",
           title: "Acesso negado",
           description: "Usuário inativo. Acesso negado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
-      setUser({
+      const userData = {
         id: profile.id,
         email: profile.email,
         name: profile.name,
         profile: profile.profile,
         active: profile.active,
-      });
+      };
+
+      console.log('AuthProvider - User profile loaded:', { ...userData, profile: userData.profile });
+      setUser(userData);
+      setLoading(false);
     } catch (error) {
+      console.error('AuthProvider - Load profile error:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
+      setLoading(false);
     }
   };
 
@@ -205,11 +242,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const isAuthenticated = !!user && !!user.active;
+  const isAdmin = user?.profile === 'admin';
+
+  console.log('AuthProvider - Current state:', { 
+    loading, 
+    isAuthenticated, 
+    isAdmin, 
+    userProfile: user?.profile 
+  });
+
   return (
     <AuthContext.Provider value={{ 
       user, 
-      isAuthenticated: !!user && !!user.active, 
-      isAdmin: user?.profile === 'admin',
+      isAuthenticated, 
+      isAdmin,
       login, 
       logout,
       loading
