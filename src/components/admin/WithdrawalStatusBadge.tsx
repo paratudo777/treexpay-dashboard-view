@@ -10,21 +10,21 @@ interface WithdrawalStatusBadgeProps {
 export const WithdrawalStatusBadge = ({ status }: WithdrawalStatusBadgeProps) => {
   const getStatusConfig = (status: WithdrawalStatus) => {
     switch (status) {
-      case "processado":
+      case "processed":
         return {
           icon: <Check className="h-3 w-3" />,
           label: "Processado",
           variant: "default" as const,
           className: "bg-treexpay-green text-white hover:bg-treexpay-green/80"
         };
-      case "solicitado":
+      case "requested":
         return {
           icon: <Clock className="h-3 w-3" />,
           label: "Solicitado",
           variant: "secondary" as const,
           className: "bg-treexpay-yellow text-white hover:bg-treexpay-yellow/80"
         };
-      case "rejeitado":
+      case "rejected":
         return {
           icon: <X className="h-3 w-3" />,
           label: "Rejeitado",
