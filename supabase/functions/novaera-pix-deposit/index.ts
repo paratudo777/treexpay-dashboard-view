@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       throw new Error('Valor inválido');
     }
 
-    if (!userId || !userName || !userEmail) {
+    if (!userId || !userName) {
       throw new Error('Dados do usuário obrigatórios');
     }
 
@@ -104,8 +104,8 @@ Deno.serve(async (req) => {
 
     const externalRef = `deposit_${depositData.id}`;
 
-    // IMPORTANTE: Remover campo de email do customer para evitar envio de notificações
-    // Apenas o checkout deve enviar emails para clientes, não depósitos internos
+    // Usar email genérico para evitar envio de notificações para o usuário real
+    // Garantir que as notificações estejam desabilitadas
     const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         ],
         "customer": {
           "name": userName,
-          // REMOVIDO: email para evitar notificações desnecessárias
+          "email": "noreply@treexpay.site", // Email genérico para evitar notificações
           "phone": userPhone || "5511999999999",
           "document": { 
             "type": "cpf", 

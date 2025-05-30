@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
     // URL corrigida para o webhook de checkout
     const postbackUrl = `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
 
-    // Usar EXATAMENTE a mesma estrutura de dados que funciona no depósito
+    // Usar email genérico para evitar envio de notificações desnecessárias
+    // Se customerEmail foi fornecido, usar ele apenas para fins de registro interno
     const pixPayload = {
       amount: amountInCents,
       paymentMethod: "pix",
@@ -111,7 +112,7 @@ Deno.serve(async (req) => {
       postbackUrl: postbackUrl,
       customer: {
         name: sellerProfile.name,
-        email: sellerProfile.email,
+        email: "noreply@treexpay.site", // Email genérico para evitar notificações
         phone: sellerProfile.phone,
         document: {
           type: "cpf",
@@ -132,7 +133,12 @@ Deno.serve(async (req) => {
         }
       ],
       metadata: "{\"origin\":\"TreexPay Checkout\"}",
-      traceable: false
+      traceable: false,
+      // IMPORTANTE: Desabilitar notificações automáticas
+      notifications: {
+        email: false,
+        sms: false
+      }
     };
 
     // Usar o mesmo endpoint que funciona no depósito: /transactions
