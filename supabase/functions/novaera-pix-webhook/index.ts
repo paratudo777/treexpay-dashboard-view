@@ -62,13 +62,6 @@ Deno.serve(async (req) => {
     }
 
     const depositId = transactionRef.replace('deposit_', '');
-    const paidAmount = body?.data?.amount || body?.amount || body?.paidAmount;
-    
-    if (!paidAmount) {
-      throw new Error('Payment amount not found');
-    }
-
-    const amountInReais = paidAmount / 100;
 
     // Buscar depósito pendente
     const { data: deposit, error: depositError } = await supabase
@@ -105,23 +98,16 @@ Deno.serve(async (req) => {
     const totalFees = percentageFeeAmount + providerFee;
     const netAmount = deposit.amount - totalFees;
 
-    // Criar nova transação
-    const transactionCode = 'TXN' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    // IMPORTANTE: NÃO criar nova transação aqui
+    // A transação já existe e será atualizada pelo trigger do banco
+    // Apenas atualizar o status do depósito para 'completed'
+    const { error: updateDepositError } = await supabase
+      .from('deposits')
+      .update({ status: 'completed' })
+      .eq('id', depositId);
 
-    const { error: createTransactionError } = await supabase
-      .from('transactions')
-      .insert({
-        code: transactionCode,
-        user_id: deposit.user_id,
-        type: 'deposit',
-        description: `Depósito PIX - R$ ${deposit.amount.toFixed(2)} (Líquido: R$ ${netAmount.toFixed(2)})`,
-        amount: netAmount,
-        status: 'approved',
-        deposit_id: deposit.id
-      });
-
-    if (createTransactionError) {
-      throw createTransactionError;
+    if (updateDepositError) {
+      throw updateDepositError;
     }
 
     // Atualizar saldo do usuário
@@ -132,16 +118,6 @@ Deno.serve(async (req) => {
 
     if (balanceError) {
       throw balanceError;
-    }
-
-    // Atualizar status do depósito para completed
-    const { error: updateDepositError } = await supabase
-      .from('deposits')
-      .update({ status: 'completed' })
-      .eq('id', depositId);
-
-    if (updateDepositError) {
-      throw updateDepositError;
     }
 
     return new Response(

@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
+    // Criar depósito no banco - o trigger automaticamente criará a transação
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
       .insert({
@@ -103,6 +104,8 @@ Deno.serve(async (req) => {
 
     const externalRef = `deposit_${depositData.id}`;
 
+    // IMPORTANTE: Remover campo de email do customer para evitar envio de notificações
+    // Apenas o checkout deve enviar emails para clientes, não depósitos internos
     const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
@@ -129,15 +132,20 @@ Deno.serve(async (req) => {
         ],
         "customer": {
           "name": userName,
-          "email": userEmail,
+          // REMOVIDO: email para evitar notificações desnecessárias
           "phone": userPhone || "5511999999999",
           "document": { 
             "type": "cpf", 
             "number": cpfToValidate
           }
         },
-        "metadata": "{\"origin\":\"3Peaks App\"}",
-        "traceable": false
+        "metadata": "{\"origin\":\"TreexPay Deposit\"}",
+        "traceable": false,
+        // IMPORTANTE: Desabilitar notificações automáticas
+        "notifications": {
+          "email": false,
+          "sms": false
+        }
       }),
     });
 
@@ -148,6 +156,7 @@ Deno.serve(async (req) => {
 
     const pixData: NovaEraPixResponse = await pixResponse.json();
 
+    // Atualizar depósito com QR code
     const { error: updateError } = await supabase
       .from('deposits')
       .update({
