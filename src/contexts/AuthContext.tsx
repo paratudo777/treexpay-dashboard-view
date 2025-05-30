@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
@@ -147,45 +148,55 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Dados obrigatórios",
           description: "Email e senha são obrigatórios.",
         });
+        setLoading(false);
         return;
       }
 
-      const { data: session, error } = await supabase.auth.signInWithPassword({
+      console.log('AuthProvider - Starting login process');
+      
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
       });
 
-      if (error) {
+      if (authError) {
+        console.error('AuthProvider - Login error:', authError);
         toast({
           variant: "destructive",
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
+        setLoading(false);
         return;
       }
 
-      if (!session?.user) {
+      if (!authData?.user) {
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Falha na autenticação.",
         });
+        setLoading(false);
         return;
       }
+
+      console.log('AuthProvider - Login successful, loading profile');
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', authData.user.id)
         .maybeSingle();
 
       if (profileError || !profile) {
+        console.error('AuthProvider - Profile error after login:', profileError);
         toast({
           variant: "destructive",
           title: "Perfil não encontrado",
           description: "Perfil de usuário não encontrado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
@@ -196,30 +207,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           description: "Usuário inativo. Acesso negado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
-      setUser({
+      const userData = {
         id: profile.id,
         email: profile.email,
         name: profile.name,
         profile: profile.profile,
         active: profile.active,
-      });
+      };
+
+      setUser(userData);
+      setLoading(false);
 
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
 
+      console.log('AuthProvider - Navigating to dashboard');
       navigate('/dashboard');
     } catch (error) {
+      console.error('AuthProvider - Login catch error:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -234,6 +250,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
+      console.error('AuthProvider - Logout error:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -242,7 +259,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const isAuthenticated = !!user && !!user.active;
+  const isAuthenticated = !!user && user.active;
   const isAdmin = user?.profile === 'admin';
 
   console.log('AuthProvider - Current state:', { 

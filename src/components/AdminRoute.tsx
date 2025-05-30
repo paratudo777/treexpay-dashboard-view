@@ -9,7 +9,7 @@ interface AdminRouteProps {
 const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
 
-  console.log('AdminRoute - loading:', loading, 'isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin);
+  console.log('AdminRoute - Auth state:', { loading, isAuthenticated, isAdmin });
 
   // Aguardar carregamento da autenticação
   if (loading) {
