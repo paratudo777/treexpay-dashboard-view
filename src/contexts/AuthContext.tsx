@@ -40,43 +40,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   useEffect(() => {
-    console.log('AuthProvider - Setting up auth listener');
+    console.log('AuthProvider - Setting up auth initialization');
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthProvider - Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
-      
-      if (event === 'SIGNED_OUT' || !session) {
-        console.log('AuthProvider - User signed out, clearing state');
-        setUser(null);
-        setLoading(false);
-        return;
-      }
+    let authStateSubscription: any = null;
+    
+    const initializeAuth = async () => {
+      try {
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('AuthProvider - Initial session check:', { hasSession: !!session });
+        
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          setLoading(false);
+        }
 
-      if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        console.log('AuthProvider - User signed in, loading profile');
-        await loadUserProfile(session.user);
-      }
-    });
+        // Set up auth state listener
+        authStateSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('AuthProvider - Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
+          
+          if (event === 'SIGNED_OUT' || !session) {
+            console.log('AuthProvider - User signed out, clearing state');
+            setUser(null);
+            setLoading(false);
+            return;
+          }
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthProvider - Initial session check:', { hasSession: !!session });
-      if (session?.user) {
-        loadUserProfile(session.user);
-      } else {
+          if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+            console.log('AuthProvider - User signed in, loading profile');
+            await loadUserProfile(session.user);
+          }
+        });
+
+      } catch (error) {
+        console.error('AuthProvider - Initialization error:', error);
         setLoading(false);
       }
-    });
+    };
+
+    initializeAuth();
 
     return () => {
       console.log('AuthProvider - Cleaning up auth listener');
-      subscription.unsubscribe();
+      if (authStateSubscription) {
+        authStateSubscription.data?.subscription?.unsubscribe();
+      }
     };
   }, []);
 
   // Handle navigation after successful authentication
   useEffect(() => {
-    if (user && !loading && location.pathname === '/') {
+    if (!loading && user && user.active && location.pathname === '/') {
       console.log('AuthProvider - User authenticated on login page, navigating to dashboard');
       navigate('/dashboard', { replace: true });
     }
