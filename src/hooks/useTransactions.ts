@@ -68,6 +68,12 @@ export const useTransactions = () => {
       );
 
       console.log('✅ Transações após filtro:', filteredData.length);
+      
+      // Mostrar detalhes das transações para debug
+      filteredData.forEach(tx => {
+        console.log(`📝 Transação ${tx.code}: Status=${tx.status}, Valor=${tx.amount}, Descrição=${tx.description}`);
+      });
+      
       setTransactions(filteredData);
     } catch (error) {
       console.error('❌ Erro em fetchTransactions:', error);
@@ -81,15 +87,52 @@ export const useTransactions = () => {
     }
   };
 
+  // Função para forçar atualização das transações
+  const refreshTransactions = () => {
+    console.log('🔄 Forçando atualização das transações...');
+    fetchTransactions();
+  };
+
   useEffect(() => {
     console.log('🔄 useTransactions: Efeito executado');
     fetchTransactions();
+  }, [user]);
+
+  // Set up real-time listening for transaction updates
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('🔄 Configurando listener real-time para transações...');
+    
+    const channel = supabase
+      .channel('transactions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('📡 Mudança em transação detectada:', payload);
+          // Atualizar lista quando houver mudanças
+          refreshTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🛑 Desconectando listener real-time...');
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   return {
     transactions,
     loading,
     fetchTransactions,
-    refetch: () => fetchTransactions()
+    refreshTransactions,
+    refetch: refreshTransactions
   };
 };

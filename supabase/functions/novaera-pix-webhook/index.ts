@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
 
-    console.log('📥 Webhook recebido:', JSON.stringify(body, null, 2));
+    console.log('📥 Webhook PIX recebido:', JSON.stringify(body, null, 2));
 
     const transactionRef = body?.externalRef || body?.data?.externalRef || body?.externalId || body?.data?.externalId;
 
@@ -115,6 +115,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Buscar a transação existente vinculada ao depósito
+    const { data: existingTransaction, error: transactionError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('deposit_id', depositId)
+      .eq('status', 'pending')
+      .single();
+
+    if (transactionError || !existingTransaction) {
+      console.log('❌ Transação pendente não encontrada para o depósito:', transactionError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Pending transaction not found for deposit',
+          depositId
+        }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('📋 Transação pendente encontrada:', existingTransaction);
+
     // Buscar configurações de taxa do usuário
     const { data: userSettings } = await supabase
       .from('settings')
@@ -137,8 +162,25 @@ Deno.serve(async (req) => {
       netAmount
     });
 
-    // IMPORTANTE: Atualizar APENAS o status do depósito para 'completed'
-    // O trigger do banco automaticamente atualizará a transação correspondente
+    // CRITICAL: Atualizar a transação EXISTENTE ao invés de criar nova
+    const { error: updateTransactionError } = await supabase
+      .from('transactions')
+      .update({ 
+        status: 'approved',
+        amount: netAmount,
+        description: `Depósito PIX - R$ ${deposit.amount} (Líquido: R$ ${netAmount.toFixed(2)})`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', existingTransaction.id);
+
+    if (updateTransactionError) {
+      console.log('❌ Erro ao atualizar transação:', updateTransactionError);
+      throw updateTransactionError;
+    }
+
+    console.log('✅ Transação atualizada para approved:', existingTransaction.id);
+
+    // Atualizar status do depósito para completed
     const { error: updateDepositError } = await supabase
       .from('deposits')
       .update({ status: 'completed' })
@@ -167,8 +209,9 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Deposit processed successfully',
+        message: 'Deposit processed successfully - Transaction updated',
         depositId,
+        transactionId: existingTransaction.id,
         netAmount,
         transactionRef
       }),
