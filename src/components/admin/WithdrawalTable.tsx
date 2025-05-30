@@ -1,86 +1,38 @@
 
-import { useState } from "react";
+import { useWithdrawals } from "@/hooks/useWithdrawals";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WithdrawalRow } from "./WithdrawalRow";
-
-export type WithdrawalStatus = "solicitado" | "processado" | "rejeitado";
-
-export interface Withdrawal {
-  id: string;
-  name: string;
-  email: string;
-  amount: number;
-  pixKeyType: string;
-  pixKey: string;
-  status: WithdrawalStatus;
-  requestDate: string;
-}
-
-const mockWithdrawals: Withdrawal[] = [
-  {
-    id: '1',
-    name: 'João Silva',
-    email: 'joao@empresa.com',
-    amount: 350.00,
-    pixKeyType: 'email',
-    pixKey: 'joao@pix.com',
-    status: 'solicitado',
-    requestDate: '2025-05-25 10:30',
-  },
-  {
-    id: '2',
-    name: 'Maria Santos',
-    email: 'maria@empresa.com',
-    amount: 150.00,
-    pixKeyType: 'telefone',
-    pixKey: '(11) 99999-0000',
-    status: 'rejeitado',
-    requestDate: '2025-05-24 16:20',
-  },
-  {
-    id: '3',
-    name: 'Carlos Oliveira',
-    email: 'carlos@empresa.com',
-    amount: 500.00,
-    pixKeyType: 'cpf',
-    pixKey: '123.456.789-00',
-    status: 'processado',
-    requestDate: '2025-05-23 14:15',
-  },
-  {
-    id: '4',
-    name: 'Ana Paula',
-    email: 'ana@empresa.com',
-    amount: 75.00,
-    pixKeyType: 'chave_aleatoria',
-    pixKey: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    status: 'solicitado',
-    requestDate: '2025-05-25 09:45',
-  },
-];
+import { Loader2 } from "lucide-react";
 
 export const WithdrawalTable = () => {
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>(mockWithdrawals);
+  const { withdrawals, loading, actionLoading, approveWithdrawal, rejectWithdrawal } = useWithdrawals();
 
-  const handleApprove = (id: string) => {
-    setWithdrawals(prev => 
-      prev.map(withdrawal => 
-        withdrawal.id === id 
-          ? { ...withdrawal, status: 'processado' as WithdrawalStatus }
-          : withdrawal
-      )
-    );
+  const handleApprove = (id: string, amount: number) => {
+    approveWithdrawal(id, amount);
   };
 
   const handleReject = (id: string) => {
-    setWithdrawals(prev => 
-      prev.map(withdrawal => 
-        withdrawal.id === id 
-          ? { ...withdrawal, status: 'rejeitado' as WithdrawalStatus }
-          : withdrawal
-      )
-    );
+    rejectWithdrawal(id);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-treexpay-medium" />
+        <span className="ml-2 text-lg">Carregando solicitações...</span>
+      </div>
+    );
+  }
+
+  if (withdrawals.length === 0) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-lg text-muted-foreground">
+          Nenhuma solicitação de saque encontrada.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border overflow-x-auto">
@@ -104,6 +56,7 @@ export const WithdrawalTable = () => {
               withdrawal={withdrawal}
               onApprove={handleApprove}
               onReject={handleReject}
+              isLoading={actionLoading === withdrawal.id}
             />
           ))}
         </TableBody>
