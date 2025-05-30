@@ -4,7 +4,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { DynamicTransactionChart } from '@/components/dashboard/DynamicTransactionChart';
 import { StatusPieChart } from '@/components/dashboard/StatusPieChart';
 import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
-import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign } from 'lucide-react';
+import { ArrowDownCircle, CreditCard, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { useDashboardMetrics, type Period } from '@/hooks/useDashboardMetrics';
@@ -46,18 +46,12 @@ const Dashboard = () => {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard 
             title="Vendas Realizadas" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalDeposits)} 
             borderColor="#2a9d8f"
             icon={<ArrowDownCircle className="h-4 w-4" />}
-          />
-          <StatCard 
-            title="Saques Realizados" 
-            value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalWithdrawals)} 
-            borderColor="#b00020"
-            icon={<ArrowUpCircle className="h-4 w-4" />}
           />
           <StatCard 
             title="Total de Vendas" 
