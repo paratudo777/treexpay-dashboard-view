@@ -22,7 +22,7 @@ export interface WithdrawalRequest {
 export const useWithdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const fetchUserWithdrawals = async () => {
@@ -33,8 +33,6 @@ export const useWithdrawals = () => {
 
     try {
       setLoading(true);
-      console.log('useWithdrawals - Fetching user withdrawals for:', user.id);
-      
       const { data, error } = await supabase
         .from('withdrawals')
         .select('*')
@@ -51,14 +49,7 @@ export const useWithdrawals = () => {
         return;
       }
 
-      // Type assertion to ensure status matches our union type
-      const typedData = (data || []).map(item => ({
-        ...item,
-        status: item.status as 'requested' | 'processed' | 'rejected'
-      }));
-
-      console.log('useWithdrawals - User withdrawals loaded:', typedData.length);
-      setWithdrawals(typedData);
+      setWithdrawals(data || []);
     } catch (error) {
       console.error('Error in fetchUserWithdrawals:', error);
       toast({
@@ -72,65 +63,38 @@ export const useWithdrawals = () => {
   };
 
   const fetchPendingWithdrawals = async () => {
-    if (!user) {
-      console.log('useWithdrawals - No user found, skipping fetch');
-      setLoading(false);
-      return;
-    }
-
-    if (!isAdmin) {
-      console.log('useWithdrawals - User is not admin, cannot fetch all withdrawals');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      console.log('useWithdrawals - Fetching all withdrawals for admin:', user.id);
-      
       const { data, error } = await supabase
         .from('withdrawals')
         .select(`
           *,
           profiles!inner(name, email)
         `)
+        .eq('status', 'requested')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching all withdrawals:', error);
-        
-        // Don't show error toast for permission issues, just log
-        if (error.code === 'PGRST301' || error.message.includes('permission')) {
-          console.log('useWithdrawals - Permission denied, user may not be admin');
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Erro ao carregar solicitações de saque.",
-          });
-        }
-        setWithdrawals([]);
+        console.error('Error fetching pending withdrawals:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao carregar solicitações de saque.",
+        });
         return;
       }
 
-      // Type assertion and data transformation
-      const formattedData = (data || []).map(item => ({
+      const formattedData = data?.map(item => ({
         ...item,
-        status: item.status as 'requested' | 'processed' | 'rejected',
         user: {
           name: item.profiles.name,
           email: item.profiles.email
         }
-      }));
+      })) || [];
 
-      console.log('useWithdrawals - All withdrawals loaded:', formattedData.length);
       setWithdrawals(formattedData);
     } catch (error) {
       console.error('Error in fetchPendingWithdrawals:', error);
-      
-      // Don't redirect to login for fetch errors
-      setWithdrawals([]);
-      
       toast({
         variant: "destructive",
         title: "Erro",
@@ -145,8 +109,6 @@ export const useWithdrawals = () => {
     if (!user) return false;
 
     try {
-      console.log('useWithdrawals - Creating withdrawal request for user:', user.id);
-      
       const { error } = await supabase
         .from('withdrawals')
         .insert({
@@ -186,9 +148,7 @@ export const useWithdrawals = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchUserWithdrawals();
-    }
+    fetchUserWithdrawals();
   }, [user]);
 
   useEffect(() => {
@@ -205,7 +165,6 @@ export const useWithdrawals = () => {
           filter: `user_id=eq.${user.id}`,
         },
         () => {
-          console.log('useWithdrawals - Real-time update received');
           fetchUserWithdrawals();
         }
       )
