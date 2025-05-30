@@ -49,7 +49,13 @@ export const useWithdrawals = () => {
         return;
       }
 
-      setWithdrawals(data || []);
+      // Type assertion para garantir que o status seja do tipo correto
+      const typedWithdrawals = data?.map(item => ({
+        ...item,
+        status: item.status as 'requested' | 'processed' | 'rejected'
+      })) || [];
+
+      setWithdrawals(typedWithdrawals);
     } catch (error) {
       console.error('Error in fetchUserWithdrawals:', error);
       toast({
@@ -89,8 +95,10 @@ export const useWithdrawals = () => {
         return;
       }
 
+      // Type assertion e formatação dos dados
       const formattedData = data?.map(item => ({
         ...item,
+        status: item.status as 'requested' | 'processed' | 'rejected',
         user: {
           name: item.profiles.name,
           email: item.profiles.email
