@@ -402,9 +402,9 @@ export type Database = {
           created_at: string
           id: string
           pix_key: string
-          pix_key_type: string
+          pix_key_type: Database["public"]["Enums"]["pix_key_type"]
           request_date: string
-          status: string
+          status: Database["public"]["Enums"]["withdrawal_status"]
           user_id: string
         }
         Insert: {
@@ -412,9 +412,9 @@ export type Database = {
           created_at?: string
           id?: string
           pix_key: string
-          pix_key_type: string
+          pix_key_type: Database["public"]["Enums"]["pix_key_type"]
           request_date?: string
-          status?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
           user_id: string
         }
         Update: {
@@ -422,9 +422,9 @@ export type Database = {
           created_at?: string
           id?: string
           pix_key?: string
-          pix_key_type?: string
+          pix_key_type?: Database["public"]["Enums"]["pix_key_type"]
           request_date?: string
-          status?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
           user_id?: string
         }
         Relationships: [

@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
       .update({ 
         status: 'approved',
         amount: netAmount,
-        description: `Depósito PIX - R$ ${deposit.amount.toFixed(2)} (Líquido: R$ ${netAmount.toFixed(2)})`,
+        description: `Depósito PIX - R$ ${deposit.amount} (Líquido: R$ ${netAmount.toFixed(2)})`,
         updated_at: new Date().toISOString()
       })
       .eq('id', existingTransaction.id);
@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
       throw balanceError;
     }
 
-    console.log('✅ Saldo do usuário incrementado:', netAmount.toFixed(2));
+    console.log('✅ Saldo do usuário incrementado:', netAmount);
 
     return new Response(
       JSON.stringify({ 
@@ -212,7 +212,7 @@ Deno.serve(async (req) => {
         message: 'Deposit processed successfully - Transaction updated',
         depositId,
         transactionId: existingTransaction.id,
-        netAmount: parseFloat(netAmount.toFixed(2)),
+        netAmount,
         transactionRef
       }),
       { 
