@@ -77,11 +77,10 @@ export const useWithdrawals = () => {
           *,
           profiles!inner(name, email)
         `)
-        .eq('status', 'requested')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching pending withdrawals:', error);
+        console.error('Error fetching all withdrawals:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -156,7 +155,9 @@ export const useWithdrawals = () => {
   };
 
   useEffect(() => {
-    fetchUserWithdrawals();
+    if (user) {
+      fetchUserWithdrawals();
+    }
   }, [user]);
 
   useEffect(() => {
