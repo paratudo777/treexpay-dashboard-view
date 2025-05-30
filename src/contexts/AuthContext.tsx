@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -27,36 +27,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
-  // Navegação baseada em estado - só navega após user estar definido
+  // Navegação inteligente após login bem-sucedido
   useEffect(() => {
-    if (justLoggedIn && user && !loading) {
-      console.log('AuthProvider - Navigating to dashboard after successful login');
-      setJustLoggedIn(false);
-      navigate('/dashboard');
+    if (user && !loading && location.pathname === '/') {
+      console.log('AuthProvider - User authenticated and on login page, navigating to dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, loading, justLoggedIn, navigate]);
+  }, [user, loading, location.pathname, navigate]);
 
   useEffect(() => {
     console.log('AuthProvider - Initializing auth check');
-    checkSession();
     
-    // Listener para mudanças de autenticação
+    // Setup auth state listener primeiro
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
+      console.log('AuthProvider - Auth state changed:', event, session?.user?.id);
       
       if (event === 'SIGNED_OUT' || !session) {
+        console.log('AuthProvider - User signed out');
         setUser(null);
         setLoading(false);
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session.user) {
-          await loadUserProfile(session.user);
-        }
+      } else if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        console.log('AuthProvider - User signed in, loading profile');
+        await loadUserProfile(session.user);
       }
     });
+
+    // Verificar sessão existente
+    checkSession();
 
     return () => {
       subscription.unsubscribe();
@@ -65,7 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const checkSession = async () => {
     try {
-      console.log('AuthProvider - Checking session');
+      console.log('AuthProvider - Checking existing session');
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
@@ -134,7 +135,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         active: profile.active,
       };
 
-      console.log('AuthProvider - User profile loaded:', { ...userData, profile: userData.profile });
+      console.log('AuthProvider - Profile loaded successfully:', { ...userData, profile: userData.profile });
       setUser(userData);
       setLoading(false);
     } catch (error) {
@@ -190,55 +191,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      console.log('AuthProvider - Login successful, loading profile');
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .maybeSingle();
-
-      if (profileError || !profile) {
-        console.error('AuthProvider - Profile error after login:', profileError);
-        toast({
-          variant: "destructive",
-          title: "Perfil não encontrado",
-          description: "Perfil de usuário não encontrado.",
-        });
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      if (!profile.active) {
-        toast({
-          variant: "destructive",
-          title: "Acesso negado",
-          description: "Usuário inativo. Acesso negado.",
-        });
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      const userData = {
-        id: profile.id,
-        email: profile.email,
-        name: profile.name,
-        profile: profile.profile,
-        active: profile.active,
-      };
-
-      setUser(userData);
-      setJustLoggedIn(true); // Marca que acabou de fazer login
-      setLoading(false);
-
+      console.log('AuthProvider - Login API successful, auth state change will handle the rest');
+      
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
 
-      console.log('AuthProvider - Login completed, navigation will be handled by useEffect');
+      // Não definir loading como false aqui - deixar o onAuthStateChange gerenciar
+      // Não navegar aqui - deixar o useEffect gerenciar baseado no estado do user
     } catch (error) {
       console.error('AuthProvider - Login catch error:', error);
       toast({
@@ -252,8 +213,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
+      console.log('AuthProvider - Starting logout');
+      setLoading(true);
       await supabase.auth.signOut();
       setUser(null);
+      setLoading(false);
       navigate('/');
       toast({
         title: "Logout realizado",
@@ -266,6 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro",
         description: "Erro ao fazer logout.",
       });
+      setLoading(false);
     }
   };
 
@@ -276,7 +241,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loading, 
     isAuthenticated, 
     isAdmin, 
-    userProfile: user?.profile 
+    userProfile: user?.profile,
+    currentPath: location.pathname
   });
 
   return (

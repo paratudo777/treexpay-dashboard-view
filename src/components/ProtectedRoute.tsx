@@ -1,5 +1,5 @@
 
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ProtectedRouteProps {
@@ -8,10 +8,15 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-  console.log('ProtectedRoute - Auth state:', { loading, isAuthenticated });
+  console.log('ProtectedRoute - Auth state:', { 
+    loading, 
+    isAuthenticated, 
+    currentPath: location.pathname 
+  });
 
-  // Aguardar carregamento da autenticação
+  // Mostrar loading enquanto verifica autenticação
   if (loading) {
     console.log('ProtectedRoute - Still loading authentication...');
     return (
@@ -21,13 +26,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Só redirecionar se não estiver carregando E não estiver autenticado
+  // Só redirecionar se definitivamente não estiver autenticado
   if (!isAuthenticated) {
     console.log('ProtectedRoute - User not authenticated, redirecting to login');
     return <Navigate to="/" replace />;
   }
 
-  console.log('ProtectedRoute - Access granted');
+  console.log('ProtectedRoute - Access granted to protected route');
   return <>{children}</>;
 };
 
