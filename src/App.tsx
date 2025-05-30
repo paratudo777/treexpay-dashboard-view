@@ -15,7 +15,6 @@ import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
 import Ranking from "./pages/Ranking";
 import Admin from "./pages/Admin";
-import AdminWithdrawals from "./pages/AdminWithdrawals";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -126,14 +125,6 @@ const App = () => {
                     element={
                       <AdminRoute>
                         <Admin />
-                      </AdminRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/admin/withdrawals" 
-                    element={
-                      <AdminRoute>
-                        <AdminWithdrawals />
                       </AdminRoute>
                     } 
                   />

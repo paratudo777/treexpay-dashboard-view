@@ -7,7 +7,6 @@ interface UserSettings {
   id: string;
   user_id: string;
   deposit_fee: number;
-  withdrawal_fee: number;
 }
 
 export const useUserSettings = (userId?: string) => {
@@ -51,7 +50,7 @@ export const useUserSettings = (userId?: string) => {
     }
   };
 
-  const updateFee = async (feeType: 'deposit_fee' | 'withdrawal_fee', newValue: number) => {
+  const updateFee = async (feeType: 'deposit_fee', newValue: number) => {
     if (!userId || !settings) return false;
 
     try {
@@ -86,7 +85,7 @@ export const useUserSettings = (userId?: string) => {
       
       toast({
         title: "Taxa atualizada",
-        description: `Taxa de ${feeType === 'deposit_fee' ? 'depósito' : 'saque'} atualizada para ${newValue}%.`,
+        description: `Taxa de depósito atualizada para ${newValue}%.`,
       });
       
       return true;

@@ -8,7 +8,6 @@ export type Period = 'today' | 'week' | '15days' | 'month' | 'monthStart' | 'all
 
 interface DashboardMetrics {
   totalDeposits: number;
-  totalWithdrawals: number;
   depositCount: number;
   averageTicket: number;
   feesCollected: number;
@@ -18,7 +17,6 @@ interface DashboardMetrics {
 export const useDashboardMetrics = (period: Period = 'today') => {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalDeposits: 0,
-    totalWithdrawals: 0,
     depositCount: 0,
     averageTicket: 0,
     feesCollected: 0,
@@ -129,26 +127,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       console.log('Validated approved deposits:', validatedSales.length);
 
-      // Fetch withdrawals with same security measures
-      const { data: withdrawals, error: withdrawalsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('type', 'withdrawal')
-        .eq('user_id', user.id)
-        .gte('updated_at', start.toISOString())
-        .lte('updated_at', end.toISOString());
-
-      if (withdrawalsError) {
-        console.error('Error fetching withdrawals:', withdrawalsError);
-      }
-
-      const validatedWithdrawals = (withdrawals || []).filter(transaction => 
-        transaction.user_id === user.id && 
-        transaction.amount > 0 &&
-        transaction.status === 'approved'
-      );
-
       // Calculate metrics with enhanced validation
       const salesWithGrossValues = validatedSales.map(transaction => ({
         ...transaction,
@@ -156,7 +134,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       }));
 
       const totalDeposits = salesWithGrossValues.reduce((sum, t) => sum + t.grossAmount, 0);
-      const totalWithdrawals = validatedWithdrawals.reduce((sum, t) => sum + Number(t.amount), 0);
       
       // Enhanced period filtering for today
       let todayApprovedSales = salesWithGrossValues;
@@ -186,7 +163,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       console.log('Enhanced metrics calculated:', {
         totalDeposits,
-        totalWithdrawals,
         depositCount,
         averageTicket,
         estimatedFees,
@@ -197,7 +173,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
       setMetrics({
         totalDeposits,
-        totalWithdrawals,
         depositCount,
         averageTicket,
         feesCollected: estimatedFees,
