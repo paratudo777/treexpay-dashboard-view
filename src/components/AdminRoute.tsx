@@ -13,6 +13,7 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
 
   // Aguardar carregamento da autenticação
   if (loading) {
+    console.log('AdminRoute - Still loading authentication...');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
