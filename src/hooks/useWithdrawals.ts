@@ -22,11 +22,11 @@ export interface WithdrawalRequest {
 export const useWithdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const fetchUserWithdrawals = async () => {
-    if (!user) {
+    if (!user || !isAuthenticated) {
       setLoading(false);
       return;
     }
@@ -63,6 +63,11 @@ export const useWithdrawals = () => {
   };
 
   const fetchPendingWithdrawals = async () => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -106,7 +111,7 @@ export const useWithdrawals = () => {
   };
 
   const createWithdrawalRequest = async (amount: number, pixKey: string, pixKeyType: string) => {
-    if (!user) return false;
+    if (!user || !isAuthenticated) return false;
 
     try {
       const { error } = await supabase
@@ -148,11 +153,13 @@ export const useWithdrawals = () => {
   };
 
   useEffect(() => {
-    fetchUserWithdrawals();
-  }, [user]);
+    if (isAuthenticated && user) {
+      fetchUserWithdrawals();
+    }
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAuthenticated) return;
 
     const channel = supabase
       .channel('withdrawals-changes')
@@ -173,7 +180,7 @@ export const useWithdrawals = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   return {
     withdrawals,
