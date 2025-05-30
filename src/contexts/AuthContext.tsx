@@ -27,8 +27,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Navegação baseada em estado - só navega após user estar definido
+  useEffect(() => {
+    if (justLoggedIn && user && !loading) {
+      console.log('AuthProvider - Navigating to dashboard after successful login');
+      setJustLoggedIn(false);
+      navigate('/dashboard');
+    }
+  }, [user, loading, justLoggedIn, navigate]);
 
   useEffect(() => {
     console.log('AuthProvider - Initializing auth check');
@@ -220,6 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
 
       setUser(userData);
+      setJustLoggedIn(true); // Marca que acabou de fazer login
       setLoading(false);
 
       toast({
@@ -227,8 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         description: "Bem-vindo à plataforma TreexPay",
       });
 
-      console.log('AuthProvider - Navigating to dashboard');
-      navigate('/dashboard');
+      console.log('AuthProvider - Login completed, navigation will be handled by useEffect');
     } catch (error) {
       console.error('AuthProvider - Login catch error:', error);
       toast({
