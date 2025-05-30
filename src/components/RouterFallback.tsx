@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -13,6 +14,8 @@ const RouterFallback = () => {
     const handleRouteRefresh = () => {
       const currentPath = location.pathname;
       
+      console.log('RouterFallback: Verificando rota:', currentPath);
+      
       // Lista de rotas válidas da aplicação
       const validRoutes = [
         '/',
@@ -23,18 +26,29 @@ const RouterFallback = () => {
         '/financeiro',
         '/ranking',
         '/perfil',
-        '/admin'
+        '/admin',
+        '/admin/saques'  // Adicionada a rota de solicitações de saque
       ];
 
       // Verificar se é uma rota de checkout público
       const isCheckoutRoute = /^\/checkout\/[a-zA-Z0-9]+$/.test(currentPath);
+      
+      // Verificar se é uma rota admin (pattern matching)
+      const isAdminRoute = /^\/admin(\/.*)?$/.test(currentPath);
 
       // Verificar se a rota é válida
-      const isValidRoute = validRoutes.includes(currentPath) || isCheckoutRoute;
+      const isValidRoute = validRoutes.includes(currentPath) || isCheckoutRoute || isAdminRoute;
+      
+      console.log('RouterFallback: Análise da rota', { 
+        currentPath, 
+        isValidRoute, 
+        isCheckoutRoute, 
+        isAdminRoute 
+      });
       
       // Se a rota não é válida e não é a root, redirecionar
       if (!isValidRoute && currentPath !== '/') {
-        console.log('Rota inválida detectada, redirecionando para login:', currentPath);
+        console.log('RouterFallback: Rota inválida detectada, redirecionando para login:', currentPath);
         
         isNavigatingRef.current = true;
         
@@ -43,11 +57,13 @@ const RouterFallback = () => {
           try {
             navigate('/', { replace: true });
           } catch (error) {
-            console.error('Erro na navegação:', error);
+            console.error('RouterFallback: Erro na navegação:', error);
           } finally {
             isNavigatingRef.current = false;
           }
         }, 0);
+      } else {
+        console.log('RouterFallback: Rota válida, não redirecionando');
       }
     };
 
