@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
@@ -32,23 +31,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     checkSession();
+    
+    // Configurar listener para mudanças de autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('AuthContext: Auth state changed', { event, hasSession: !!session });
+        
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const checkSession = async () => {
     try {
+      console.log('AuthContext: Verificando sessão...');
       const { data: { session } } = await supabase.auth.getSession();
+      
       if (session?.user) {
+        console.log('AuthContext: Sessão encontrada, carregando perfil...');
         await loadUserProfile(session.user);
+      } else {
+        console.log('AuthContext: Nenhuma sessão encontrada');
+        setLoading(false);
       }
     } catch (error) {
-      // Silent fail for session check
-    } finally {
+      console.error('AuthContext: Erro ao verificar sessão:', error);
       setLoading(false);
     }
   };
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
+      console.log('AuthContext: Carregando perfil do usuário:', authUser.email);
+      
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -56,47 +78,65 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .maybeSingle();
 
       if (error) {
+        console.error('AuthContext: Erro ao carregar perfil:', error);
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Erro ao carregar perfil do usuário.",
         });
+        await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
       if (!profile) {
+        console.error('AuthContext: Perfil não encontrado para usuário:', authUser.email);
         toast({
           variant: "destructive",
           title: "Perfil não encontrado",
           description: "Perfil de usuário não encontrado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
       if (!profile.active) {
+        console.warn('AuthContext: Usuário inativo:', authUser.email);
         toast({
           variant: "destructive",
           title: "Acesso negado",
           description: "Usuário inativo. Acesso negado.",
         });
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
 
-      setUser({
+      const userData = {
         id: profile.id,
         email: profile.email,
         name: profile.name,
         profile: profile.profile,
         active: profile.active,
+      };
+
+      console.log('AuthContext: Perfil carregado com sucesso:', { 
+        email: userData.email, 
+        profile: userData.profile, 
+        active: userData.active 
       });
+
+      setUser(userData);
     } catch (error) {
+      console.error('AuthContext: Erro interno ao carregar perfil:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -205,11 +245,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const isAuthenticated = !!user && !!user.active;
+  const isAdmin = user?.profile === 'admin';
+
+  console.log('AuthContext: Estado atual', { 
+    hasUser: !!user, 
+    isAuthenticated, 
+    isAdmin, 
+    loading,
+    userProfile: user?.profile 
+  });
+
   return (
     <AuthContext.Provider value={{ 
       user, 
-      isAuthenticated: !!user && !!user.active, 
-      isAdmin: user?.profile === 'admin',
+      isAuthenticated, 
+      isAdmin,
       login, 
       logout,
       loading

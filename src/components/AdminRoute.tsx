@@ -9,34 +9,23 @@ interface AdminRouteProps {
 
 const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { isAuthenticated, isAdmin, loading, user } = useAuth();
-  const [stabilityCheck, setStabilityCheck] = useState(false);
-  const [authStateStable, setAuthStateStable] = useState(false);
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
 
-  // Aguardar estabilidade da autenticação
+  // Aguardar que a verificação de autenticação seja concluída
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setStabilityCheck(true);
-    }, 150);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Verificar se o estado de autenticação está estável
-  useEffect(() => {
-    if (user && isAuthenticated && (isAdmin !== undefined)) {
-      const stabilityTimer = setTimeout(() => {
-        setAuthStateStable(true);
+    if (!loading) {
+      // Pequeno delay para garantir que o estado esteja estável
+      const timer = setTimeout(() => {
+        setAuthCheckComplete(true);
       }, 100);
 
-      return () => clearTimeout(stabilityTimer);
-    } else if (!loading && !user) {
-      // Se não está carregando e não tem usuário, pode definir como estável para permitir redirect
-      setAuthStateStable(true);
+      return () => clearTimeout(timer);
     }
-  }, [user, isAuthenticated, isAdmin, loading]);
+  }, [loading]);
 
-  // Aguardar carregamento completo E estabilidade
-  if (loading || !stabilityCheck || !authStateStable) {
+  // Mostrar loading enquanto verifica autenticação
+  if (loading || !authCheckComplete) {
+    console.log('AdminRoute: Aguardando verificação de autenticação...', { loading, authCheckComplete, user: !!user, isAdmin });
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
@@ -44,20 +33,20 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     );
   }
 
-  // Verificação final: só redireciona se realmente não está autenticado
+  // Verificar se está autenticado
   if (!isAuthenticated || !user) {
-    console.log('AdminRoute: Usuário não autenticado, redirecionando para login');
+    console.log('AdminRoute: Usuário não autenticado, redirecionando para login', { isAuthenticated, user: !!user });
     return <Navigate to="/" replace />;
   }
 
-  // Verificação de admin: só redireciona se confirmadamente não é admin
-  if (isAuthenticated && user && !isAdmin) {
-    console.log('AdminRoute: Usuário autenticado mas não é admin, redirecionando para dashboard');
+  // Verificar se é admin
+  if (!isAdmin) {
+    console.log('AdminRoute: Usuário não é admin, redirecionando para dashboard', { isAdmin, userProfile: user?.profile });
     return <Navigate to="/dashboard" replace />;
   }
 
   // Se chegou até aqui, é admin autenticado
-  console.log('AdminRoute: Usuário admin autenticado, permitindo acesso');
+  console.log('AdminRoute: Usuário admin autenticado, permitindo acesso', { user: user.email, profile: user.profile });
   return <>{children}</>;
 };
 
