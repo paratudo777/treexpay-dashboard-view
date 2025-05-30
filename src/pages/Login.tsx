@@ -15,8 +15,21 @@ const Login = () => {
 
   console.log('Login component - Auth state:', { loading, isAuthenticated });
 
+  // Show loading while auth is initializing
+  if (loading) {
+    console.log('Login - Auth still loading, showing loading screen');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
   // If user is already authenticated, redirect to dashboard
-  if (!loading && isAuthenticated) {
+  if (isAuthenticated) {
     console.log('Login - User already authenticated, redirecting to dashboard');
     return <Navigate to="/dashboard" replace />;
   }
@@ -42,27 +55,20 @@ const Login = () => {
     }
   };
 
-  // Show loading if auth is still initializing
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
-      </div>
-    );
-  }
+  console.log('Login - Rendering login form');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="w-full max-w-md p-4">
-        <Card className="bg-card border-border shadow-lg">
+        <Card className="bg-gray-800 border-gray-700 shadow-lg">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold text-treexpay-medium">TreexPay</CardTitle>
-            <CardDescription>Entre com suas credenciais para acessar a plataforma</CardDescription>
+            <CardTitle className="text-2xl font-bold text-green-500">TreexPay</CardTitle>
+            <CardDescription className="text-gray-300">Entre com suas credenciais para acessar a plataforma</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
+                <Label htmlFor="email" className="text-gray-200">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
@@ -71,11 +77,11 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isSubmitting}
-                  className="bg-input"
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password" className="text-gray-200">Senha</Label>
                 <Input
                   id="password"
                   type="password"
@@ -84,12 +90,12 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isSubmitting}
-                  className="bg-input"
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
                 />
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-treexpay-dark hover:bg-treexpay-medium text-white"
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? 'Entrando...' : 'Entrar'}
@@ -97,7 +103,7 @@ const Login = () => {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col">
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-sm text-gray-400 text-center">
               © 2025 TreexPay. Todos os direitos reservados.
             </p>
           </CardFooter>

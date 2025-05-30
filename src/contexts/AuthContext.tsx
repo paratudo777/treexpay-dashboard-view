@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const initializationRef = useRef(false);
 
   console.log('AuthProvider render - Current state:', { 
     loading, 
@@ -40,19 +41,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   useEffect(() => {
-    console.log('AuthProvider - Setting up auth initialization');
-    
-    let mounted = true;
-    let authStateSubscription: any = null;
+    // Evitar múltiplas inicializações
+    if (initializationRef.current) return;
+    initializationRef.current = true;
+
+    console.log('AuthProvider - Setting up auth initialization (one time only)');
     
     const initializeAuth = async () => {
       try {
-        // Set up auth state listener first
-        authStateSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+        // Set up auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('AuthProvider - Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
           
-          if (!mounted) return;
-
           if (event === 'SIGNED_OUT' || !session) {
             console.log('AuthProvider - User signed out, clearing state');
             setUser(null);
@@ -70,32 +70,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data: { session } } = await supabase.auth.getSession();
         console.log('AuthProvider - Initial session check:', { hasSession: !!session });
         
-        if (mounted) {
-          if (session?.user) {
-            await loadUserProfile(session.user);
-          } else {
-            setLoading(false);
-          }
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        } else {
+          console.log('AuthProvider - No initial session, setting loading to false');
+          setLoading(false);
         }
+
+        return () => {
+          console.log('AuthProvider - Cleaning up auth listener');
+          subscription.unsubscribe();
+        };
 
       } catch (error) {
         console.error('AuthProvider - Initialization error:', error);
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
-    initializeAuth();
-
+    const cleanup = initializeAuth();
+    
     return () => {
-      console.log('AuthProvider - Cleaning up auth listener');
-      mounted = false;
-      if (authStateSubscription) {
-        authStateSubscription.data?.subscription?.unsubscribe();
-      }
+      cleanup?.then(cleanupFn => cleanupFn?.());
     };
-  }, []);
+  }, []); // Empty dependency array para evitar re-execução
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
