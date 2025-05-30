@@ -9,11 +9,17 @@ import { Label } from '@/components/ui/label';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login(email, password);
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -53,9 +59,9 @@ const Login = () => {
               <Button 
                 type="submit" 
                 className="w-full bg-treexpay-dark hover:bg-treexpay-medium text-white"
-                disabled={loading}
+                disabled={isSubmitting}
               >
-                {loading ? 'Entrando...' : 'Entrar'}
+                {isSubmitting ? 'Entrando...' : 'Entrar'}
               </Button>
             </form>
           </CardContent>
