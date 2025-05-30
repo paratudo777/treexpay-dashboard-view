@@ -10,6 +10,8 @@ import { toast } from "@/components/ui/use-toast";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUserBalance } from "@/hooks/useUserBalance";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Financeiro() {
   const [amount, setAmount] = useState("");
@@ -18,6 +20,7 @@ export default function Financeiro() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { balance, loading } = useUserBalance();
+  const { user } = useAuth();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -26,14 +29,25 @@ export default function Financeiro() {
     }).format(value);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!amount || parseFloat(amount) <= 0) {
+    const amountValue = parseFloat(amount);
+    
+    if (!amount || amountValue <= 0) {
       toast({
         variant: "destructive",
         title: "Valor inválido",
         description: "Por favor, insira um valor válido para saque.",
+      });
+      return;
+    }
+
+    if (amountValue > balance) {
+      toast({
+        variant: "destructive",
+        title: "Saldo insuficiente",
+        description: "O valor solicitado é maior que seu saldo disponível.",
       });
       return;
     }
@@ -56,15 +70,59 @@ export default function Financeiro() {
       return;
     }
 
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Erro de autenticação",
+        description: "Usuário não identificado.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      // Gerar código único para a transação
+      const code = 'SAQ' + Date.now().toString();
+      
+      // Criar solicitação de saque (transação pendente)
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          code: code,
+          type: 'withdrawal',
+          amount: amountValue,
+          status: 'pending',
+          description: `Saque PIX solicitado - ${formatCurrency(amountValue)}`
+        });
+
+      if (transactionError) {
+        console.error('Erro ao criar transação:', transactionError);
+        throw transactionError;
+      }
+
+      // Criar registro de saque para aprovação do admin
+      const { error: withdrawalError } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: user.id,
+          amount: amountValue,
+          pix_key_type: pixKeyType,
+          pix_key: pixKey,
+          status: 'requested'
+        });
+
+      if (withdrawalError) {
+        console.error('Erro ao criar solicitação de saque:', withdrawalError);
+        throw withdrawalError;
+      }
+
       setIsSuccess(true);
       
       toast({
-        title: "Solicitação de saque enviada",
-        description: "Você receberá o valor em até D+0.",
+        title: "Solicitação enviada",
+        description: "Sua solicitação de saque foi enviada para aprovação.",
       });
 
       setTimeout(() => {
@@ -73,7 +131,17 @@ export default function Financeiro() {
         setPixKey("");
         setPixKeyType("");
       }, 3000);
-    }, 1500);
+      
+    } catch (error) {
+      console.error('Erro ao processar saque:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro ao processar solicitação de saque. Tente novamente.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getPlaceholderByKeyType = () => {
@@ -114,7 +182,7 @@ export default function Financeiro() {
           <CardHeader>
             <CardTitle>Solicitar Saque PIX</CardTitle>
             <CardDescription>
-              Informe os dados para transferência via PIX
+              Informe os dados para transferência via PIX. Sua solicitação será analisada e processada em até 24h.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -123,7 +191,7 @@ export default function Financeiro() {
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
                 <AlertTitle>Solicitação enviada!</AlertTitle>
                 <AlertDescription>
-                  Você receberá o valor em até D+0. O valor será enviado para a chave PIX informada.
+                  Sua solicitação de saque foi enviada para aprovação. Você será notificado quando for processada.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -134,12 +202,15 @@ export default function Financeiro() {
                     id="amount"
                     type="number"
                     step="0.01"
-                    min="0"
+                    min="0.01"
                     max={balance}
                     placeholder="0,00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                   />
+                  <p className="text-sm text-muted-foreground">
+                    Saldo disponível: {formatCurrency(balance)}
+                  </p>
                 </div>
                 
                 <div className="space-y-2">
@@ -153,7 +224,7 @@ export default function Financeiro() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cpf">CPF</SelectItem>
-                      <SelectItem value="email">E-mail (Gmail)</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
                       <SelectItem value="random">Chave aleatória</SelectItem>
                       <SelectItem value="phone">Telefone</SelectItem>
                       <SelectItem value="cnpj">CNPJ</SelectItem>
@@ -173,15 +244,15 @@ export default function Financeiro() {
                   />
                 </div>
                 
-                <Alert variant="destructive" className="bg-red-900/20 border-red-900/50">
+                <Alert variant="destructive" className="bg-orange-900/20 border-orange-900/50">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Confira os dados informados. O valor será enviado para a chave PIX cadastrada.
+                    Confira os dados informados. A solicitação será enviada para aprovação e processada em até 24h.
                   </AlertDescription>
                 </Alert>
                 
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? "Processando..." : "Solicitar Saque"}
+                  {isSubmitting ? "Enviando..." : "Solicitar Saque"}
                 </Button>
               </form>
             )}
