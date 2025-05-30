@@ -108,7 +108,7 @@ export default function Financeiro() {
         .insert({
           user_id: user.id,
           amount: amountValue,
-          pix_key_type: pixKeyType,
+          pix_key_type: pixKeyType as 'cpf' | 'email' | 'phone' | 'random' | 'cnpj',
           pix_key: pixKey,
           status: 'requested'
         });
