@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,9 +11,15 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated } = useAuth();
 
-  console.log('Login component - Auth loading:', loading);
+  console.log('Login component - Auth state:', { loading, isAuthenticated });
+
+  // If user is already authenticated, redirect to dashboard
+  if (!loading && isAuthenticated) {
+    console.log('Login - User already authenticated, redirecting to dashboard');
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

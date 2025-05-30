@@ -42,24 +42,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     console.log('AuthProvider - Setting up auth initialization');
     
+    let mounted = true;
     let authStateSubscription: any = null;
     
     const initializeAuth = async () => {
       try {
-        // Get initial session
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('AuthProvider - Initial session check:', { hasSession: !!session });
-        
-        if (session?.user) {
-          await loadUserProfile(session.user);
-        } else {
-          setLoading(false);
-        }
-
-        // Set up auth state listener
+        // Set up auth state listener first
         authStateSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('AuthProvider - Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
           
+          if (!mounted) return;
+
           if (event === 'SIGNED_OUT' || !session) {
             console.log('AuthProvider - User signed out, clearing state');
             setUser(null);
@@ -73,9 +66,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         });
 
+        // Get initial session
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('AuthProvider - Initial session check:', { hasSession: !!session });
+        
+        if (mounted) {
+          if (session?.user) {
+            await loadUserProfile(session.user);
+          } else {
+            setLoading(false);
+          }
+        }
+
       } catch (error) {
         console.error('AuthProvider - Initialization error:', error);
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -83,19 +90,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       console.log('AuthProvider - Cleaning up auth listener');
+      mounted = false;
       if (authStateSubscription) {
         authStateSubscription.data?.subscription?.unsubscribe();
       }
     };
   }, []);
-
-  // Handle navigation after successful authentication
-  useEffect(() => {
-    if (!loading && user && user.active && location.pathname === '/') {
-      console.log('AuthProvider - User authenticated on login page, navigating to dashboard');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, loading, location.pathname, navigate]);
 
   const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
@@ -201,12 +201,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      console.log('AuthProvider - Login API successful');
+      console.log('AuthProvider - Login API successful, navigating to dashboard');
       
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
+
+      // Navigate to dashboard after successful login
+      navigate('/dashboard', { replace: true });
 
     } catch (error) {
       console.error('AuthProvider - Login catch error:', error);
