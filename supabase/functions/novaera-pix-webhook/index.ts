@@ -22,14 +22,20 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const body = await req.json();
 
+    console.log('📥 Webhook recebido:', JSON.stringify(body, null, 2));
+
     const transactionRef = body?.externalRef || body?.data?.externalRef || body?.externalId || body?.data?.externalId;
 
     if (!transactionRef) {
+      console.log('❌ Referência da transação não encontrada');
       throw new Error('Transaction reference not found');
     }
 
+    console.log('🔍 Referência encontrada:', transactionRef);
+
     // Verificar se é transação de checkout - se for, ignorar aqui
     if (transactionRef.startsWith('checkout_')) {
+      console.log('✅ Transação de checkout ignorada no webhook de depósito');
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -45,6 +51,7 @@ Deno.serve(async (req) => {
 
     // Verificar se é transação de depósito válida
     if (!transactionRef.startsWith('deposit_')) {
+      console.log('❌ Formato de referência de depósito inválido:', transactionRef);
       throw new Error('Invalid deposit reference format: ' + transactionRef);
     }
 
@@ -54,7 +61,10 @@ Deno.serve(async (req) => {
                       body?.status === "Compra Aprovada" ||
                       body?.data?.status === "paid";
 
+    console.log('💳 Status do pagamento aprovado:', isApproved);
+
     if (!isApproved) {
+      console.log('⏳ Pagamento não aprovado, ignorando webhook');
       return new Response("ok", { 
         status: 200,
         headers: corsHeaders 
@@ -62,24 +72,44 @@ Deno.serve(async (req) => {
     }
 
     const depositId = transactionRef.replace('deposit_', '');
+    console.log('🏦 ID do depósito extraído:', depositId);
 
     // Buscar depósito pendente
     const { data: deposit, error: depositError } = await supabase
       .from('deposits')
       .select('*')
       .eq('id', depositId)
-      .eq('status', 'waiting')
       .single();
 
     if (depositError || !deposit) {
+      console.log('❌ Depósito não encontrado:', depositError);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Deposit not found or already processed',
-          depositId
+          message: 'Deposit not found',
+          depositId,
+          error: depositError
         }),
         { 
           status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    console.log('📄 Depósito encontrado:', deposit);
+
+    // Se o depósito já foi processado, não fazer nada
+    if (deposit.status === 'completed') {
+      console.log('✅ Depósito já foi processado anteriormente');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Deposit already processed',
+          depositId
+        }),
+        { 
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -98,17 +128,28 @@ Deno.serve(async (req) => {
     const totalFees = percentageFeeAmount + providerFee;
     const netAmount = deposit.amount - totalFees;
 
-    // IMPORTANTE: NÃO criar nova transação aqui
-    // A transação já existe e será atualizada pelo trigger do banco
-    // Apenas atualizar o status do depósito para 'completed'
+    console.log('💰 Cálculo de taxas:', {
+      amount: deposit.amount,
+      userFeePercent,
+      providerFee,
+      percentageFeeAmount,
+      totalFees,
+      netAmount
+    });
+
+    // IMPORTANTE: Atualizar APENAS o status do depósito para 'completed'
+    // O trigger do banco automaticamente atualizará a transação correspondente
     const { error: updateDepositError } = await supabase
       .from('deposits')
       .update({ status: 'completed' })
       .eq('id', depositId);
 
     if (updateDepositError) {
+      console.log('❌ Erro ao atualizar depósito:', updateDepositError);
       throw updateDepositError;
     }
+
+    console.log('✅ Depósito atualizado para completed');
 
     // Atualizar saldo do usuário
     const { error: balanceError } = await supabase.rpc('incrementar_saldo_usuario', {
@@ -117,8 +158,11 @@ Deno.serve(async (req) => {
     });
 
     if (balanceError) {
+      console.log('❌ Erro ao incrementar saldo:', balanceError);
       throw balanceError;
     }
+
+    console.log('✅ Saldo do usuário incrementado:', netAmount);
 
     return new Response(
       JSON.stringify({ 
@@ -135,6 +179,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    console.log('❌ Erro no webhook:', error.message);
     return new Response(
       JSON.stringify({ 
         success: false, 

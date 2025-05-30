@@ -32,6 +32,9 @@ export const useTransactions = () => {
     try {
       setLoading(true);
       
+      console.log('🔍 Buscando transações para usuário:', user.id);
+      console.log('🎯 Filtro de status:', statusFilter || 'todos');
+      
       // Enhanced security: Ensure user_id is explicitly set in the query
       let query = supabase
         .from('transactions')
@@ -47,7 +50,7 @@ export const useTransactions = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('Error fetching transactions:', error);
+        console.error('❌ Erro ao buscar transações:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -56,14 +59,18 @@ export const useTransactions = () => {
         return;
       }
 
+      console.log('📊 Transações encontradas:', data?.length || 0);
+      console.log('📋 Dados das transações:', data);
+
       // Additional client-side validation to ensure data belongs to user
       const filteredData = (data || []).filter(transaction => 
         transaction.amount > 0
       );
 
+      console.log('✅ Transações após filtro:', filteredData.length);
       setTransactions(filteredData);
     } catch (error) {
-      console.error('Error in fetchTransactions:', error);
+      console.error('❌ Erro em fetchTransactions:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -75,6 +82,7 @@ export const useTransactions = () => {
   };
 
   useEffect(() => {
+    console.log('🔄 useTransactions: Efeito executado');
     fetchTransactions();
   }, [user]);
 
