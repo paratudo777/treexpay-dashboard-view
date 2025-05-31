@@ -51,6 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(null);
           setProfileError(null);
           setInitialLoading(false);
+          setLoginLoading(false);
         }
       }
     );
@@ -96,16 +97,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .eq('id', authUser.id)
         .single();
 
-      console.log('📋 Resultado da query de perfil:', { profile, error });
+      console.log('📋 Resultado da query de perfil:', { profile, error, userId: authUser.id });
 
       if (error) {
         console.error('❌ Erro ao carregar perfil:', error);
+        
+        // Se o perfil não existe, criar um novo
         if (error.code === 'PGRST116') {
-          setProfileError('Perfil de usuário não encontrado no banco de dados');
-        } else {
-          setProfileError('Erro ao carregar perfil do usuário');
+          console.log('🔧 Perfil não encontrado, criando novo perfil...');
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authUser.id,
+              email: authUser.email,
+              name: authUser.email,
+              profile: 'user',
+              active: true
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('❌ Erro ao criar perfil:', createError);
+            setProfileError('Erro ao criar perfil do usuário');
+            setInitialLoading(false);
+            setLoginLoading(false);
+            return;
+          }
+
+          console.log('✅ Novo perfil criado:', newProfile);
+          
+          const userData = {
+            id: newProfile.id,
+            email: newProfile.email,
+            name: newProfile.name,
+            profile: newProfile.profile,
+            active: newProfile.active,
+          };
+
+          setUser(userData);
+          setProfileError(null);
+          setInitialLoading(false);
+          setLoginLoading(false);
+          return;
         }
+        
+        setProfileError('Erro ao carregar perfil do usuário');
         setInitialLoading(false);
+        setLoginLoading(false);
         return;
       }
 
@@ -113,6 +152,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('❌ Perfil não encontrado para usuário:', authUser.email);
         setProfileError('Perfil de usuário não encontrado');
         setInitialLoading(false);
+        setLoginLoading(false);
         return;
       }
 
@@ -121,6 +161,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setProfileError('Usuário inativo. Acesso negado.');
         await supabase.auth.signOut();
         setInitialLoading(false);
+        setLoginLoading(false);
         return;
       }
 
@@ -141,10 +182,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(userData);
       setProfileError(null);
       setInitialLoading(false);
+      setLoginLoading(false);
     } catch (error) {
       console.error('💥 Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
       setInitialLoading(false);
+      setLoginLoading(false);
     }
   };
 
@@ -272,11 +315,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Navegação automática após login bem-sucedido
   useEffect(() => {
-    if (isAuthenticated && !initialLoading && !profileError) {
+    if (isAuthenticated && !initialLoading && !profileError && !loginLoading) {
       const currentPath = window.location.pathname;
       if (currentPath === '/' || currentPath === '/login') {
         console.log('🎯 Login completo, redirecionando para dashboard...');
-        setLoginLoading(false);
         navigate('/dashboard');
         toast({
           title: "Login realizado com sucesso",
@@ -284,16 +326,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
     }
-  }, [isAuthenticated, initialLoading, profileError, navigate, toast]);
+  }, [isAuthenticated, initialLoading, profileError, loginLoading, navigate, toast]);
 
-  // Se ainda está carregando a sessão inicial, mostrar loading apenas por 2 segundos máximo
+  // Se ainda está carregando a sessão inicial, mostrar loading apenas por 3 segundos máximo
   if (initialLoading) {
     setTimeout(() => {
       if (initialLoading) {
         console.log('⏰ Timeout do loading inicial, forçando exibição da tela');
         setInitialLoading(false);
       }
-    }, 2000);
+    }, 3000);
 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
