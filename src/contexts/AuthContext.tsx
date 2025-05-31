@@ -27,13 +27,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true); // Loading inicial separado
-  const [loginLoading, setLoginLoading] = useState(false); // Loading específico para login
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // O loading que será exposto é apenas o de login, não o inicial
   const loading = loginLoading;
 
   useEffect(() => {
@@ -152,7 +151,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       console.log('🚀 Iniciando processo de login para:', email);
-      setLoginLoading(true); // Usar loginLoading específico
+      setLoginLoading(true);
       setProfileError(null);
       
       if (!email?.trim() || !password?.trim()) {
@@ -211,7 +210,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       console.log('✅ Autenticação bem-sucedida, aguardando carregamento do perfil...');
-      // O loginLoading será resetado quando o perfil for carregado via onAuthStateChange
       
     } catch (error) {
       console.error('💥 Erro interno de login:', error);
@@ -278,7 +276,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const currentPath = window.location.pathname;
       if (currentPath === '/' || currentPath === '/login') {
         console.log('🎯 Login completo, redirecionando para dashboard...');
-        setLoginLoading(false); // Resetar loading de login
+        setLoginLoading(false);
         navigate('/dashboard');
         toast({
           title: "Login realizado com sucesso",
@@ -288,8 +286,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, initialLoading, profileError, navigate, toast]);
 
-  // Se ainda está carregando a sessão inicial, mostrar loading
+  // Se ainda está carregando a sessão inicial, mostrar loading apenas por 2 segundos máximo
   if (initialLoading) {
+    setTimeout(() => {
+      if (initialLoading) {
+        console.log('⏰ Timeout do loading inicial, forçando exibição da tela');
+        setInitialLoading(false);
+      }
+    }, 2000);
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
@@ -304,7 +309,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAdmin,
       login, 
       logout,
-      loading, // Agora é apenas o loginLoading
+      loading,
       profileError
     }}>
       {children}
