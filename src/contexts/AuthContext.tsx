@@ -27,10 +27,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // Loading inicial separado
+  const [loginLoading, setLoginLoading] = useState(false); // Loading específico para login
   const [profileError, setProfileError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // O loading que será exposto é apenas o de login, não o inicial
+  const loading = loginLoading;
 
   useEffect(() => {
     console.log('🔄 AuthProvider: Iniciando verificação de sessão...');
@@ -47,7 +51,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('❌ Sem sessão, limpando estado...');
           setUser(null);
           setProfileError(null);
-          setLoading(false);
+          setInitialLoading(false);
         }
       }
     );
@@ -65,7 +69,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (error) {
         console.error('❌ Erro ao verificar sessão:', error);
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
       
@@ -74,11 +78,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await loadUserProfile(session.user);
       } else {
         console.log('ℹ️ Nenhuma sessão encontrada');
-        setLoading(false);
+        setInitialLoading(false);
       }
     } catch (error) {
       console.error('💥 Erro interno ao verificar sessão:', error);
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -102,14 +106,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
           setProfileError('Erro ao carregar perfil do usuário');
         }
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
 
       if (!profile) {
         console.error('❌ Perfil não encontrado para usuário:', authUser.email);
         setProfileError('Perfil de usuário não encontrado');
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
 
@@ -117,7 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('⚠️ Usuário inativo:', authUser.email);
         setProfileError('Usuário inativo. Acesso negado.');
         await supabase.auth.signOut();
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
 
@@ -137,18 +141,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(userData);
       setProfileError(null);
-      setLoading(false);
+      setInitialLoading(false);
     } catch (error) {
       console.error('💥 Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
     try {
       console.log('🚀 Iniciando processo de login para:', email);
-      setLoading(true);
+      setLoginLoading(true); // Usar loginLoading específico
       setProfileError(null);
       
       if (!email?.trim() || !password?.trim()) {
@@ -158,7 +162,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Dados obrigatórios",
           description: "Email e senha são obrigatórios.",
         });
-        setLoading(false);
+        setLoginLoading(false);
         return;
       }
 
@@ -191,7 +195,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro de login",
           description: errorMessage,
         });
-        setLoading(false);
+        setLoginLoading(false);
         return;
       }
 
@@ -202,12 +206,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro",
           description: "Falha na autenticação.",
         });
-        setLoading(false);
+        setLoginLoading(false);
         return;
       }
 
       console.log('✅ Autenticação bem-sucedida, aguardando carregamento do perfil...');
-      // O perfil será carregado automaticamente pelo onAuthStateChange
+      // O loginLoading será resetado quando o perfil for carregado via onAuthStateChange
       
     } catch (error) {
       console.error('💥 Erro interno de login:', error);
@@ -216,7 +220,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
 
@@ -249,14 +253,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     hasUser: !!user, 
     isAuthenticated, 
     isAdmin, 
-    loading,
+    initialLoading,
+    loginLoading,
     profileError,
     userEmail: user?.email 
   });
 
   // Verificar se o usuário está tentando acessar rota protegida sem estar logado
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (!initialLoading && !isAuthenticated) {
       const currentPath = window.location.pathname;
       const publicRoutes = ['/', '/login'];
       
@@ -265,14 +270,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         navigate('/');
       }
     }
-  }, [loading, isAuthenticated, navigate]);
+  }, [initialLoading, isAuthenticated, navigate]);
 
   // Navegação automática após login bem-sucedido
   useEffect(() => {
-    if (isAuthenticated && !loading && !profileError) {
+    if (isAuthenticated && !initialLoading && !profileError) {
       const currentPath = window.location.pathname;
       if (currentPath === '/' || currentPath === '/login') {
         console.log('🎯 Login completo, redirecionando para dashboard...');
+        setLoginLoading(false); // Resetar loading de login
         navigate('/dashboard');
         toast({
           title: "Login realizado com sucesso",
@@ -280,7 +286,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
     }
-  }, [isAuthenticated, loading, profileError, navigate, toast]);
+  }, [isAuthenticated, initialLoading, profileError, navigate, toast]);
+
+  // Se ainda está carregando a sessão inicial, mostrar loading
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ 
@@ -289,7 +304,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAdmin,
       login, 
       logout,
-      loading,
+      loading, // Agora é apenas o loginLoading
       profileError
     }}>
       {children}
