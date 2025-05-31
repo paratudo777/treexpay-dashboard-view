@@ -1,16 +1,22 @@
 
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { WithdrawalForm } from "@/components/WithdrawalForm";
 import { useUserBalance } from "@/hooks/useUserBalance";
 
 export default function Financeiro() {
-  const { balance, loading: balanceLoading } = useUserBalance();
+  const { balance, loading: balanceLoading, refetch } = useUserBalance();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const handleWithdrawalSuccess = () => {
+    // Atualizar saldo quando saque for solicitado (embora não seja debitado ainda)
+    refetch();
   };
 
   return (
@@ -31,6 +37,8 @@ export default function Financeiro() {
             </CardContent>
           </Card>
 
+          <WithdrawalForm balance={balance} onWithdrawalSuccess={handleWithdrawalSuccess} />
+
           <Card>
             <CardHeader>
               <CardTitle>Informações Importantes</CardTitle>
@@ -44,6 +52,12 @@ export default function Financeiro() {
                   <h3 className="font-medium">Depósitos</h3>
                   <p className="text-sm text-muted-foreground">
                     Acesse a seção "Depósitos" para adicionar saldo à sua conta via PIX.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Saques</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Solicite saques via PIX. As solicitações passam por análise antes da aprovação.
                   </p>
                 </div>
                 <div>
