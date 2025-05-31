@@ -102,47 +102,81 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (error) {
         console.error('❌ Erro ao carregar perfil:', error);
         
-        // Se o perfil não existe, criar um novo
+        // Se o perfil não existe, criar um novo automaticamente
         if (error.code === 'PGRST116') {
           console.log('🔧 Perfil não encontrado, criando novo perfil...');
-          const { data: newProfile, error: createError } = await supabase
-            .from('profiles')
-            .insert({
-              id: authUser.id,
-              email: authUser.email,
-              name: authUser.email,
-              profile: 'user',
-              active: true
-            })
-            .select()
-            .single();
+          
+          try {
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert({
+                id: authUser.id,
+                email: authUser.email,
+                name: authUser.email,
+                profile: 'user',
+                active: true
+              })
+              .select()
+              .single();
 
-          if (createError) {
-            console.error('❌ Erro ao criar perfil:', createError);
-            setProfileError('Erro ao criar perfil do usuário');
+            if (createError) {
+              console.error('❌ Erro ao criar perfil:', createError);
+              // Mesmo com erro na criação, vamos tentar usar dados básicos
+              const userData = {
+                id: authUser.id,
+                email: authUser.email || '',
+                name: authUser.email || '',
+                profile: 'user' as const,
+                active: true,
+              };
+              setUser(userData);
+              setInitialLoading(false);
+              setLoginLoading(false);
+              return;
+            }
+
+            console.log('✅ Novo perfil criado:', newProfile);
+            
+            const userData = {
+              id: newProfile.id,
+              email: newProfile.email,
+              name: newProfile.name,
+              profile: newProfile.profile,
+              active: newProfile.active,
+            };
+
+            setUser(userData);
+            setProfileError(null);
+            setInitialLoading(false);
+            setLoginLoading(false);
+            return;
+          } catch (createErr) {
+            console.error('❌ Erro ao criar perfil:', createErr);
+            // Fallback: usar dados do auth mesmo sem perfil
+            const userData = {
+              id: authUser.id,
+              email: authUser.email || '',
+              name: authUser.email || '',
+              profile: 'user' as const,
+              active: true,
+            };
+            setUser(userData);
             setInitialLoading(false);
             setLoginLoading(false);
             return;
           }
-
-          console.log('✅ Novo perfil criado:', newProfile);
-          
-          const userData = {
-            id: newProfile.id,
-            email: newProfile.email,
-            name: newProfile.name,
-            profile: newProfile.profile,
-            active: newProfile.active,
-          };
-
-          setUser(userData);
-          setProfileError(null);
-          setInitialLoading(false);
-          setLoginLoading(false);
-          return;
         }
         
-        setProfileError('Erro ao carregar perfil do usuário');
+        // Para outros erros, ainda tentar continuar
+        console.warn('⚠️ Erro no perfil, mas continuando com dados básicos');
+        const userData = {
+          id: authUser.id,
+          email: authUser.email || '',
+          name: authUser.email || '',
+          profile: 'user' as const,
+          active: true,
+        };
+        setUser(userData);
         setInitialLoading(false);
         setLoginLoading(false);
         return;
@@ -150,7 +184,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (!profile) {
         console.error('❌ Perfil não encontrado para usuário:', authUser.email);
-        setProfileError('Perfil de usuário não encontrado');
+        // Mesmo sem perfil, vamos continuar
+        const userData = {
+          id: authUser.id,
+          email: authUser.email || '',
+          name: authUser.email || '',
+          profile: 'user' as const,
+          active: true,
+        };
+        setUser(userData);
         setInitialLoading(false);
         setLoginLoading(false);
         return;
@@ -185,7 +227,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoginLoading(false);
     } catch (error) {
       console.error('💥 Erro interno ao carregar perfil:', error);
-      setProfileError('Erro interno. Tente novamente.');
+      // Fallback final: usar dados básicos do auth
+      const userData = {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.email || '',
+        profile: 'user' as const,
+        active: true,
+      };
+      setUser(userData);
       setInitialLoading(false);
       setLoginLoading(false);
     }
@@ -328,14 +378,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, initialLoading, profileError, loginLoading, navigate, toast]);
 
-  // Se ainda está carregando a sessão inicial, mostrar loading apenas por 3 segundos máximo
+  // Se ainda está carregando a sessão inicial, mostrar loading apenas por 2 segundos máximo
   if (initialLoading) {
     setTimeout(() => {
       if (initialLoading) {
         console.log('⏰ Timeout do loading inicial, forçando exibição da tela');
         setInitialLoading(false);
       }
-    }, 3000);
+    }, 2000);
 
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
