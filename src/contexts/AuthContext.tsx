@@ -254,6 +254,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     userEmail: user?.email 
   });
 
+  // Verificar se o usuário está tentando acessar rota protegida sem estar logado
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      const currentPath = window.location.pathname;
+      const publicRoutes = ['/', '/login'];
+      
+      if (!publicRoutes.includes(currentPath)) {
+        console.log('🔒 Usuário não autenticado tentando acessar rota protegida, redirecionando...');
+        navigate('/');
+      }
+    }
+  }, [loading, isAuthenticated, navigate]);
+
   // Navegação automática após login bem-sucedido
   useEffect(() => {
     if (isAuthenticated && !loading && !profileError) {
