@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,110 +29,77 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const navigationPendingRef = useRef(false);
 
   useEffect(() => {
     checkSession();
     
-    // Configurar listener para mudanças de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthContext: Auth state changed', { event, hasSession: !!session });
+        console.log('Auth state changed:', { event, hasSession: !!session });
         
         if (session?.user) {
           await loadUserProfile(session.user);
-          
-          // Navegar apenas se estamos fazendo login e o perfil foi carregado com sucesso
-          if (isLoggingIn && navigationPendingRef.current && user) {
-            console.log('AuthContext: Navegando para dashboard após login bem-sucedido');
-            navigate('/dashboard');
-            navigationPendingRef.current = false;
-            setIsLoggingIn(false);
-          }
         } else {
           setUser(null);
           setProfileError(null);
           setLoading(false);
-          setIsLoggingIn(false);
-          navigationPendingRef.current = false;
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [navigate, isLoggingIn, user]);
+  }, []);
 
   const checkSession = async () => {
     try {
-      console.log('AuthContext: Verificando sessão...');
+      console.log('Verificando sessão existente...');
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        console.log('AuthContext: Sessão encontrada, carregando perfil...');
+        console.log('Sessão encontrada, carregando perfil...');
         await loadUserProfile(session.user);
       } else {
-        console.log('AuthContext: Nenhuma sessão encontrada');
+        console.log('Nenhuma sessão encontrada');
         setLoading(false);
       }
     } catch (error) {
-      console.error('AuthContext: Erro ao verificar sessão:', error);
+      console.error('Erro ao verificar sessão:', error);
       setLoading(false);
     }
   };
 
-  const loadUserProfile = async (authUser: SupabaseUser, retryCount = 0) => {
+  const loadUserProfile = async (authUser: SupabaseUser) => {
     try {
-      console.log('AuthContext: Carregando perfil do usuário:', authUser.email, { retryCount });
+      console.log('Carregando perfil do usuário:', authUser.email);
       setProfileError(null);
       
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
-        .maybeSingle();
+        .single();
 
       if (error) {
-        console.error('AuthContext: Erro ao carregar perfil:', error);
-        
-        // Distinguir entre erros temporários e permanentes
-        const isNetworkError = error.message?.includes('network') || 
-                              error.message?.includes('timeout') || 
-                              error.code === 'PGRST301';
-        
-        if (isNetworkError && retryCount < 2) {
-          console.log('AuthContext: Erro de rede detectado, tentando novamente em 1s...');
-          setTimeout(() => {
-            loadUserProfile(authUser, retryCount + 1);
-          }, 1000);
-          return;
-        }
-        
-        // Para outros erros, definir estado de erro mas não fazer logout automático
+        console.error('Erro ao carregar perfil:', error);
         setProfileError('Erro ao carregar perfil do usuário');
         setLoading(false);
-        setIsLoggingIn(false);
         return;
       }
 
       if (!profile) {
-        console.error('AuthContext: Perfil não encontrado para usuário:', authUser.email);
+        console.error('Perfil não encontrado para usuário:', authUser.email);
         setProfileError('Perfil de usuário não encontrado');
         setLoading(false);
-        setIsLoggingIn(false);
         return;
       }
 
       if (!profile.active) {
-        console.warn('AuthContext: Usuário inativo:', authUser.email);
+        console.warn('Usuário inativo:', authUser.email);
         setProfileError('Usuário inativo. Acesso negado.');
-        
-        // Apenas para usuários inativos, fazer logout
         await supabase.auth.signOut();
         setLoading(false);
-        setIsLoggingIn(false);
         return;
       }
 
@@ -144,27 +111,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         active: profile.active,
       };
 
-      console.log('AuthContext: Perfil carregado com sucesso:', { 
+      console.log('Perfil carregado com sucesso:', { 
         email: userData.email, 
-        profile: userData.profile, 
-        active: userData.active 
+        profile: userData.profile 
       });
 
       setUser(userData);
       setProfileError(null);
-      
-      // Se estamos no processo de login e navegação está pendente, navegar agora
-      if (isLoggingIn && navigationPendingRef.current) {
-        console.log('AuthContext: Navegando para dashboard após perfil carregado');
-        navigate('/dashboard');
-        navigationPendingRef.current = false;
-        setIsLoggingIn(false);
-      }
+      setLoading(false);
     } catch (error) {
-      console.error('AuthContext: Erro interno ao carregar perfil:', error);
+      console.error('Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
-      setIsLoggingIn(false);
-    } finally {
       setLoading(false);
     }
   };
@@ -172,9 +129,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
-      setIsLoggingIn(true);
       setProfileError(null);
-      navigationPendingRef.current = false;
+      
+      console.log('Iniciando login para:', email);
       
       if (!email?.trim() || !password?.trim()) {
         toast({
@@ -182,54 +139,56 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Dados obrigatórios",
           description: "Email e senha são obrigatórios.",
         });
+        setLoading(false);
         return;
       }
 
-      const { data: session, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password
       });
 
       if (error) {
-        console.error('AuthContext: Erro de login:', error);
+        console.error('Erro de login:', error);
         toast({
           variant: "destructive",
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
-        setIsLoggingIn(false);
+        setLoading(false);
         return;
       }
 
-      if (!session?.user) {
+      if (!data?.user) {
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Falha na autenticação.",
         });
-        setIsLoggingIn(false);
+        setLoading(false);
         return;
       }
 
-      // Marcar que navegação está pendente - será executada após perfil carregar
-      navigationPendingRef.current = true;
+      console.log('Login bem-sucedido, carregando perfil...');
+      await loadUserProfile(data.user);
 
-      toast({
-        title: "Login realizado com sucesso",
-        description: "Bem-vindo à plataforma TreexPay",
-      });
+      // Só navegar se tudo deu certo
+      if (user && !profileError) {
+        toast({
+          title: "Login realizado com sucesso",
+          description: "Bem-vindo à plataforma TreexPay",
+        });
+        navigate('/dashboard');
+      }
 
-      // A navegação será feita no onAuthStateChange após carregar o perfil
     } catch (error) {
-      console.error('AuthContext: Erro interno de login:', error);
+      console.error('Erro interno de login:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      setIsLoggingIn(false);
-    } finally {
-      // Não resetar loading aqui - será resetado quando perfil carregar
+      setLoading(false);
     }
   };
 
@@ -238,15 +197,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await supabase.auth.signOut();
       setUser(null);
       setProfileError(null);
-      setIsLoggingIn(false);
-      navigationPendingRef.current = false;
       navigate('/');
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
-      console.error('AuthContext: Erro ao fazer logout:', error);
+      console.error('Erro ao fazer logout:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -258,14 +215,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAuthenticated = !!user && !!user.active && !profileError;
   const isAdmin = user?.profile === 'admin' && isAuthenticated;
 
-  console.log('AuthContext: Estado atual', { 
+  console.log('Estado do Auth:', { 
     hasUser: !!user, 
     isAuthenticated, 
     isAdmin, 
     loading,
-    isLoggingIn,
-    profileError,
-    userProfile: user?.profile 
+    profileError 
   });
 
   return (
@@ -275,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAdmin,
       login, 
       logout,
-      loading: loading || isLoggingIn,
+      loading,
       profileError
     }}>
       {children}
