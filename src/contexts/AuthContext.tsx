@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,8 +29,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const navigationPendingRef = useRef(false);
 
   useEffect(() => {
     checkSession();
@@ -42,16 +44,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (session?.user) {
           await loadUserProfile(session.user);
+          
+          // Navegar apenas se estamos fazendo login e o perfil foi carregado com sucesso
+          if (isLoggingIn && navigationPendingRef.current && user) {
+            console.log('AuthContext: Navegando para dashboard após login bem-sucedido');
+            navigate('/dashboard');
+            navigationPendingRef.current = false;
+            setIsLoggingIn(false);
+          }
         } else {
           setUser(null);
           setProfileError(null);
           setLoading(false);
+          setIsLoggingIn(false);
+          navigationPendingRef.current = false;
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate, isLoggingIn, user]);
 
   const checkSession = async () => {
     try {
@@ -101,6 +113,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Para outros erros, definir estado de erro mas não fazer logout automático
         setProfileError('Erro ao carregar perfil do usuário');
         setLoading(false);
+        setIsLoggingIn(false);
         return;
       }
 
@@ -108,6 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('AuthContext: Perfil não encontrado para usuário:', authUser.email);
         setProfileError('Perfil de usuário não encontrado');
         setLoading(false);
+        setIsLoggingIn(false);
         return;
       }
 
@@ -118,6 +132,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Apenas para usuários inativos, fazer logout
         await supabase.auth.signOut();
         setLoading(false);
+        setIsLoggingIn(false);
         return;
       }
 
@@ -137,9 +152,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(userData);
       setProfileError(null);
+      
+      // Se estamos no processo de login e navegação está pendente, navegar agora
+      if (isLoggingIn && navigationPendingRef.current) {
+        console.log('AuthContext: Navegando para dashboard após perfil carregado');
+        navigate('/dashboard');
+        navigationPendingRef.current = false;
+        setIsLoggingIn(false);
+      }
     } catch (error) {
       console.error('AuthContext: Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
+      setIsLoggingIn(false);
     } finally {
       setLoading(false);
     }
@@ -148,7 +172,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+      setIsLoggingIn(true);
       setProfileError(null);
+      navigationPendingRef.current = false;
       
       if (!email?.trim() || !password?.trim()) {
         toast({
@@ -165,11 +191,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       if (error) {
+        console.error('AuthContext: Erro de login:', error);
         toast({
           variant: "destructive",
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
+        setIsLoggingIn(false);
         return;
       }
 
@@ -179,24 +207,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro",
           description: "Falha na autenticação.",
         });
+        setIsLoggingIn(false);
         return;
       }
 
-      // O loadUserProfile será chamado automaticamente pelo onAuthStateChange
+      // Marcar que navegação está pendente - será executada após perfil carregar
+      navigationPendingRef.current = true;
+
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
 
-      navigate('/dashboard');
+      // A navegação será feita no onAuthStateChange após carregar o perfil
     } catch (error) {
+      console.error('AuthContext: Erro interno de login:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
+      setIsLoggingIn(false);
     } finally {
-      setLoading(false);
+      // Não resetar loading aqui - será resetado quando perfil carregar
     }
   };
 
@@ -205,12 +238,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await supabase.auth.signOut();
       setUser(null);
       setProfileError(null);
+      setIsLoggingIn(false);
+      navigationPendingRef.current = false;
       navigate('/');
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
+      console.error('AuthContext: Erro ao fazer logout:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -227,6 +263,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isAuthenticated, 
     isAdmin, 
     loading,
+    isLoggingIn,
     profileError,
     userProfile: user?.profile 
   });
@@ -238,7 +275,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAdmin,
       login, 
       logout,
-      loading,
+      loading: loading || isLoggingIn,
       profileError
     }}>
       {children}
