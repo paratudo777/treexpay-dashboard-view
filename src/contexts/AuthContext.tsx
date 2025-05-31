@@ -29,7 +29,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [shouldNavigateToDashboard, setShouldNavigateToDashboard] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -47,22 +46,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUser(null);
           setProfileError(null);
           setLoading(false);
-          setShouldNavigateToDashboard(false);
         }
       }
     );
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Effect para navegar após o usuário ser carregado com sucesso
-  useEffect(() => {
-    if (shouldNavigateToDashboard && user && !loading && !profileError) {
-      console.log('AuthContext: Navegando para dashboard após login bem-sucedido');
-      setShouldNavigateToDashboard(false);
-      navigate('/dashboard');
-    }
-  }, [user, loading, profileError, shouldNavigateToDashboard, navigate]);
 
   const checkSession = async () => {
     try {
@@ -148,11 +137,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(userData);
       setProfileError(null);
-      setLoading(false);
+      setLoading(false); // Garantir que loading seja sempre desabilitado
     } catch (error) {
       console.error('AuthContext: Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
-      setLoading(false);
+      setLoading(false); // Garantir que loading seja sempre desabilitado mesmo em caso de erro
     }
   };
 
@@ -160,7 +149,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
       setProfileError(null);
-      setShouldNavigateToDashboard(false);
       
       if (!email?.trim() || !password?.trim()) {
         toast({
@@ -168,7 +156,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Dados obrigatórios",
           description: "Email e senha são obrigatórios.",
         });
-        setLoading(false);
+        setLoading(false); // Desabilitar loading em caso de validação falha
         return;
       }
 
@@ -183,7 +171,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
-        setLoading(false);
+        setLoading(false); // Desabilitar loading em caso de erro de autenticação
         return;
       }
 
@@ -193,20 +181,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro",
           description: "Falha na autenticação.",
         });
-        setLoading(false);
+        setLoading(false); // Desabilitar loading se não há usuário na sessão
         return;
       }
 
-      // Marcar que deve navegar após o perfil ser carregado
-      setShouldNavigateToDashboard(true);
-      
+      // O loadUserProfile será chamado automaticamente pelo onAuthStateChange
+      // e ele próprio gerenciará o estado de loading
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
       });
 
-      // O loadUserProfile será chamado automaticamente pelo onAuthStateChange
-      // e a navegação acontecerá no useEffect quando o usuário estiver pronto
+      navigate('/dashboard');
     } catch (error) {
       console.error('AuthContext: Erro no login:', error);
       toast({
@@ -214,7 +200,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      setLoading(false);
+      setLoading(false); // Garantir que loading seja desabilitado em caso de erro
     }
   };
 
@@ -224,7 +210,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(null);
       setProfileError(null);
       setLoading(false);
-      setShouldNavigateToDashboard(false);
       navigate('/');
       toast({
         title: "Logout realizado",
@@ -250,8 +235,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isAdmin, 
     loading,
     profileError,
-    userProfile: user?.profile,
-    shouldNavigateToDashboard
+    userProfile: user?.profile 
   });
 
   return (
