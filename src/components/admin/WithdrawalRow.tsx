@@ -2,8 +2,8 @@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { WithdrawalStatusBadge } from "./WithdrawalStatusBadge";
-import { Check, X } from "lucide-react";
-import { Withdrawal } from "./WithdrawalTable";
+import { Check, X, Loader2 } from "lucide-react";
+import { Withdrawal } from "@/hooks/useWithdrawals";
 
 interface WithdrawalRowProps {
   withdrawal: Withdrawal;
@@ -12,7 +12,7 @@ interface WithdrawalRowProps {
   isLoading?: boolean;
 }
 
-export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading = false }: WithdrawalRowProps) => {
+export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading }: WithdrawalRowProps) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -65,10 +65,14 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading = fal
               <Button
                 size="sm"
                 onClick={() => onApprove(withdrawal.id, withdrawal.amount)}
-                className="bg-treexpay-green hover:bg-treexpay-green/80"
                 disabled={isLoading}
+                className="bg-treexpay-green hover:bg-treexpay-green/80"
               >
-                <Check className="h-4 w-4" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
                 Aprovar
               </Button>
               <Button
@@ -77,7 +81,11 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading = fal
                 onClick={() => onReject(withdrawal.id)}
                 disabled={isLoading}
               >
-                <X className="h-4 w-4" />
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
                 Rejeitar
               </Button>
             </>

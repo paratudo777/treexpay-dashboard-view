@@ -1,7 +1,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock, X } from "lucide-react";
-import { WithdrawalStatus } from "./WithdrawalTable";
+import { WithdrawalStatus } from "@/hooks/useWithdrawals";
 
 interface WithdrawalStatusBadgeProps {
   status: WithdrawalStatus;

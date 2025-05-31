@@ -1,42 +1,35 @@
 
+import { useWithdrawals } from "@/hooks/useWithdrawals";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { WithdrawalRow } from "./WithdrawalRow";
-import { useWithdrawals } from "@/hooks/useWithdrawals";
-
-export type WithdrawalStatus = "requested" | "processed" | "rejected";
-
-export interface Withdrawal {
-  id: string;
-  user_id: string;
-  name: string;
-  email: string;
-  amount: number;
-  pix_key_type: string;
-  pix_key: string;
-  status: WithdrawalStatus;
-  request_date: string;
-}
+import { Loader2 } from "lucide-react";
 
 export const WithdrawalTable = () => {
   const { withdrawals, loading, actionLoading, approveWithdrawal, rejectWithdrawal } = useWithdrawals();
 
+  const handleApprove = (id: string, amount: number) => {
+    approveWithdrawal(id, amount);
+  };
+
+  const handleReject = (id: string) => {
+    rejectWithdrawal(id);
+  };
+
   if (loading) {
     return (
-      <div className="rounded-md border">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto"></div>
-          <p className="mt-2 text-sm text-muted-foreground">Carregando solicitações...</p>
-        </div>
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-treexpay-medium" />
+        <span className="ml-2 text-lg">Carregando solicitações...</span>
       </div>
     );
   }
 
   if (withdrawals.length === 0) {
     return (
-      <div className="rounded-md border">
-        <div className="p-8 text-center">
-          <p className="text-sm text-muted-foreground">Nenhuma solicitação de saque encontrada.</p>
-        </div>
+      <div className="text-center p-8">
+        <p className="text-lg text-muted-foreground">
+          Nenhuma solicitação de saque encontrada.
+        </p>
       </div>
     );
   }
@@ -61,8 +54,8 @@ export const WithdrawalTable = () => {
             <WithdrawalRow
               key={withdrawal.id}
               withdrawal={withdrawal}
-              onApprove={approveWithdrawal}
-              onReject={rejectWithdrawal}
+              onApprove={handleApprove}
+              onReject={handleReject}
               isLoading={actionLoading === withdrawal.id}
             />
           ))}

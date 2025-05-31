@@ -98,7 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           return;
         }
         
-        // Para outros erros, definir estado de erro mas sempre desabilitar loading
+        // Para outros erros, definir estado de erro mas não fazer logout automático
         setProfileError('Erro ao carregar perfil do usuário');
         setLoading(false);
         return;
@@ -137,11 +137,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setUser(userData);
       setProfileError(null);
-      setLoading(false); // Garantir que loading seja sempre desabilitado
     } catch (error) {
       console.error('AuthContext: Erro interno ao carregar perfil:', error);
       setProfileError('Erro interno. Tente novamente.');
-      setLoading(false); // Garantir que loading seja sempre desabilitado mesmo em caso de erro
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -156,7 +156,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Dados obrigatórios",
           description: "Email e senha são obrigatórios.",
         });
-        setLoading(false); // Desabilitar loading em caso de validação falha
         return;
       }
 
@@ -171,7 +170,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro de login",
           description: "Email ou senha inválidos.",
         });
-        setLoading(false); // Desabilitar loading em caso de erro de autenticação
         return;
       }
 
@@ -181,12 +179,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           title: "Erro",
           description: "Falha na autenticação.",
         });
-        setLoading(false); // Desabilitar loading se não há usuário na sessão
         return;
       }
 
       // O loadUserProfile será chamado automaticamente pelo onAuthStateChange
-      // e ele próprio gerenciará o estado de loading
       toast({
         title: "Login realizado com sucesso",
         description: "Bem-vindo à plataforma TreexPay",
@@ -194,13 +190,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       navigate('/dashboard');
     } catch (error) {
-      console.error('AuthContext: Erro no login:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
-      setLoading(false); // Garantir que loading seja desabilitado em caso de erro
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -209,20 +205,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await supabase.auth.signOut();
       setUser(null);
       setProfileError(null);
-      setLoading(false);
       navigate('/');
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso.",
       });
     } catch (error) {
-      console.error('AuthContext: Erro no logout:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro ao fazer logout.",
       });
-      setLoading(false);
     }
   };
 
