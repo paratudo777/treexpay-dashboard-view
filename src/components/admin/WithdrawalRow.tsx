@@ -2,17 +2,16 @@
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { WithdrawalStatusBadge } from "./WithdrawalStatusBadge";
-import { Check, X, Loader2 } from "lucide-react";
-import { Withdrawal } from "@/hooks/useWithdrawals";
+import { Check, X } from "lucide-react";
+import { Withdrawal } from "./WithdrawalTable";
 
 interface WithdrawalRowProps {
   withdrawal: Withdrawal;
-  onApprove: (id: string, amount: number) => void;
+  onApprove: (id: string) => void;
   onReject: (id: string) => void;
-  isLoading?: boolean;
 }
 
-export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading }: WithdrawalRowProps) => {
+export const WithdrawalRow = ({ withdrawal, onApprove, onReject }: WithdrawalRowProps) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -31,7 +30,7 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading }: Wi
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = new Date(dateString.replace(' ', 'T'));
     return date.toLocaleString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -41,7 +40,7 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading }: Wi
     });
   };
 
-  const canPerformActions = withdrawal.status === 'requested';
+  const canPerformActions = withdrawal.status === 'solicitado';
 
   return (
     <TableRow>
@@ -50,42 +49,32 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject, isLoading }: Wi
       <TableCell className="font-semibold text-treexpay-medium">
         {formatCurrency(withdrawal.amount)}
       </TableCell>
-      <TableCell>{formatPixKeyType(withdrawal.pix_key_type)}</TableCell>
-      <TableCell className="max-w-[200px] truncate" title={withdrawal.pix_key}>
-        {withdrawal.pix_key}
+      <TableCell>{formatPixKeyType(withdrawal.pixKeyType)}</TableCell>
+      <TableCell className="max-w-[200px] truncate" title={withdrawal.pixKey}>
+        {withdrawal.pixKey}
       </TableCell>
       <TableCell>
         <WithdrawalStatusBadge status={withdrawal.status} />
       </TableCell>
-      <TableCell>{formatDate(withdrawal.request_date)}</TableCell>
+      <TableCell>{formatDate(withdrawal.requestDate)}</TableCell>
       <TableCell>
         <div className="flex gap-2">
           {canPerformActions && (
             <>
               <Button
                 size="sm"
-                onClick={() => onApprove(withdrawal.id, withdrawal.amount)}
-                disabled={isLoading}
+                onClick={() => onApprove(withdrawal.id)}
                 className="bg-treexpay-green hover:bg-treexpay-green/80"
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="h-4 w-4" />
-                )}
+                <Check className="h-4 w-4" />
                 Aprovar
               </Button>
               <Button
                 size="sm"
                 variant="destructive"
                 onClick={() => onReject(withdrawal.id)}
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="h-4 w-4" />
-                )}
+                <X className="h-4 w-4" />
                 Rejeitar
               </Button>
             </>

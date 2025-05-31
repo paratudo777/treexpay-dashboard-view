@@ -1,7 +1,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock, X } from "lucide-react";
-import { WithdrawalStatus } from "@/hooks/useWithdrawals";
+import { WithdrawalStatus } from "./WithdrawalTable";
 
 interface WithdrawalStatusBadgeProps {
   status: WithdrawalStatus;
@@ -10,21 +10,21 @@ interface WithdrawalStatusBadgeProps {
 export const WithdrawalStatusBadge = ({ status }: WithdrawalStatusBadgeProps) => {
   const getStatusConfig = (status: WithdrawalStatus) => {
     switch (status) {
-      case "processed":
+      case "processado":
         return {
           icon: <Check className="h-3 w-3" />,
           label: "Processado",
           variant: "default" as const,
           className: "bg-treexpay-green text-white hover:bg-treexpay-green/80"
         };
-      case "requested":
+      case "solicitado":
         return {
           icon: <Clock className="h-3 w-3" />,
           label: "Solicitado",
           variant: "secondary" as const,
           className: "bg-treexpay-yellow text-white hover:bg-treexpay-yellow/80"
         };
-      case "rejected":
+      case "rejeitado":
         return {
           icon: <X className="h-3 w-3" />,
           label: "Rejeitado",
