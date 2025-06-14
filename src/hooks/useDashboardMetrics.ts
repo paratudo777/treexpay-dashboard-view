@@ -12,7 +12,9 @@ interface DashboardMetrics {
   withdrawalCount: number;
   averageTicket: number;
   chartData: Array<{
+    hora?: string;
     date: string;
+    valor?: number;
     deposits: number;
     withdrawals: number;
   }>;
@@ -109,7 +111,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       const averageTicket = depositCount > 0 ? totalDeposits / depositCount : 0;
 
       // Preparar dados do gráfico
-      const chartData: Array<{ date: string; deposits: number; withdrawals: number }> = [];
+      const chartData: Array<{ hora?: string; date: string; valor?: number; deposits: number; withdrawals: number }> = [];
       
       if (period === 'today') {
         // Para hoje, mostrar por horas
@@ -128,7 +130,9 @@ export const useDashboardMetrics = (period: Period = 'today') => {
             .reduce((sum, w) => sum + Number(w.amount), 0);
 
           chartData.push({
+            hora: `${hour.toString().padStart(2, '0')}:00`,
             date: `${hour.toString().padStart(2, '0')}:00`,
+            valor: hourDeposits,
             deposits: hourDeposits,
             withdrawals: hourWithdrawals
           });
@@ -150,8 +154,10 @@ export const useDashboardMetrics = (period: Period = 'today') => {
             .filter(w => new Date(w.created_at) >= dayStart && new Date(w.created_at) < dayEnd)
             .reduce((sum, w) => sum + Number(w.amount), 0);
 
+          const dateStr = dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
           chartData.push({
-            date: dayStart.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+            date: dateStr,
+            valor: dayDeposits,
             deposits: dayDeposits,
             withdrawals: dayWithdrawals
           });
@@ -179,6 +185,35 @@ export const useDashboardMetrics = (period: Period = 'today') => {
       console.error('❌ Erro em fetchMetrics:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getDateRange = (period: Period) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    switch (period) {
+      case 'today':
+        return {
+          start: today,
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+        };
+      case 'week':
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - 7);
+        return {
+          start: weekStart,
+          end: now
+        };
+      case 'month':
+        const monthStart = new Date(today);
+        monthStart.setDate(today.getDate() - 30);
+        return {
+          start: monthStart,
+          end: now
+        };
+      default:
+        return { start: today, end: now };
     }
   };
 

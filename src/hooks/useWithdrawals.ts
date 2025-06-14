@@ -81,16 +81,25 @@ export const useWithdrawals = () => {
             const userProfile = profiles.find(p => p.id === withdrawal.user_id);
             return {
               ...withdrawal,
+              status: withdrawal.status as 'requested' | 'processed' | 'rejected',
               user_name: userProfile?.name || 'Nome não encontrado',
               user_email: userProfile?.email || 'Email não encontrado'
             };
           });
           setWithdrawals(withdrawalsWithUserData);
         } else {
-          setWithdrawals(data);
+          const typedWithdrawals = data.map(w => ({
+            ...w,
+            status: w.status as 'requested' | 'processed' | 'rejected'
+          }));
+          setWithdrawals(typedWithdrawals);
         }
       } else {
-        setWithdrawals(data || []);
+        const typedWithdrawals = (data || []).map(w => ({
+          ...w,
+          status: w.status as 'requested' | 'processed' | 'rejected'
+        }));
+        setWithdrawals(typedWithdrawals);
       }
     } catch (error) {
       console.error('❌ Erro em fetchWithdrawals:', error);
