@@ -1,7 +1,6 @@
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,19 +8,8 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   console.log('ProtectedRoute: Verificando acesso', { loading, isAuthenticated });
-
-  useEffect(() => {
-    // Se não está loading e não está autenticado, deve redirecionar
-    if (!loading && !isAuthenticated) {
-      console.log('ProtectedRoute: Usuário não autenticado, preparando redirecionamento');
-      setShouldRedirect(true);
-    } else if (isAuthenticated) {
-      setShouldRedirect(false);
-    }
-  }, [loading, isAuthenticated]);
 
   // Mostrar loading enquanto verifica autenticação
   if (loading) {
@@ -35,9 +23,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Se deve redirecionar ou não está autenticado, vai para login
-  if (shouldRedirect || !isAuthenticated) {
-    console.log('ProtectedRoute: Redirecionando para login');
+  // Se não está autenticado, redirecionar para login
+  if (!isAuthenticated) {
+    console.log('ProtectedRoute: Usuário não autenticado, redirecionando para login');
     return <Navigate to="/" replace />;
   }
 

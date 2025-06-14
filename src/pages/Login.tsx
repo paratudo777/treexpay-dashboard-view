@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,20 @@ const Login = () => {
   const { toast } = useToast();
 
   console.log('Login: Estado de auth:', { isAuthenticated, isAdmin, loading });
+
+  // Redirecionar se já estiver autenticado
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      console.log('Login: Usuário já autenticado, redirecionando...');
+      if (isAdmin) {
+        console.log('Login: Redirecionando admin para /admin');
+        navigate('/admin');
+      } else {
+        console.log('Login: Redirecionando usuário para /dashboard');
+        navigate('/dashboard');
+      }
+    }
+  }, [isAuthenticated, isAdmin, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,17 +55,7 @@ const Login = () => {
         description: "Redirecionando...",
       });
       
-      // Aguardar um pouco para o contexto processar e redirecionar baseado no tipo de usuário
-      setTimeout(() => {
-        console.log('Login: Verificando redirecionamento após login bem-sucedido');
-        if (email === 'manomassa717@gmail.com' || email === 'admin@treexpay.com') {
-          console.log('Login: Redirecionando admin para /admin');
-          navigate('/admin');
-        } else {
-          console.log('Login: Redirecionando usuário para /dashboard');
-          navigate('/dashboard');
-        }
-      }, 1500);
+      // O redirecionamento será feito pelo useEffect quando isAuthenticated mudar
     } else {
       console.error('Login: Falha no login:', result.error);
       toast({
@@ -62,8 +66,17 @@ const Login = () => {
     }
   };
 
-  // NÃO redirecionar automaticamente - sempre mostrar a tela de login
-  // O usuário DEVE fazer login para acessar qualquer área
+  // Se já estiver autenticado, não mostrar o formulário
+  if (isAuthenticated && !loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          <p className="text-sm text-muted-foreground">Redirecionando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark">

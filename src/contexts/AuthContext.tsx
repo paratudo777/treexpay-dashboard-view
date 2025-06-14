@@ -29,19 +29,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const initAuth = async () => {
       try {
-        console.log('AuthContext: Iniciando - FORÇANDO LOGOUT para garantir login obrigatório');
+        console.log('AuthContext: Iniciando verificação de sessão');
         
-        // FORÇAR LOGOUT ao inicializar para garantir que usuário sempre faça login
-        await supabase.auth.signOut();
+        // Verificar se há sessão existente
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (mounted) {
-          console.log('AuthContext: Logout forçado concluído - usuário deve fazer login');
-          setUser(null);
-          setProfile(null);
-          setLoading(false);
+        if (error) {
+          console.error('AuthContext: Erro ao verificar sessão:', error);
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (session?.user) {
+          console.log('AuthContext: Sessão encontrada para:', session.user.email);
+          if (mounted) {
+            setUser(session.user);
+            await loadUserProfile(session.user.id);
+          }
+        } else {
+          console.log('AuthContext: Nenhuma sessão encontrada');
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
         }
       } catch (error) {
-        console.error('AuthContext: Erro ao forçar logout inicial:', error);
+        console.error('AuthContext: Erro na inicialização:', error);
         if (mounted) {
           setUser(null);
           setProfile(null);
@@ -62,8 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('AuthContext: Login detectado, carregando dados do usuário:', session.user.email);
         setUser(session.user);
         await loadUserProfile(session.user.id);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         console.log('AuthContext: Logout detectado, limpando dados');
+        setUser(null);
+        setProfile(null);
+        if (mounted) setLoading(false);
+      } else if (!session) {
+        console.log('AuthContext: Sem sessão, limpando dados');
         setUser(null);
         setProfile(null);
         if (mounted) setLoading(false);
