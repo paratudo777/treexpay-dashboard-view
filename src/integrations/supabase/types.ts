@@ -404,7 +404,7 @@ export type Database = {
           pix_key: string
           pix_key_type: string
           request_date: string
-          status: string
+          status: Database["public"]["Enums"]["withdrawal_status"]
           user_id: string
         }
         Insert: {
@@ -414,7 +414,7 @@ export type Database = {
           pix_key: string
           pix_key_type: string
           request_date?: string
-          status?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
           user_id: string
         }
         Update: {
@@ -424,7 +424,7 @@ export type Database = {
           pix_key?: string
           pix_key_type?: string
           request_date?: string
-          status?: string
+          status?: Database["public"]["Enums"]["withdrawal_status"]
           user_id?: string
         }
         Relationships: [
@@ -483,7 +483,12 @@ export type Database = {
         | "login"
         | "password_change"
       pix_key_type: "cpf" | "email" | "phone" | "random" | "cnpj"
-      transaction_status: "pending" | "approved" | "cancelled" | "refunded"
+      transaction_status:
+        | "pending"
+        | "approved"
+        | "cancelled"
+        | "refunded"
+        | "denied"
       transaction_type: "payment" | "withdrawal" | "deposit" | "refund"
       user_profile: "admin" | "user"
       withdrawal_status: "requested" | "processed" | "rejected"
@@ -610,7 +615,13 @@ export const Constants = {
         "password_change",
       ],
       pix_key_type: ["cpf", "email", "phone", "random", "cnpj"],
-      transaction_status: ["pending", "approved", "cancelled", "refunded"],
+      transaction_status: [
+        "pending",
+        "approved",
+        "cancelled",
+        "refunded",
+        "denied",
+      ],
       transaction_type: ["payment", "withdrawal", "deposit", "refund"],
       user_profile: ["admin", "user"],
       withdrawal_status: ["requested", "processed", "rejected"],

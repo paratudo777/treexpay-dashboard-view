@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-export type TransactionStatus = "pending" | "approved" | "cancelled" | "refunded";
+export type TransactionStatus = "pending" | "approved" | "cancelled" | "refunded" | "denied";
 
 export interface Transaction {
   id: string;

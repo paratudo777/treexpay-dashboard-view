@@ -7,16 +7,16 @@ import { Withdrawal } from "@/hooks/useWithdrawals";
 
 interface AdminWithdrawalsTableProps {
   withdrawals: Withdrawal[];
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
-  loading?: boolean;
+  onApprove: (id: string) => Promise<boolean>;
+  onReject: (id: string) => Promise<boolean>;
+  loading: boolean;
 }
 
 export const AdminWithdrawalsTable = ({ 
   withdrawals, 
   onApprove, 
-  onReject,
-  loading = false
+  onReject, 
+  loading 
 }: AdminWithdrawalsTableProps) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -36,17 +36,7 @@ export const AdminWithdrawalsTable = ({
     });
   };
 
-  const formatPixKeyType = (type: string) => {
-    const types = {
-      'email': 'E-mail',
-      'phone': 'Telefone',
-      'cpf': 'CPF',
-      'random_key': 'Chave Aleatória'
-    };
-    return types[type as keyof typeof types] || type;
-  };
-
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: Withdrawal['status']) => {
     switch (status) {
       case 'requested':
         return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
@@ -57,6 +47,17 @@ export const AdminWithdrawalsTable = ({
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const formatPixKeyType = (type: string) => {
+    const types = {
+      'email': 'E-mail',
+      'phone': 'Telefone',
+      'cpf': 'CPF',
+      'cnpj': 'CNPJ',
+      'random_key': 'Chave Aleatória'
+    };
+    return types[type as keyof typeof types] || type;
   };
 
   if (loading) {
@@ -95,17 +96,15 @@ export const AdminWithdrawalsTable = ({
           {withdrawals.map((withdrawal) => (
             <TableRow key={withdrawal.id}>
               <TableCell className="font-medium">
-                {withdrawal.user_name || 'Nome não disponível'}
+                {withdrawal.user_name || 'Nome não encontrado'}
               </TableCell>
-              <TableCell>{withdrawal.user_email || 'Email não disponível'}</TableCell>
+              <TableCell>{withdrawal.user_email || 'Email não encontrado'}</TableCell>
               <TableCell className="font-semibold text-treexpay-medium">
                 {formatCurrency(withdrawal.amount)}
               </TableCell>
               <TableCell>{formatPixKeyType(withdrawal.pix_key_type)}</TableCell>
-              <TableCell className="max-w-[200px]">
-                <div className="text-sm truncate" title={withdrawal.pix_key}>
-                  {withdrawal.pix_key}
-                </div>
+              <TableCell className="max-w-[200px] truncate" title={withdrawal.pix_key}>
+                {withdrawal.pix_key}
               </TableCell>
               <TableCell>
                 {getStatusBadge(withdrawal.status)}
@@ -118,7 +117,7 @@ export const AdminWithdrawalsTable = ({
                       <Button
                         size="sm"
                         onClick={() => onApprove(withdrawal.id)}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-treexpay-green hover:bg-treexpay-green/80"
                       >
                         <Check className="h-4 w-4" />
                         Aprovar
