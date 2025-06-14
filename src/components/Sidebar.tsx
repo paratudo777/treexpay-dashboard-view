@@ -63,7 +63,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const location = useLocation();
   const isMobile = useIsMobile();
 
-  console.log('Sidebar - Auth state:', { isAdmin, user: user?.email, userRole: user?.role });
+  console.log('Sidebar - Auth state:', { isAdmin, user: user?.email, userProfile: user?.profile });
 
   const handleNavigation = (href: string) => {
     navigate(href);
@@ -89,13 +89,13 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     }
   };
 
-  // Filtrar itens baseado na função isAdmin E no user.role como fallback
+  // Filtrar itens baseado na função isAdmin E no user.profile como fallback
   const filteredNavItems = navItems.filter(item => {
     if (!item.adminOnly) return true;
     
-    // Usar tanto isAdmin quanto user.role para garantir que admin veja os menus
-    const hasAdminAccess = isAdmin || user?.role === 'admin';
-    console.log('Admin menu filter:', { item: item.name, isAdmin, userRole: user?.role, hasAdminAccess });
+    // Usar tanto isAdmin quanto user.profile para garantir que admin veja os menus
+    const hasAdminAccess = isAdmin || user?.profile === 'admin';
+    console.log('Admin menu filter:', { item: item.name, isAdmin, userProfile: user?.profile, hasAdminAccess });
     
     return hasAdminAccess;
   });
