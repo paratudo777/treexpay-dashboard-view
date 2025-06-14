@@ -20,19 +20,9 @@ export function Header() {
   const { balance, loading } = useUserBalance();
   const [hasNotifications] = useState(true);
   
-  const getUserDisplayName = () => {
-    if (profile?.name && profile.name !== user?.email) {
-      return profile.name;
-    }
-    return 'Usuário';
-  };
-  
   return (
     <header className="h-16 border-b border-border flex items-center justify-between px-4">
       <div className="flex items-center space-x-4">
-        <span className="text-sm text-muted-foreground">
-          Bem-vindo, {getUserDisplayName()}
-        </span>
         {profile?.profile !== 'admin' && (
           <span className="text-sm text-treexpay-medium font-semibold">
             Saldo: {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}

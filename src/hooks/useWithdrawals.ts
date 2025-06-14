@@ -1,62 +1,49 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Withdrawal {
   id: string;
   user_id: string;
   amount: number;
-  pix_key_type: string;
-  pix_key: string;
+  pix_key: string;  
   status: 'requested' | 'processed' | 'rejected';
-  request_date: string;
   created_at: string;
-  // Dados do usuário vindos do join
-  user_name?: string;
-  user_email?: string;
+  processed_at?: string;
+  processed_by?: string;
+  user?: {
+    email: string;
+    name?: string;
+  };
 }
 
 export const useWithdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
 
   const fetchWithdrawals = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      console.log('🔍 Buscando saques para usuário:', user.id, 'isAdmin:', isAdmin);
       
-      let query = supabase
+      const { data, error } = await supabase
         .from('withdrawals')
         .select(`
           id,
           user_id,
           amount,
-          pix_key_type,
           pix_key,
           status,
-          request_date,
-          created_at
+          created_at,
+          processed_at,
+          processed_by,
+          profiles!inner(email, name)
         `)
         .order('created_at', { ascending: false });
 
-      // Se não for admin, buscar apenas os saques do usuário atual
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-
-      const { data, error } = await query;
-
       if (error) {
-        console.error('❌ Erro ao buscar saques:', error);
+        console.error('Erro ao buscar saques:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -65,44 +52,17 @@ export const useWithdrawals = () => {
         return;
       }
 
-      console.log('📊 Saques encontrados:', data?.length || 0);
-      
-      // Se for admin, buscar dados dos usuários para cada saque
-      if (isAdmin && data && data.length > 0) {
-        const userIds = [...new Set(data.map(w => w.user_id))];
-        
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, name, email')
-          .in('id', userIds);
-
-        if (!profilesError && profiles) {
-          const withdrawalsWithUserData = data.map(withdrawal => {
-            const userProfile = profiles.find(p => p.id === withdrawal.user_id);
-            return {
-              ...withdrawal,
-              status: withdrawal.status as 'requested' | 'processed' | 'rejected',
-              user_name: userProfile?.name || 'Nome não encontrado',
-              user_email: userProfile?.email || 'Email não encontrado'
-            };
-          });
-          setWithdrawals(withdrawalsWithUserData);
-        } else {
-          const typedWithdrawals = data.map(w => ({
-            ...w,
-            status: w.status as 'requested' | 'processed' | 'rejected'
-          }));
-          setWithdrawals(typedWithdrawals);
+      const formattedWithdrawals = (data || []).map(withdrawal => ({
+        ...withdrawal,
+        user: {
+          email: withdrawal.profiles.email,
+          name: withdrawal.profiles.name
         }
-      } else {
-        const typedWithdrawals = (data || []).map(w => ({
-          ...w,
-          status: w.status as 'requested' | 'processed' | 'rejected'
-        }));
-        setWithdrawals(typedWithdrawals);
-      }
+      }));
+
+      setWithdrawals(formattedWithdrawals);
     } catch (error) {
-      console.error('❌ Erro em fetchWithdrawals:', error);
+      console.error('Erro em fetchWithdrawals:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -113,12 +73,12 @@ export const useWithdrawals = () => {
     }
   };
 
-  const approveWithdrawal = async (withdrawalId: string) => {
+  const approveWithdrawal = async (id: string): Promise<boolean> => {
     try {
-      console.log('✅ Aprovando saque:', withdrawalId);
+      console.log('🔄 Aprovando saque:', id);
       
       const { data, error } = await supabase.rpc('approve_withdrawal', {
-        withdrawal_id: withdrawalId
+        withdrawal_id: id
       });
 
       if (error) {
@@ -131,40 +91,42 @@ export const useWithdrawals = () => {
         return false;
       }
 
-      const result = data as { success: boolean; message?: string; error?: string };
-      
-      if (result.success) {
-        toast({
-          title: "Sucesso",
-          description: result.message || "Saque aprovado com sucesso!",
-        });
-        await fetchWithdrawals(); // Recarregar lista
-        return true;
-      } else {
+      if (data && !data.success) {
+        console.error('❌ Falha na aprovação:', data.error);
         toast({
           variant: "destructive",
           title: "Erro",
-          description: result.error || "Erro ao aprovar saque.",
+          description: data.error || "Erro ao aprovar saque.",
         });
         return false;
       }
+
+      console.log('✅ Saque aprovado com sucesso');
+      toast({
+        title: "Sucesso",
+        description: "Saque aprovado com sucesso!",
+      });
+
+      // Atualizar lista
+      await fetchWithdrawals();
+      return true;
     } catch (error) {
       console.error('❌ Erro em approveWithdrawal:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro interno.",
+        description: "Erro interno. Tente novamente.",
       });
       return false;
     }
   };
 
-  const rejectWithdrawal = async (withdrawalId: string) => {
+  const rejectWithdrawal = async (id: string): Promise<boolean> => {
     try {
-      console.log('❌ Rejeitando saque:', withdrawalId);
+      console.log('🔄 Rejeitando saque:', id);
       
       const { data, error } = await supabase.rpc('reject_withdrawal', {
-        withdrawal_id: withdrawalId
+        withdrawal_id: id
       });
 
       if (error) {
@@ -177,52 +139,42 @@ export const useWithdrawals = () => {
         return false;
       }
 
-      const result = data as { success: boolean; message?: string; error?: string };
-      
-      if (result.success) {
-        toast({
-          title: "Sucesso",
-          description: result.message || "Saque rejeitado com sucesso!",
-        });
-        await fetchWithdrawals(); // Recarregar lista
-        return true;
-      } else {
+      if (data && !data.success) {
+        console.error('❌ Falha na rejeição:', data.error);
         toast({
           variant: "destructive",
           title: "Erro",
-          description: result.error || "Erro ao rejeitar saque.",
+          description: data.error || "Erro ao rejeitar saque.",
         });
         return false;
       }
+
+      console.log('✅ Saque rejeitado com sucesso');
+      toast({
+        title: "Sucesso",
+        description: "Saque rejeitado com sucesso!",
+      });
+
+      // Atualizar lista
+      await fetchWithdrawals();
+      return true;
     } catch (error) {
       console.error('❌ Erro em rejectWithdrawal:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro interno.",
+        description: "Erro interno. Tente novamente.",
       });
       return false;
     }
   };
 
-  const getTodaysWithdrawals = () => {
-    const today = new Date().toDateString();
-    return withdrawals.filter(w => new Date(w.created_at).toDateString() === today);
-  };
-
-  const getWithdrawalsByStatus = (status: string) => {
-    return withdrawals.filter(w => w.status === status);
-  };
-
   useEffect(() => {
-    console.log('🔄 useWithdrawals: Efeito executado');
     fetchWithdrawals();
-  }, [user, isAdmin]);
+  }, []);
 
-  // Set up real-time listening
+  // Set up real-time listening for withdrawal updates
   useEffect(() => {
-    if (!user) return;
-
     console.log('🔄 Configurando listener real-time para saques...');
     
     const channel = supabase
@@ -236,7 +188,7 @@ export const useWithdrawals = () => {
         },
         (payload) => {
           console.log('📡 Mudança em saque detectada:', payload);
-          fetchWithdrawals(); // Recarregar quando houver mudanças
+          fetchWithdrawals();
         }
       )
       .subscribe();
@@ -245,16 +197,13 @@ export const useWithdrawals = () => {
       console.log('🛑 Desconectando listener real-time...');
       supabase.removeChannel(channel);
     };
-  }, [user, isAdmin]);
+  }, []);
 
   return {
     withdrawals,
     loading,
-    fetchWithdrawals,
     approveWithdrawal,
     rejectWithdrawal,
-    getTodaysWithdrawals,
-    getWithdrawalsByStatus,
     refetch: fetchWithdrawals
   };
 };
