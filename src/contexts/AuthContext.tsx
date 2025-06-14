@@ -50,10 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('AuthContext: Sessão obtida:', session ? 'Ativa' : 'Inativa');
 
         if (session?.user) {
+          console.log('AuthContext: Usuário encontrado na sessão:', session.user.email);
           setUser(session.user);
           await loadUserProfile(session.user.id);
         } else {
-          // Se não há sessão, garantir que está deslogado
+          console.log('AuthContext: Nenhuma sessão ativa encontrada');
           setUser(null);
           setProfile(null);
           clearTimeout(timeoutId);
@@ -70,12 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('AuthContext: Mudança de estado:', event, session?.user?.email);
+      console.log('AuthContext: Mudança de estado de auth:', event, session?.user?.email);
       
       if (session?.user) {
+        console.log('AuthContext: Configurando usuário logado:', session.user.email);
         setUser(session.user);
         await loadUserProfile(session.user.id);
       } else {
+        console.log('AuthContext: Limpando dados do usuário');
         setUser(null);
         setProfile(null);
         setLoading(false);
@@ -111,6 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('AuthContext: Erro ao carregar perfil:', error);
+        console.log('AuthContext: Usuário pode não ter perfil ainda, criando...');
         setProfile(null);
       } else {
         console.log('AuthContext: Perfil carregado:', data);
@@ -135,13 +139,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        console.error('AuthContext: Erro no login:', error);
+        console.error('AuthContext: Erro no login:', error.message);
         setLoading(false);
         return { success: false, error: error.message };
       }
 
-      console.log('AuthContext: Login bem-sucedido para:', email);
-      return { success: true };
+      if (data.user) {
+        console.log('AuthContext: Login bem-sucedido para:', email);
+        console.log('AuthContext: Dados do usuário:', data.user);
+        return { success: true };
+      } else {
+        console.error('AuthContext: Login sem erro mas sem usuário retornado');
+        setLoading(false);
+        return { success: false, error: 'Login falhou sem retornar usuário' };
+      }
     } catch (error) {
       console.error('AuthContext: Exceção no login:', error);
       setLoading(false);
@@ -170,6 +181,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     logout,
   };
+
+  console.log('AuthContext: Estado atual:', { 
+    user: user?.email, 
+    isAuthenticated: !!user, 
+    isAdmin, 
+    loading,
+    profile: profile?.profile 
+  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
