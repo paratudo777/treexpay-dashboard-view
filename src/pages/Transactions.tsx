@@ -20,12 +20,60 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge } from "@/components/transactions/StatusBadge";
-import { useLocalTransactions, LocalTransaction } from "@/hooks/useLocalTransactions";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useLocalTransactions } from "@/hooks/useLocalTransactions";
+
+// Interface combinada para todas as transações
+interface CombinedTransaction {
+  id: string;
+  code: string;
+  type: string;
+  status: string;
+  created_at: string;
+  description: string;
+  amount: number;
+}
 
 export default function Transactions() {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const { toast } = useToast();
-  const { transactions, loading } = useLocalTransactions();
+  
+  // Buscar transações do Supabase
+  const { transactions: supabaseTransactions, loading: supabaseLoading } = useTransactions();
+  
+  // Buscar transações locais (saques)
+  const { transactions: localTransactions, loading: localLoading } = useLocalTransactions();
+
+  const loading = supabaseLoading || localLoading;
+
+  // Combinar todas as transações
+  const allTransactions: CombinedTransaction[] = [
+    // Transações do Supabase
+    ...supabaseTransactions.map(tx => ({
+      id: tx.id,
+      code: tx.code,
+      type: tx.type,
+      status: tx.status,
+      created_at: tx.created_at,
+      description: tx.description,
+      amount: tx.amount
+    })),
+    // Transações locais (saques)
+    ...localTransactions.map(tx => ({
+      id: tx.id,
+      code: tx.code,
+      type: tx.type,
+      status: tx.status,
+      created_at: tx.created_at,
+      description: tx.description,
+      amount: tx.amount
+    }))
+  ];
+
+  // Ordenar por data (mais recente primeiro)
+  const sortedTransactions = allTransactions.sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   // Format amount to BRL currency
   const formatAmount = (amount: number) => {
@@ -48,7 +96,7 @@ export default function Transactions() {
   };
 
   // Get transaction type label
-  const getTransactionTypeLabel = (transaction: LocalTransaction) => {
+  const getTransactionTypeLabel = (transaction: CombinedTransaction) => {
     switch (transaction.type) {
       case 'withdrawal':
         return 'Saque PIX';
@@ -62,7 +110,7 @@ export default function Transactions() {
   };
 
   // Filter transactions
-  const filteredTransactions = transactions.filter(transaction => {
+  const filteredTransactions = sortedTransactions.filter(transaction => {
     if (statusFilter === "todos") return true;
     return transaction.status === statusFilter;
   });
