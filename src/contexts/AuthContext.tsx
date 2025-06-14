@@ -29,30 +29,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const initAuth = async () => {
       try {
-        // Definir timeout máximo para carregamento
+        console.log('AuthContext: Iniciando verificação de autenticação...');
+        
+        // Timeout de segurança para loading
         timeoutId = setTimeout(() => {
-          console.log('Auth timeout reached, setting loading to false');
+          console.log('AuthContext: Timeout de inicialização atingido');
           setLoading(false);
-        }, 5000); // 5 segundos máximo
+        }, 3000);
 
         // Verificar sessão atual
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('AuthContext: Erro ao obter sessão:', error);
+          clearTimeout(timeoutId);
           setLoading(false);
           return;
         }
 
-        setUser(session?.user ?? null);
-        
+        console.log('AuthContext: Sessão obtida:', session ? 'Ativa' : 'Inativa');
+
         if (session?.user) {
+          setUser(session.user);
           await loadUserProfile(session.user.id);
         } else {
+          // Se não há sessão, garantir que está deslogado
+          setUser(null);
+          setProfile(null);
+          clearTimeout(timeoutId);
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error in initAuth:', error);
+        console.error('AuthContext: Erro na inicialização:', error);
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     };
@@ -61,12 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.email);
-      setUser(session?.user ?? null);
+      console.log('AuthContext: Mudança de estado:', event, session?.user?.email);
       
       if (session?.user) {
+        setUser(session.user);
         await loadUserProfile(session.user.id);
       } else {
+        setUser(null);
         setProfile(null);
         setLoading(false);
       }
@@ -84,10 +94,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log('AuthContext: Carregando perfil do usuário:', userId);
+      
       const profileTimeout = setTimeout(() => {
-        console.log('Profile loading timeout, proceeding without profile');
+        console.log('AuthContext: Timeout do perfil atingido');
         setLoading(false);
-      }, 3000);
+      }, 2000);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -98,15 +110,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(profileTimeout);
 
       if (error) {
-        console.error('Error loading profile:', error);
-        // Não bloquear se não conseguir carregar o perfil
+        console.error('AuthContext: Erro ao carregar perfil:', error);
         setProfile(null);
       } else {
+        console.log('AuthContext: Perfil carregado:', data);
         setProfile(data);
-        console.log('Profile loaded:', data);
       }
     } catch (error) {
-      console.error('Error in loadUserProfile:', error);
+      console.error('AuthContext: Exceção ao carregar perfil:', error);
       setProfile(null);
     } finally {
       setLoading(false);
@@ -116,25 +127,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+      console.log('AuthContext: Tentativa de login para:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error('Login error:', error);
+        console.error('AuthContext: Erro no login:', error);
         setLoading(false);
         return { success: false, error: error.message };
       }
 
-      console.log('Login successful for:', email);
-      
-      // Aguardar um pouco para garantir que o perfil seja carregado
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      console.log('AuthContext: Login bem-sucedido para:', email);
       return { success: true };
     } catch (error) {
-      console.error('Login exception:', error);
+      console.error('AuthContext: Exceção no login:', error);
       setLoading(false);
       return { success: false, error: 'Erro interno' };
     }
@@ -142,11 +151,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      console.log('AuthContext: Fazendo logout...');
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
+      console.log('AuthContext: Logout realizado com sucesso');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('AuthContext: Erro no logout:', error);
     }
   };
 

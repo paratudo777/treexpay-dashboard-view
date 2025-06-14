@@ -13,19 +13,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   console.log('ProtectedRoute: Verificando acesso', { loading, isAuthenticated });
 
-  // Timeout de segurança para evitar loading infinito
+  // Timeout de segurança
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
         console.log('ProtectedRoute: Timeout atingido, forçando saída do loading');
         setMaxWaitReached(true);
       }
-    }, 8000); // 8 segundos máximo
+    }, 5000);
 
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // Mostrar loading enquanto verifica autenticação (com timeout)
+  // Mostrar loading enquanto verifica autenticação
   if (loading && !maxWaitReached) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -37,12 +37,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Redirecionar para login se não autenticado
-  if (!isAuthenticated) {
-    console.log('ProtectedRoute: Usuário não autenticado, redirecionando');
+  // Se não autenticado ou timeout atingido, redirecionar para login
+  if (!isAuthenticated || maxWaitReached) {
+    console.log('ProtectedRoute: Usuário não autenticado, redirecionando para login');
     return <Navigate to="/" replace />;
   }
 
+  console.log('ProtectedRoute: Acesso liberado');
   return <>{children}</>;
 };
 

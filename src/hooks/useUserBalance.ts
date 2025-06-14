@@ -7,19 +7,21 @@ import { useToast } from '@/hooks/use-toast';
 export const useUserBalance = () => {
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const fetchBalance = async () => {
-    if (!user) {
+    if (!user || !isAuthenticated) {
+      console.log('useUserBalance: Usuário não autenticado, definindo loading como false');
       setLoading(false);
+      setBalance(0);
       return;
     }
 
     try {
       setLoading(true);
+      console.log('useUserBalance: Buscando saldo para usuário:', user.id);
       
-      // Enhanced security: Explicit user validation and data fetching
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -27,43 +29,48 @@ export const useUserBalance = () => {
         .single();
 
       if (profileError) {
-        console.error('Error fetching balance:', profileError);
+        console.error('useUserBalance: Erro ao buscar saldo:', profileError);
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Erro ao carregar saldo.",
         });
+        setBalance(0);
         return;
       }
 
-      // Additional validation to ensure balance is a valid number
       const validatedBalance = Number(profileData.balance) || 0;
+      console.log('useUserBalance: Saldo carregado:', validatedBalance);
+      
       if (validatedBalance < 0) {
-        console.warn('Negative balance detected, setting to 0');
+        console.warn('useUserBalance: Saldo negativo detectado, definindo como 0');
         setBalance(0);
       } else {
         setBalance(validatedBalance);
       }
     } catch (error) {
-      console.error('Error in fetchBalance:', error);
+      console.error('useUserBalance: Erro na busca do saldo:', error);
       toast({
         variant: "destructive",
         title: "Erro",
         description: "Erro interno. Tente novamente.",
       });
+      setBalance(0);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    console.log('useUserBalance: Efeito executado, user:', user?.id, 'isAuthenticated:', isAuthenticated);
     fetchBalance();
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAuthenticated) return;
 
-    // Enhanced real-time subscription with additional validation
+    console.log('useUserBalance: Configurando listener real-time para saldo');
+    
     const channel = supabase
       .channel('profile-balance-changes')
       .on(
@@ -75,6 +82,7 @@ export const useUserBalance = () => {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
+          console.log('useUserBalance: Mudança no saldo detectada:', payload);
           const newRecord = payload.new as any;
           if (newRecord && newRecord.id === user.id) {
             const validatedBalance = Number(newRecord.balance) || 0;
@@ -85,9 +93,10 @@ export const useUserBalance = () => {
       .subscribe();
 
     return () => {
+      console.log('useUserBalance: Removendo listener real-time');
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   return {
     balance,

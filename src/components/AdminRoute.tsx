@@ -13,19 +13,19 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
 
   console.log('AdminRoute: Verificando acesso admin', { loading, isAuthenticated, isAdmin });
 
-  // Timeout de segurança para evitar loading infinito
+  // Timeout de segurança
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (loading) {
         console.log('AdminRoute: Timeout atingido, forçando saída do loading');
         setMaxWaitReached(true);
       }
-    }, 8000); // 8 segundos máximo
+    }, 5000);
 
     return () => clearTimeout(timeout);
   }, [loading]);
 
-  // Mostrar loading enquanto carrega (com timeout)
+  // Mostrar loading enquanto carrega
   if (loading && !maxWaitReached) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -37,13 +37,13 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     );
   }
 
-  // Verificar se está autenticado
-  if (!isAuthenticated) {
+  // Se não autenticado ou timeout atingido, redirecionar para login
+  if (!isAuthenticated || maxWaitReached) {
     console.log('AdminRoute: Usuário não autenticado, redirecionando para login');
     return <Navigate to="/" replace />;
   }
 
-  // Verificar se é admin
+  // Se autenticado mas não é admin, redirecionar para dashboard
   if (!isAdmin) {
     console.log('AdminRoute: Usuário não é admin, redirecionando para dashboard');
     return <Navigate to="/dashboard" replace />;

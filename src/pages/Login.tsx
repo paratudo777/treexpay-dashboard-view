@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,20 +11,9 @@ import { useToast } from '@/hooks/use-toast';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading, isAuthenticated, isAdmin } = useAuth();
+  const { login, loading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Redirecionar se já estiver autenticado
-  useEffect(() => {
-    if (isAuthenticated && !loading) {
-      if (isAdmin) {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
-    }
-  }, [isAuthenticated, isAdmin, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +27,8 @@ const Login = () => {
       return;
     }
 
+    console.log('Login: Tentando fazer login com:', email);
+
     const result = await login(email, password);
     
     if (result.success) {
@@ -45,7 +36,18 @@ const Login = () => {
         title: "Login realizado!",
         description: "Redirecionando...",
       });
-      // O redirecionamento será feito pelo useEffect acima
+      
+      // Aguardar um pouco para o contexto processar o login
+      setTimeout(() => {
+        // Verificar se é admin para redirecionar corretamente
+        if (email === 'manomassa717@gmail.com' || email === 'admin@treexpay.com') {
+          console.log('Login: Redirecionando admin para /admin');
+          navigate('/admin');
+        } else {
+          console.log('Login: Redirecionando usuário para /dashboard');
+          navigate('/dashboard');
+        }
+      }, 500);
     } else {
       toast({
         title: "Erro no login",
