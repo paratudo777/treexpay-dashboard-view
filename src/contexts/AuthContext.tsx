@@ -25,45 +25,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   profile?.profile === 'admin';
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
+    let mounted = true;
     
     const initAuth = async () => {
       try {
-        console.log('AuthContext: Iniciando verificação de autenticação...');
+        console.log('AuthContext: Iniciando - FORÇANDO LOGOUT para garantir login obrigatório');
         
-        // Timeout de segurança para loading
-        timeoutId = setTimeout(() => {
-          console.log('AuthContext: Timeout de inicialização atingido');
-          setLoading(false);
-        }, 3000);
-
-        // Verificar sessão atual
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // FORÇAR LOGOUT ao inicializar para garantir que usuário sempre faça login
+        await supabase.auth.signOut();
         
-        if (error) {
-          console.error('AuthContext: Erro ao obter sessão:', error);
-          clearTimeout(timeoutId);
-          setLoading(false);
-          return;
-        }
-
-        console.log('AuthContext: Sessão obtida:', session ? 'Ativa' : 'Inativa');
-
-        if (session?.user) {
-          console.log('AuthContext: Usuário encontrado na sessão:', session.user.email);
-          setUser(session.user);
-          await loadUserProfile(session.user.id);
-        } else {
-          console.log('AuthContext: Nenhuma sessão ativa encontrada');
+        if (mounted) {
+          console.log('AuthContext: Logout forçado concluído - usuário deve fazer login');
           setUser(null);
           setProfile(null);
-          clearTimeout(timeoutId);
           setLoading(false);
         }
       } catch (error) {
-        console.error('AuthContext: Erro na inicialização:', error);
-        clearTimeout(timeoutId);
-        setLoading(false);
+        console.error('AuthContext: Erro ao forçar logout inicial:', error);
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+        }
       }
     };
 
@@ -71,27 +54,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       console.log('AuthContext: Mudança de estado de auth:', event, session?.user?.email);
       
-      if (session?.user) {
-        console.log('AuthContext: Configurando usuário logado:', session.user.email);
+      if (session?.user && event === 'SIGNED_IN') {
+        console.log('AuthContext: Login detectado, carregando dados do usuário:', session.user.email);
         setUser(session.user);
         await loadUserProfile(session.user.id);
       } else {
-        console.log('AuthContext: Limpando dados do usuário');
+        console.log('AuthContext: Logout detectado, limpando dados');
         setUser(null);
         setProfile(null);
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     });
 
     initAuth();
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
     };
   }, []);
 
@@ -99,22 +82,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AuthContext: Carregando perfil do usuário:', userId);
       
-      const profileTimeout = setTimeout(() => {
-        console.log('AuthContext: Timeout do perfil atingido');
-        setLoading(false);
-      }, 2000);
-
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      clearTimeout(profileTimeout);
-
       if (error) {
         console.error('AuthContext: Erro ao carregar perfil:', error);
-        console.log('AuthContext: Usuário pode não ter perfil ainda, criando...');
         setProfile(null);
       } else {
         console.log('AuthContext: Perfil carregado:', data);
@@ -146,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (data.user) {
         console.log('AuthContext: Login bem-sucedido para:', email);
-        console.log('AuthContext: Dados do usuário:', data.user);
+        // O onAuthStateChange vai lidar com o resto
         return { success: true };
       } else {
         console.error('AuthContext: Login sem erro mas sem usuário retornado');

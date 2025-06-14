@@ -12,8 +12,8 @@ export const useUserBalance = () => {
 
   const fetchBalance = async () => {
     if (!user || !isAuthenticated) {
-      console.log('useUserBalance: Usuário não autenticado, definindo loading como false');
-      setLoading(false);
+      console.log('useUserBalance: Usuário não autenticado, aguardando...');
+      setLoading(true);
       setBalance(0);
       return;
     }
@@ -63,7 +63,14 @@ export const useUserBalance = () => {
 
   useEffect(() => {
     console.log('useUserBalance: Efeito executado, user:', user?.id, 'isAuthenticated:', isAuthenticated);
-    fetchBalance();
+    
+    // Aguardar até ter usuário autenticado para buscar dados
+    if (isAuthenticated && user) {
+      fetchBalance();
+    } else {
+      console.log('useUserBalance: Aguardando autenticação completa...');
+      setLoading(true);
+    }
   }, [user, isAuthenticated]);
 
   useEffect(() => {

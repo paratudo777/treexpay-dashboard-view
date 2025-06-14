@@ -9,24 +9,22 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-  const [maxWaitReached, setMaxWaitReached] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
   console.log('ProtectedRoute: Verificando acesso', { loading, isAuthenticated });
 
-  // Timeout de segurança
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.log('ProtectedRoute: Timeout atingido, forçando saída do loading');
-        setMaxWaitReached(true);
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [loading]);
+    // Se não está loading e não está autenticado, deve redirecionar
+    if (!loading && !isAuthenticated) {
+      console.log('ProtectedRoute: Usuário não autenticado, preparando redirecionamento');
+      setShouldRedirect(true);
+    } else if (isAuthenticated) {
+      setShouldRedirect(false);
+    }
+  }, [loading, isAuthenticated]);
 
   // Mostrar loading enquanto verifica autenticação
-  if (loading && !maxWaitReached) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -37,9 +35,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  // Se não autenticado ou timeout atingido, redirecionar para login
-  if (!isAuthenticated || maxWaitReached) {
-    console.log('ProtectedRoute: Usuário não autenticado, redirecionando para login');
+  // Se deve redirecionar ou não está autenticado, vai para login
+  if (shouldRedirect || !isAuthenticated) {
+    console.log('ProtectedRoute: Redirecionando para login');
     return <Navigate to="/" replace />;
   }
 
