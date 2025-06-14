@@ -122,6 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('AuthContext: Exceção ao carregar perfil:', error);
       setProfile(null);
     } finally {
+      // SEMPRE finalizar o loading, independentemente do resultado
+      console.log('AuthContext: Finalizando loading');
       setLoading(false);
     }
   };
@@ -161,12 +163,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       console.log('AuthContext: Fazendo logout...');
+      setLoading(true);
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
+      setLoading(false);
       console.log('AuthContext: Logout realizado com sucesso');
     } catch (error) {
       console.error('AuthContext: Erro no logout:', error);
+      setLoading(false);
     }
   };
 
