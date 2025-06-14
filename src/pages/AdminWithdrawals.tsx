@@ -1,39 +1,43 @@
 
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useWithdrawalRequests } from "@/hooks/useWithdrawalRequests";
-import { useLocalTransactions } from "@/hooks/useLocalTransactions";
-import { useLocalBalance } from "@/hooks/useLocalBalance";
-import { WithdrawalManagementTable } from "@/components/admin/WithdrawalManagementTable";
+import { useWithdrawals } from "@/hooks/useWithdrawals";
+import { AdminWithdrawalsTable } from "@/components/admin/AdminWithdrawalsTable";
 
 export default function AdminWithdrawals() {
-  const { requests, updateRequest } = useWithdrawalRequests();
-  const { updateTransactionStatus } = useLocalTransactions();
+  const { 
+    withdrawals, 
+    loading, 
+    approveWithdrawal, 
+    rejectWithdrawal, 
+    getTodaysWithdrawals,
+    getWithdrawalsByStatus 
+  } = useWithdrawals();
 
-  const todaysRequests = requests.filter(req => {
-    const today = new Date().toDateString();
-    return new Date(req.requestedAt).toDateString() === today;
-  });
+  const todaysWithdrawals = getTodaysWithdrawals();
+  const pendingWithdrawals = getWithdrawalsByStatus('requested');
+  const processedWithdrawals = getWithdrawalsByStatus('processed');
+  const rejectedWithdrawals = getWithdrawalsByStatus('rejected');
 
-  const handleApprove = (id: string) => {
-    updateRequest(id, { status: 'approved' });
-    updateTransactionStatus(id, 'approved');
+  const handleApprove = async (id: string) => {
+    await approveWithdrawal(id);
   };
 
-  const handleDeny = (id: string) => {
-    updateRequest(id, { status: 'denied' });
-    updateTransactionStatus(id, 'denied');
+  const handleReject = async (id: string) => {
+    await rejectWithdrawal(id);
   };
 
-  const handleConfirmPayment = (id: string) => {
-    const request = requests.find(r => r.id === id);
-    if (!request) return;
-
-    // Em um sistema real, você deduziria o saldo do usuário aqui
-    // Para este demo, apenas atualizamos o status
-    updateRequest(id, { status: 'paid' });
-    updateTransactionStatus(id, 'paid');
-  };
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="container mx-auto max-w-7xl">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -44,7 +48,7 @@ export default function AdminWithdrawals() {
               Solicitações de Saque
             </h1>
             <p className="text-lg text-gray-200">
-              Gerenciar pedidos de saque dos usuários
+              Gerenciar pedidos de saque de todos os usuários
             </p>
           </div>
 
@@ -54,7 +58,7 @@ export default function AdminWithdrawals() {
                 <CardTitle className="text-sm font-medium">Total Hoje</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{todaysRequests.length}</div>
+                <div className="text-2xl font-bold">{todaysWithdrawals.length}</div>
               </CardContent>
             </Card>
             <Card>
@@ -63,17 +67,7 @@ export default function AdminWithdrawals() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-yellow-600">
-                  {todaysRequests.filter(r => r.status === 'pending').length}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Aprovadas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">
-                  {todaysRequests.filter(r => r.status === 'approved').length}
+                  {pendingWithdrawals.length}
                 </div>
               </CardContent>
             </Card>
@@ -82,8 +76,18 @@ export default function AdminWithdrawals() {
                 <CardTitle className="text-sm font-medium">Processadas</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
-                  {todaysRequests.filter(r => r.status === 'paid').length}
+                <div className="text-2xl font-bold text-green-600">
+                  {processedWithdrawals.length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Rejeitadas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {rejectedWithdrawals.length}
                 </div>
               </CardContent>
             </Card>
@@ -93,15 +97,15 @@ export default function AdminWithdrawals() {
             <CardHeader>
               <CardTitle>Listagem de Solicitações</CardTitle>
               <CardDescription>
-                Visualize e gerencie todas as solicitações de saque de hoje
+                Visualize e gerencie todas as solicitações de saque
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <WithdrawalManagementTable 
-                requests={todaysRequests}
+              <AdminWithdrawalsTable 
+                withdrawals={withdrawals}
                 onApprove={handleApprove}
-                onDeny={handleDeny}
-                onConfirmPayment={handleConfirmPayment}
+                onReject={handleReject}
+                loading={loading}
               />
             </CardContent>
           </Card>
