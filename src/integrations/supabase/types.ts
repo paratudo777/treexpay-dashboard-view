@@ -462,6 +462,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       rejeitar_saque: {
         Args: { saque_id: string }
         Returns: Json

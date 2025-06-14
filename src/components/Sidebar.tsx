@@ -65,14 +65,12 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   console.log('Sidebar - Auth state:', { 
     isAdmin, 
-    user: user?.email, 
-    userProfile: user?.profile,
-    isAdminCheck: user?.email === 'admin@treexpay.com'
+    userEmail: user?.email,
+    isManomassa: user?.email === 'manomassa717@gmail.com'
   });
 
   const handleNavigation = (href: string) => {
     navigate(href);
-    // Fechar sidebar automaticamente após navegação (funciona para mobile e desktop)
     if (onNavigate) {
       onNavigate();
     }
@@ -80,7 +78,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const handleLogout = () => {
     logout();
-    // Fechar sidebar após logout
     if (onNavigate) {
       onNavigate();
     }
@@ -88,30 +85,22 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
   const openWhatsApp = () => {
     window.open('https://wa.me/5518991913165', '_blank');
-    // Fechar sidebar após abrir WhatsApp
     if (onNavigate) {
       onNavigate();
     }
   };
 
-  // Filtrar itens baseado na função isAdmin E verificações adicionais
+  // Filtrar itens baseado no isAdmin
   const filteredNavItems = navItems.filter(item => {
     if (!item.adminOnly) return true;
     
-    // Múltiplas verificações para admin: isAdmin, profile ou email específico
-    const hasAdminAccess = isAdmin || 
-                          user?.profile === 'admin' || 
-                          user?.email === 'admin@treexpay.com';
-    
     console.log('Admin menu filter:', { 
       item: item.name, 
-      isAdmin, 
-      userProfile: user?.profile, 
-      userEmail: user?.email,
-      hasAdminAccess 
+      isAdmin,
+      userEmail: user?.email
     });
     
-    return hasAdminAccess;
+    return isAdmin;
   });
 
   return (

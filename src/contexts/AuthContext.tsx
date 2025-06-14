@@ -1,173 +1,122 @@
 
-import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  profile: 'admin' | 'user';
-  active: boolean;
-}
+import { createContext, useContext, useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
   loading: boolean;
-  profileError: string | null;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+
+  const isAdmin = user?.email === 'manomassa717@gmail.com' || 
+                  user?.email === 'admin@treexpay.com' ||
+                  profile?.profile === 'admin';
 
   useEffect(() => {
-    console.log('🔄 AuthProvider: Iniciando verificação de sessão...');
-    
-    // Verificar sessão existente
+    // Verificar sessão atual
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📋 Sessão verificada:', !!session?.user);
+      setUser(session?.user ?? null);
       if (session?.user) {
-        createUserFromAuth(session.user);
+        loadUserProfile(session.user.id);
+      } else {
+        setLoading(false);
       }
-      setInitialLoading(false);
     });
 
-    // Listener para mudanças de auth
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('🔔 Auth mudou:', event);
-        
-        if (session?.user) {
-          createUserFromAuth(session.user);
-        } else {
-          setUser(null);
-          setLoading(false);
-        }
+    // Escutar mudanças de autenticação
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.email);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        await loadUserProfile(session.user.id);
+      } else {
+        setProfile(null);
+        setLoading(false);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const createUserFromAuth = (authUser: SupabaseUser) => {
-    console.log('👤 Criando usuário:', authUser.email);
-    
-    const userData: User = {
-      id: authUser.id,
-      email: authUser.email || '',
-      name: authUser.email || '',
-      profile: authUser.email === 'admin@treexpay.com' ? 'admin' : 'user',
-      active: true,
-    };
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    setUser(userData);
-    setLoading(false);
-    
-    console.log('✅ Usuário definido:', userData.email);
+      if (error) {
+        console.error('Error loading profile:', error);
+      } else {
+        setProfile(data);
+        console.log('Profile loaded:', data);
+      }
+    } catch (error) {
+      console.error('Error in loadUserProfile:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('🚀 Tentando login:', email);
       setLoading(true);
-      
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password
+        email,
+        password,
       });
 
       if (error) {
-        console.error('❌ Erro de login:', error.message);
-        toast({
-          variant: "destructive",
-          title: "Erro de login",
-          description: "Email ou senha incorretos.",
-        });
-        setLoading(false);
-        return;
+        console.error('Login error:', error);
+        return { success: false, error: error.message };
       }
 
-      console.log('✅ Login realizado com sucesso');
-      
+      console.log('Login successful for:', email);
+      return { success: true };
     } catch (error) {
-      console.error('💥 Erro interno:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro interno. Tente novamente.",
-      });
+      console.error('Login exception:', error);
+      return { success: false, error: 'Erro interno' };
+    } finally {
       setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
-      console.log('🚪 Fazendo logout...');
       await supabase.auth.signOut();
       setUser(null);
-      navigate('/');
-      toast({
-        title: "Logout realizado",
-        description: "Você foi desconectado com sucesso.",
-      });
+      setProfile(null);
     } catch (error) {
-      console.error('❌ Erro no logout:', error);
+      console.error('Logout error:', error);
     }
   };
 
-  const isAuthenticated = !!user;
-  const isAdmin = user?.profile === 'admin';
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isAdmin,
+    loading,
+    login,
+    logout,
+  };
 
-  // Redirecionar para dashboard após login bem-sucedido
-  useEffect(() => {
-    if (isAuthenticated && !loading && !initialLoading) {
-      const currentPath = window.location.pathname;
-      if (currentPath === '/' || currentPath === '/login') {
-        console.log('🎯 Redirecionando para dashboard...');
-        navigate('/dashboard');
-        toast({
-          title: "Login realizado com sucesso",
-          description: "Bem-vindo à plataforma TreexPay",
-        });
-      }
-    }
-  }, [isAuthenticated, loading, initialLoading, navigate, toast]);
-
-  // Loading inicial
-  if (initialLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
-      </div>
-    );
-  }
-
-  return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
-      isAdmin,
-      login, 
-      logout,
-      loading,
-      profileError: null
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
