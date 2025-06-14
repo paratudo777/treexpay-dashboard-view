@@ -5,6 +5,7 @@ import { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
+  profile: any;
   isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
@@ -108,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
+    profile,
     isAuthenticated: !!user,
     isAdmin,
     loading,

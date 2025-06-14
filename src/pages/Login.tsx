@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading, profileError } = useAuth();
+  const { login, loading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,11 +54,6 @@ const Login = () => {
                   className="bg-input"
                 />
               </div>
-              {profileError && (
-                <div className="text-sm text-red-500 text-center">
-                  {profileError}
-                </div>
-              )}
               <Button 
                 type="submit" 
                 className="w-full bg-treexpay-dark hover:bg-treexpay-medium text-white"

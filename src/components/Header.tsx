@@ -16,13 +16,13 @@ import {
 
 export function Header() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const { balance, loading } = useUserBalance();
   const [hasNotifications] = useState(true);
   
   const getUserDisplayName = () => {
-    if (user?.name && user.name !== user?.email) {
-      return user.name;
+    if (profile?.name && profile.name !== user?.email) {
+      return profile.name;
     }
     return 'Usuário';
   };
@@ -33,7 +33,7 @@ export function Header() {
         <span className="text-sm text-muted-foreground">
           Bem-vindo, {getUserDisplayName()}
         </span>
-        {user?.profile !== 'admin' && (
+        {profile?.profile !== 'admin' && (
           <span className="text-sm text-treexpay-medium font-semibold">
             Saldo: {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}
           </span>

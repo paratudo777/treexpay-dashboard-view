@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,7 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
   const [pixKey, setPixKey] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { addRequest } = useWithdrawalRequests();
   const { addTransaction } = useLocalTransactions();
 
@@ -83,7 +82,7 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
       addRequest({
         id: requestId,
         user: user.id,
-        userName: user.name,
+        userName: profile?.name || user.email || 'Usuário',
         userEmail: user.email,
         amount: amountValue,
         pixKeyType: pixType,

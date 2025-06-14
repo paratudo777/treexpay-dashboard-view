@@ -32,7 +32,7 @@ export const PixDeposit = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pixData, setPixData] = useState<PixDepositResponse | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const generatePix = async () => {
     if (!user) {
@@ -64,7 +64,7 @@ export const PixDeposit = () => {
         body: {
           amount: amountValue,
           userId: user.id,
-          userName: user.name,
+          userName: profile?.name || user.email || 'Usuário',
           userEmail: user.email,
           userPhone: "11999999999", // You might want to get this from user profile
           userCpf: "12345678900" // You might want to get this from user profile
