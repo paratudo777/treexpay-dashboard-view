@@ -58,10 +58,12 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const { logout, isAdmin } = useAuth();
+  const { logout, isAdmin, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
+
+  console.log('Sidebar - Auth state:', { isAdmin, user: user?.email, userRole: user?.role });
 
   const handleNavigation = (href: string) => {
     navigate(href);
@@ -87,7 +89,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     }
   };
 
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  // Filtrar itens baseado na função isAdmin E no user.role como fallback
+  const filteredNavItems = navItems.filter(item => {
+    if (!item.adminOnly) return true;
+    
+    // Usar tanto isAdmin quanto user.role para garantir que admin veja os menus
+    const hasAdminAccess = isAdmin || user?.role === 'admin';
+    console.log('Admin menu filter:', { item: item.name, isAdmin, userRole: user?.role, hasAdminAccess });
+    
+    return hasAdminAccess;
+  });
 
   return (
     <div className="h-screen bg-sidebar flex flex-col border-r border-sidebar-border w-64">

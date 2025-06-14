@@ -2,10 +2,11 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WithdrawalForm } from "@/components/WithdrawalForm";
-import { useLocalBalance } from "@/hooks/useLocalBalance";
+import { useUserBalance } from "@/hooks/useUserBalance";
 
 export default function Financeiro() {
-  const { balance, loading: balanceLoading, refetch } = useLocalBalance();
+  // Usar o hook real do Supabase em vez do localStorage
+  const { balance, loading: balanceLoading, refetch } = useUserBalance();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
