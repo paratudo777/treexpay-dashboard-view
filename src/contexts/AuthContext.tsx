@@ -25,15 +25,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   profile?.profile === 'admin';
 
   useEffect(() => {
-    // Verificar sessão atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUserProfile(session.user.id);
-      } else {
+    let timeoutId: NodeJS.Timeout;
+    
+    const initAuth = async () => {
+      try {
+        // Definir timeout máximo para carregamento
+        timeoutId = setTimeout(() => {
+          console.log('Auth timeout reached, setting loading to false');
+          setLoading(false);
+        }, 5000); // 5 segundos máximo
+
+        // Verificar sessão atual
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await loadUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error in initAuth:', error);
         setLoading(false);
       }
-    });
+    };
 
     // Escutar mudanças de autenticação
     const {
@@ -50,25 +72,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    initAuth();
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, []);
 
   const loadUserProfile = async (userId: string) => {
     try {
+      const profileTimeout = setTimeout(() => {
+        console.log('Profile loading timeout, proceeding without profile');
+        setLoading(false);
+      }, 3000);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
+      clearTimeout(profileTimeout);
+
       if (error) {
         console.error('Error loading profile:', error);
+        // Não bloquear se não conseguir carregar o perfil
+        setProfile(null);
       } else {
         setProfile(data);
         console.log('Profile loaded:', data);
       }
     } catch (error) {
       console.error('Error in loadUserProfile:', error);
+      setProfile(null);
     } finally {
       setLoading(false);
     }
@@ -84,16 +123,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Login error:', error);
+        setLoading(false);
         return { success: false, error: error.message };
       }
 
       console.log('Login successful for:', email);
+      
+      // Aguardar um pouco para garantir que o perfil seja carregado
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       return { success: true };
     } catch (error) {
       console.error('Login exception:', error);
-      return { success: false, error: 'Erro interno' };
-    } finally {
       setLoading(false);
+      return { success: false, error: 'Erro interno' };
     }
   };
 

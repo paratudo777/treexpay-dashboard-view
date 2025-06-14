@@ -1,20 +1,57 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading } = useAuth();
+  const { login, loading, isAuthenticated, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Redirecionar se já estiver autenticado
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      if (isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [isAuthenticated, isAdmin, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loading) {
-      await login(email, password);
+    
+    if (!email || !password) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Por favor, preencha email e senha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await login(email, password);
+    
+    if (result.success) {
+      toast({
+        title: "Login realizado!",
+        description: "Redirecionando...",
+      });
+      // O redirecionamento será feito pelo useEffect acima
+    } else {
+      toast({
+        title: "Erro no login",
+        description: result.error || "Verifique suas credenciais.",
+        variant: "destructive",
+      });
     }
   };
 

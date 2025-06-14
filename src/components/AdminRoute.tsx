@@ -1,6 +1,7 @@
 
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -8,14 +9,30 @@ interface AdminRouteProps {
 
 const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const { isAuthenticated, isAdmin, loading } = useAuth();
+  const [maxWaitReached, setMaxWaitReached] = useState(false);
 
   console.log('AdminRoute: Verificando acesso admin', { loading, isAuthenticated, isAdmin });
 
-  // Mostrar loading enquanto carrega
-  if (loading) {
+  // Timeout de segurança para evitar loading infinito
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.log('AdminRoute: Timeout atingido, forçando saída do loading');
+        setMaxWaitReached(true);
+      }
+    }, 8000); // 8 segundos máximo
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
+  // Mostrar loading enquanto carrega (com timeout)
+  if (loading && !maxWaitReached) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          <p className="text-sm text-muted-foreground">Verificando permissões de admin...</p>
+        </div>
       </div>
     );
   }
