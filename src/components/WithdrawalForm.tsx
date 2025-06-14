@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWithdrawalRequests } from "@/hooks/useWithdrawalRequests";
-import { useLocalTransactions } from "@/hooks/useLocalTransactions";
+import { supabase } from "@/integrations/supabase/client";
 
 interface WithdrawalFormProps {
   balance: number;
@@ -20,16 +20,14 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
   const [pixKey, setPixKey] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { user, profile } = useAuth();
-  const { addRequest } = useWithdrawalRequests();
-  const { addTransaction } = useLocalTransactions();
+  const { user } = useAuth();
 
   const pixTypes = [
-    { value: 'CPF', label: 'CPF' },
-    { value: 'CNPJ', label: 'CNPJ' },
-    { value: 'E-mail', label: 'E-mail' },
-    { value: 'Telefone', label: 'Telefone' },
-    { value: 'Chave Aleatória', label: 'Chave Aleatória (EVP)' }
+    { value: 'cpf', label: 'CPF' },
+    { value: 'cnpj', label: 'CNPJ' },
+    { value: 'email', label: 'E-mail' },
+    { value: 'phone', label: 'Telefone' },
+    { value: 'random_key', label: 'Chave Aleatória (EVP)' }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,32 +74,32 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
     setLoading(true);
 
     try {
-      const requestId = `WR${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
+      console.log('🔄 Criando solicitação de saque...');
       
-      // Adicionar solicitação de saque
-      addRequest({
-        id: requestId,
-        user: user.id,
-        userName: profile?.name || user.email || 'Usuário',
-        userEmail: user.email,
-        amount: amountValue,
-        pixKeyType: pixType,
-        pixKey: pixKey.trim(),
-        status: 'pending',
-        requestedAt: new Date().toISOString()
-      });
+      // Criar solicitação de saque diretamente no Supabase
+      const { data, error } = await supabase
+        .from('withdrawals')
+        .insert({
+          user_id: user.id,
+          amount: amountValue,
+          pix_key_type: pixType,
+          pix_key: pixKey.trim(),
+          status: 'requested'
+        })
+        .select()
+        .single();
 
-      // Adicionar transação
-      addTransaction({
-        id: requestId,
-        code: requestId,
-        type: 'withdrawal',
-        amount: amountValue,
-        description: `Saque PIX - ${pixType}: ${pixKey}`,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        user_id: user.id
-      });
+      if (error) {
+        console.error('❌ Erro ao criar saque:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao processar solicitação de saque.",
+        });
+        return;
+      }
+
+      console.log('✅ Saque criado com sucesso:', data);
 
       toast({
         title: "Saque solicitado com sucesso",
@@ -115,11 +113,11 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
       
       onWithdrawalSuccess();
     } catch (error) {
-      console.error('Erro ao solicitar saque:', error);
+      console.error('❌ Erro em handleSubmit:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao processar solicitação",
+        description: "Erro interno. Tente novamente.",
       });
     } finally {
       setLoading(false);
