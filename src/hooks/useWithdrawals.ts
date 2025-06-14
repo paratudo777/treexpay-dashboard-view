@@ -8,14 +8,11 @@ export interface Withdrawal {
   user_id: string;
   amount: number;
   pix_key: string;  
+  pix_key_type: string;
   status: 'requested' | 'processed' | 'rejected';
   created_at: string;
-  processed_at?: string;
-  processed_by?: string;
-  user?: {
-    email: string;
-    name?: string;
-  };
+  user_name?: string;
+  user_email?: string;
 }
 
 export const useWithdrawals = () => {
@@ -34,10 +31,9 @@ export const useWithdrawals = () => {
           user_id,
           amount,
           pix_key,
+          pix_key_type,
           status,
           created_at,
-          processed_at,
-          processed_by,
           profiles!inner(email, name)
         `)
         .order('created_at', { ascending: false });
@@ -54,10 +50,8 @@ export const useWithdrawals = () => {
 
       const formattedWithdrawals = (data || []).map(withdrawal => ({
         ...withdrawal,
-        user: {
-          email: withdrawal.profiles.email,
-          name: withdrawal.profiles.name
-        }
+        user_name: withdrawal.profiles?.name || 'Nome não encontrado',
+        user_email: withdrawal.profiles?.email || 'Email não encontrado'
       }));
 
       setWithdrawals(formattedWithdrawals);
@@ -91,12 +85,13 @@ export const useWithdrawals = () => {
         return false;
       }
 
-      if (data && !data.success) {
-        console.error('❌ Falha na aprovação:', data.error);
+      const result = data as { success: boolean; error?: string };
+      if (result && !result.success) {
+        console.error('❌ Falha na aprovação:', result.error);
         toast({
           variant: "destructive",
           title: "Erro",
-          description: data.error || "Erro ao aprovar saque.",
+          description: result.error || "Erro ao aprovar saque.",
         });
         return false;
       }
@@ -107,7 +102,6 @@ export const useWithdrawals = () => {
         description: "Saque aprovado com sucesso!",
       });
 
-      // Atualizar lista
       await fetchWithdrawals();
       return true;
     } catch (error) {
@@ -139,12 +133,13 @@ export const useWithdrawals = () => {
         return false;
       }
 
-      if (data && !data.success) {
-        console.error('❌ Falha na rejeição:', data.error);
+      const result = data as { success: boolean; error?: string };
+      if (result && !result.success) {
+        console.error('❌ Falha na rejeição:', result.error);
         toast({
           variant: "destructive",
           title: "Erro",
-          description: data.error || "Erro ao rejeitar saque.",
+          description: result.error || "Erro ao rejeitar saque.",
         });
         return false;
       }
@@ -155,7 +150,6 @@ export const useWithdrawals = () => {
         description: "Saque rejeitado com sucesso!",
       });
 
-      // Atualizar lista
       await fetchWithdrawals();
       return true;
     } catch (error) {
@@ -167,6 +161,17 @@ export const useWithdrawals = () => {
       });
       return false;
     }
+  };
+
+  const getTodaysWithdrawals = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return withdrawals.filter(withdrawal => 
+      withdrawal.created_at.startsWith(today)
+    );
+  };
+
+  const getWithdrawalsByStatus = (status: 'requested' | 'processed' | 'rejected') => {
+    return withdrawals.filter(withdrawal => withdrawal.status === status);
   };
 
   useEffect(() => {
@@ -204,6 +209,8 @@ export const useWithdrawals = () => {
     loading,
     approveWithdrawal,
     rejectWithdrawal,
+    getTodaysWithdrawals,
+    getWithdrawalsByStatus,
     refetch: fetchWithdrawals
   };
 };

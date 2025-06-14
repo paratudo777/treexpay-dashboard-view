@@ -19,12 +19,12 @@ export default function AdminWithdrawals() {
   const processedWithdrawals = getWithdrawalsByStatus('processed');
   const rejectedWithdrawals = getWithdrawalsByStatus('rejected');
 
-  const handleApprove = async (id: string) => {
-    await approveWithdrawal(id);
+  const handleApprove = async (id: string): Promise<boolean> => {
+    return await approveWithdrawal(id);
   };
 
-  const handleReject = async (id: string) => {
-    await rejectWithdrawal(id);
+  const handleReject = async (id: string): Promise<boolean> => {
+    return await rejectWithdrawal(id);
   };
 
   if (loading) {
