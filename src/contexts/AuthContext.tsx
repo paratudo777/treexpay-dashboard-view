@@ -29,17 +29,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    console.log('🔄 AuthProvider: Iniciando...');
+    console.log('🔄 AuthProvider: Iniciando verificação de sessão...');
     
     // Verificar sessão existente
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('📋 Sessão verificada:', !!session?.user);
       if (session?.user) {
-        console.log('✅ Sessão encontrada:', session.user.email);
         createUserFromAuth(session.user);
       }
       setInitialLoading(false);
@@ -47,14 +46,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Listener para mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔔 Auth mudou:', event, session?.user?.email);
+      (event, session) => {
+        console.log('🔔 Auth mudou:', event);
         
         if (session?.user) {
           createUserFromAuth(session.user);
         } else {
           setUser(null);
-          setProfileError(null);
+          setLoading(false);
         }
       }
     );
@@ -63,7 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const createUserFromAuth = (authUser: SupabaseUser) => {
-    console.log('👤 Criando usuário do auth:', authUser.email);
+    console.log('👤 Criando usuário:', authUser.email);
     
     const userData: User = {
       id: authUser.id,
@@ -74,17 +73,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     setUser(userData);
-    setProfileError(null);
     setLoading(false);
     
-    console.log('✅ Usuário criado:', userData);
+    console.log('✅ Usuário definido:', userData.email);
   };
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('🚀 Login iniciado para:', email);
+      console.log('🚀 Tentando login:', email);
       setLoading(true);
-      setProfileError(null);
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
@@ -92,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       if (error) {
-        console.error('❌ Erro de login:', error);
+        console.error('❌ Erro de login:', error.message);
         toast({
           variant: "destructive",
           title: "Erro de login",
@@ -102,10 +99,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return;
       }
 
-      if (data?.user) {
-        console.log('✅ Login bem-sucedido');
-        // O onAuthStateChange vai lidar com o resto
-      }
+      console.log('✅ Login realizado com sucesso');
       
     } catch (error) {
       console.error('💥 Erro interno:', error);
@@ -120,10 +114,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     try {
-      console.log('🚪 Logout...');
+      console.log('🚪 Fazendo logout...');
       await supabase.auth.signOut();
       setUser(null);
-      setProfileError(null);
       navigate('/');
       toast({
         title: "Logout realizado",
@@ -134,10 +127,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const isAuthenticated = !!user && !profileError;
-  const isAdmin = user?.profile === 'admin' && isAuthenticated;
+  const isAuthenticated = !!user;
+  const isAdmin = user?.profile === 'admin';
 
-  // Redirecionar para dashboard após login
+  // Redirecionar para dashboard após login bem-sucedido
   useEffect(() => {
     if (isAuthenticated && !loading && !initialLoading) {
       const currentPath = window.location.pathname;
@@ -152,10 +145,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [isAuthenticated, loading, initialLoading, navigate, toast]);
 
-  // Loading inicial por no máximo 1 segundo
+  // Loading inicial
   if (initialLoading) {
-    setTimeout(() => setInitialLoading(false), 1000);
-    
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
@@ -171,7 +162,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       login, 
       logout,
       loading,
-      profileError
+      profileError: null
     }}>
       {children}
     </AuthContext.Provider>
