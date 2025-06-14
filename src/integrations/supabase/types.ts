@@ -442,8 +442,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      aprovar_saque: {
-        Args: { saque_id: string; valor: number }
+      approve_withdrawal: {
+        Args: { withdrawal_id: string }
         Returns: Json
       }
       generate_checkout_slug: {
@@ -466,8 +466,8 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
-      rejeitar_saque: {
-        Args: { saque_id: string }
+      reject_withdrawal: {
+        Args: { withdrawal_id: string }
         Returns: Json
       }
       reset_monthly_volumes: {

@@ -5,97 +5,91 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface LocalTransaction {
   id: string;
   code: string;
-  type: 'withdrawal' | 'deposit' | 'payment';
-  amount: number;
-  description: string;
-  status: 'pending' | 'approved' | 'denied' | 'paid' | 'cancelled' | 'refunded';
+  type: string;
+  status: string;
   created_at: string;
+  description: string;
+  amount: number;
   user_id: string;
 }
 
-const TRANSACTIONS_STORAGE_KEY = 'localTransactions';
-
 export const useLocalTransactions = () => {
-  const { user } = useAuth();
   const [transactions, setTransactions] = useState<LocalTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
 
+  // Carregar transações do localStorage para o usuário atual
   useEffect(() => {
-    const stored = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
+    if (!user) {
+      setTransactions([]);
+      return;
+    }
+
+    const stored = localStorage.getItem(`transactions_${user.id}`);
     if (stored) {
       try {
-        const allTransactions = JSON.parse(stored);
-        const userTransactions = user ? allTransactions.filter((tx: LocalTransaction) => tx.user_id === user.id) : [];
+        const parsedTransactions = JSON.parse(stored);
+        // Filtrar apenas transações do usuário atual
+        const userTransactions = parsedTransactions.filter((tx: LocalTransaction) => tx.user_id === user.id);
         setTransactions(userTransactions);
       } catch (error) {
-        console.error('Error parsing transactions:', error);
+        console.error('Erro ao carregar transações do localStorage:', error);
         setTransactions([]);
       }
     }
-    setLoading(false);
   }, [user]);
 
-  const saveAllTransactions = (allTransactions: LocalTransaction[]) => {
-    localStorage.setItem(TRANSACTIONS_STORAGE_KEY, JSON.stringify(allTransactions));
-  };
-
   const addTransaction = (transaction: LocalTransaction) => {
-    const stored = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
-    let allTransactions: LocalTransaction[] = [];
-    
-    if (stored) {
-      try {
-        allTransactions = JSON.parse(stored);
-      } catch (error) {
-        console.error('Error parsing transactions:', error);
-      }
-    }
+    if (!user) return;
 
-    allTransactions.push(transaction);
-    saveAllTransactions(allTransactions);
-    
-    if (user && transaction.user_id === user.id) {
-      setTransactions(prev => [...prev, transaction]);
-    }
+    const newTransaction = {
+      ...transaction,
+      user_id: user.id,
+      id: transaction.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+
+    setTransactions(prev => {
+      const updated = [newTransaction, ...prev];
+      localStorage.setItem(`transactions_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  const updateTransactionStatus = (id: string, status: LocalTransaction['status']) => {
-    const stored = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
-    if (!stored) return;
+  const updateTransaction = (id: string, updates: Partial<LocalTransaction>) => {
+    if (!user) return;
 
-    try {
-      const allTransactions: LocalTransaction[] = JSON.parse(stored);
-      const updatedTransactions = allTransactions.map(tx => 
-        tx.id === id ? { ...tx, status } : tx
+    setTransactions(prev => {
+      const updated = prev.map(tx => 
+        tx.id === id ? { ...tx, ...updates } : tx
       );
-      
-      saveAllTransactions(updatedTransactions);
-      
-      if (user) {
-        const userTransactions = updatedTransactions.filter(tx => tx.user_id === user.id);
-        setTransactions(userTransactions);
-      }
-    } catch (error) {
-      console.error('Error updating transaction:', error);
-    }
+      localStorage.setItem(`transactions_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const removeTransaction = (id: string) => {
+    if (!user) return;
+
+    setTransactions(prev => {
+      const updated = prev.filter(tx => tx.id !== id);
+      localStorage.setItem(`transactions_${user.id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearAllTransactions = () => {
+    if (!user) return;
+
+    setTransactions([]);
+    localStorage.removeItem(`transactions_${user.id}`);
   };
 
   return {
     transactions,
     loading,
     addTransaction,
-    updateTransactionStatus,
-    refetch: () => {
-      const stored = localStorage.getItem(TRANSACTIONS_STORAGE_KEY);
-      if (stored && user) {
-        try {
-          const allTransactions = JSON.parse(stored);
-          const userTransactions = allTransactions.filter((tx: LocalTransaction) => tx.user_id === user.id);
-          setTransactions(userTransactions);
-        } catch (error) {
-          console.error('Error refetching transactions:', error);
-        }
-      }
-    }
+    updateTransaction,
+    removeTransaction,
+    clearAllTransactions
   };
 };

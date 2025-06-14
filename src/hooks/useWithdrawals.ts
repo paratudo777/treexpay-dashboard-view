@@ -117,9 +117,8 @@ export const useWithdrawals = () => {
     try {
       console.log('✅ Aprovando saque:', withdrawalId);
       
-      const { data, error } = await supabase.rpc('aprovar_saque', {
-        saque_id: withdrawalId,
-        valor: withdrawals.find(w => w.id === withdrawalId)?.amount || 0
+      const { data, error } = await supabase.rpc('approve_withdrawal', {
+        withdrawal_id: withdrawalId
       });
 
       if (error) {
@@ -164,8 +163,8 @@ export const useWithdrawals = () => {
     try {
       console.log('❌ Rejeitando saque:', withdrawalId);
       
-      const { data, error } = await supabase.rpc('rejeitar_saque', {
-        saque_id: withdrawalId
+      const { data, error } = await supabase.rpc('reject_withdrawal', {
+        withdrawal_id: withdrawalId
       });
 
       if (error) {
