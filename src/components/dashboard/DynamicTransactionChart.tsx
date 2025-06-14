@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface ChartData {
-  hora: string;
-  valor: number;
+  hora?: string;
+  date: string;
+  valor?: number;
+  deposits: number;
+  withdrawals: number;
 }
 
 interface DynamicTransactionChartProps {
@@ -59,7 +62,7 @@ export const DynamicTransactionChart = ({ data, loading }: DynamicTransactionCha
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
-              <XAxis dataKey="hora" stroke="var(--muted-foreground)" />
+              <XAxis dataKey={data[0]?.hora ? "hora" : "date"} stroke="var(--muted-foreground)" />
               <YAxis 
                 stroke="var(--muted-foreground)"
                 tickFormatter={formatCurrency}
@@ -77,7 +80,7 @@ export const DynamicTransactionChart = ({ data, loading }: DynamicTransactionCha
               />
               <Area 
                 type="monotone" 
-                dataKey="valor" 
+                dataKey="deposits" 
                 stroke="#2a9d8f" 
                 fillOpacity={1}
                 fill="url(#colorVolume)" 

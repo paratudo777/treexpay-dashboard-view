@@ -188,35 +188,6 @@ export const useDashboardMetrics = (period: Period = 'today') => {
     }
   };
 
-  const getDateRange = (period: Period) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (period) {
-      case 'today':
-        return {
-          start: today,
-          end: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-        };
-      case 'week':
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - 7);
-        return {
-          start: weekStart,
-          end: now
-        };
-      case 'month':
-        const monthStart = new Date(today);
-        monthStart.setDate(today.getDate() - 30);
-        return {
-          start: monthStart,
-          end: now
-        };
-      default:
-        return { start: today, end: now };
-    }
-  };
-
   useEffect(() => {
     fetchMetrics();
   }, [user, period]);
