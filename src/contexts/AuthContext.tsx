@@ -29,13 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     const initAuth = async () => {
       try {
-        console.log('AuthContext: Iniciando verificação de sessão');
+        console.log('AuthContext: Iniciando verificação rigorosa de sessão');
         
-        // Verificar se há sessão existente
+        // Verificar se há sessão existente de forma mais rigorosa
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('AuthContext: Erro ao verificar sessão:', error);
+          await supabase.auth.signOut(); // Limpar qualquer sessão corrompida
           if (mounted) {
             setUser(null);
             setProfile(null);
@@ -44,16 +45,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        if (session?.user) {
-          console.log('AuthContext: Sessão encontrada para:', session.user.email);
+        // Verificação mais rigorosa da sessão
+        if (session?.user && session?.access_token) {
+          console.log('AuthContext: Sessão válida encontrada para:', session.user.email);
+          
+          // Verificar se o token ainda é válido fazendo uma chamada de teste
+          const { data: testData, error: testError } = await supabase.auth.getUser();
+          
+          if (testError || !testData.user) {
+            console.log('AuthContext: Token inválido, fazendo logout');
+            await supabase.auth.signOut();
+            if (mounted) {
+              setUser(null);
+              setProfile(null);
+              setLoading(false);
+            }
+            return;
+          }
+          
           if (mounted) {
             setUser(session.user);
-            setLoading(false); // Finalizar loading IMEDIATAMENTE após encontrar usuário
-            // Carregar perfil em background sem bloquear UI
+            setLoading(false);
             loadUserProfile(session.user.id);
           }
         } else {
-          console.log('AuthContext: Nenhuma sessão encontrada');
+          console.log('AuthContext: Nenhuma sessão válida encontrada');
+          await supabase.auth.signOut(); // Garantir limpeza completa
           if (mounted) {
             setUser(null);
             setProfile(null);
@@ -62,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('AuthContext: Erro na inicialização:', error);
+        await supabase.auth.signOut(); // Limpar em caso de erro
         if (mounted) {
           setUser(null);
           setProfile(null);
@@ -79,9 +97,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('AuthContext: Mudança de estado de auth:', event, session?.user?.email);
       
       if (session?.user && event === 'SIGNED_IN') {
-        console.log('AuthContext: Login detectado, carregando dados do usuário:', session.user.email);
+        console.log('AuthContext: Login detectado, validando sessão:', session.user.email);
         setUser(session.user);
-        setLoading(false); // Finalizar loading imediatamente
+        setLoading(false);
         loadUserProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         console.log('AuthContext: Logout detectado, limpando dados');
@@ -89,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         if (mounted) setLoading(false);
       } else if (!session) {
-        console.log('AuthContext: Sem sessão, limpando dados');
+        console.log('AuthContext: Sem sessão válida, limpando dados');
         setUser(null);
         setProfile(null);
         if (mounted) setLoading(false);
@@ -125,12 +143,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('AuthContext: Exceção ao carregar perfil:', error);
       setProfile(null);
     }
-    // NÃO modificar loading aqui - loading é só para autenticação básica
   };
 
   const login = async (email: string, password: string) => {
     try {
       console.log('AuthContext: Tentativa de login para:', email);
+      
+      // Limpar qualquer sessão anterior primeiro
+      await supabase.auth.signOut();
       
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -142,13 +162,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
+      if (data.user && data.session) {
         console.log('AuthContext: Login bem-sucedido para:', email);
-        // O onAuthStateChange vai lidar com o resto
         return { success: true };
       } else {
-        console.error('AuthContext: Login sem erro mas sem usuário retornado');
-        return { success: false, error: 'Login falhou sem retornar usuário' };
+        console.error('AuthContext: Login sem retornar dados válidos');
+        return { success: false, error: 'Login falhou - dados inválidos' };
       }
     } catch (error) {
       console.error('AuthContext: Exceção no login:', error);

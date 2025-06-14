@@ -18,10 +18,11 @@ const Login = () => {
 
   console.log('Login: Estado de auth:', { isAuthenticated, isAdmin, loading });
 
-  // Redirecionar se já estiver autenticado
+  // Redirecionar apenas se realmente estiver autenticado E não estiver no loading inicial
   useEffect(() => {
-    if (isAuthenticated && !loading) {
-      console.log('Login: Usuário já autenticado, redirecionando...');
+    // Só redirecionar se não estiver no loading inicial E estiver autenticado
+    if (!loading && isAuthenticated) {
+      console.log('Login: Usuário autenticado confirmado, redirecionando...');
       if (isAdmin) {
         console.log('Login: Redirecionando admin para /admin');
         navigate('/admin');
@@ -56,8 +57,6 @@ const Login = () => {
         title: "Login realizado!",
         description: "Redirecionando...",
       });
-      
-      // O redirecionamento será feito pelo useEffect quando isAuthenticated mudar
     } else {
       console.error('Login: Falha no login:', result.error);
       toast({
@@ -69,8 +68,20 @@ const Login = () => {
     }
   };
 
-  // Mostrar tela de redirecionamento apenas se usuário está autenticado E não está no loading inicial
-  if (isAuthenticated && !loading) {
+  // Mostrar loading apenas durante o loading inicial do AuthContext
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          <p className="text-sm text-muted-foreground">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Se usuário está autenticado mas ainda não redirecionou, mostrar loading de redirecionamento
+  if (isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -81,7 +92,7 @@ const Login = () => {
     );
   }
 
-  // SEMPRE mostrar o formulário se o usuário não está autenticado
+  // Mostrar formulário apenas se não estiver autenticado
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark">
       <div className="w-full max-w-md p-4">
@@ -89,9 +100,6 @@ const Login = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold text-treexpay-medium">TreexPay</CardTitle>
             <CardDescription>Entre com suas credenciais para acessar a plataforma</CardDescription>
-            {loading && (
-              <p className="text-xs text-muted-foreground">Verificando sessão...</p>
-            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
