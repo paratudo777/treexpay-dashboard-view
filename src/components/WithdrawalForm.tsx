@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTransactions } from "@/hooks/useTransactions";
+import { useWithdrawalRequests } from "@/hooks/useWithdrawalRequests";
+import { useLocalTransactions } from "@/hooks/useLocalTransactions";
 
 interface WithdrawalFormProps {
   balance: number;
@@ -22,14 +22,15 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { refreshTransactions } = useTransactions();
+  const { addRequest } = useWithdrawalRequests();
+  const { addTransaction } = useLocalTransactions();
 
   const pixTypes = [
     { value: 'CPF', label: 'CPF' },
+    { value: 'CNPJ', label: 'CNPJ' },
     { value: 'E-mail', label: 'E-mail' },
-    { value: 'Chave Aleatória', label: 'Chave Aleatória' },
     { value: 'Telefone', label: 'Telefone' },
-    { value: 'CNPJ', label: 'CNPJ' }
+    { value: 'Chave Aleatória', label: 'Chave Aleatória (EVP)' }
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,43 +77,50 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('api-withdraw', {
-        body: {
-          userId: user.id,
-          amount: amountValue,
-          pixType,
-          pixKey: pixKey.trim()
-        }
+      const requestId = `WR${Date.now()}${Math.random().toString(36).substr(2, 4)}`;
+      
+      // Adicionar solicitação de saque
+      addRequest({
+        id: requestId,
+        user: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        amount: amountValue,
+        pixKeyType: pixType,
+        pixKey: pixKey.trim(),
+        status: 'pending',
+        requestedAt: new Date().toISOString()
       });
 
-      if (error) {
-        console.error('Erro na requisição:', error);
-        throw new Error(error.message || 'Erro interno do servidor');
-      }
+      // Adicionar transação
+      addTransaction({
+        id: requestId,
+        code: requestId,
+        type: 'withdrawal',
+        amount: amountValue,
+        description: `Saque PIX - ${pixType}: ${pixKey}`,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        user_id: user.id
+      });
 
-      if (data?.success) {
-        toast({
-          title: "Saque solicitado com sucesso",
-          description: `Sua solicitação de saque de R$ ${amountValue.toFixed(2)} foi enviada para análise`,
-        });
-        
-        // Limpar formulário
-        setAmount('');
-        setPixType('');
-        setPixKey('');
-        
-        // Atualizar transações
-        refreshTransactions();
-        onWithdrawalSuccess();
-      } else {
-        throw new Error(data?.error || 'Erro ao processar solicitação');
-      }
+      toast({
+        title: "Saque solicitado com sucesso",
+        description: `Sua solicitação de saque de R$ ${amountValue.toFixed(2)} foi enviada para análise`,
+      });
+      
+      // Limpar formulário
+      setAmount('');
+      setPixType('');
+      setPixKey('');
+      
+      onWithdrawalSuccess();
     } catch (error) {
       console.error('Erro ao solicitar saque:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: error instanceof Error ? error.message : "Erro ao processar solicitação",
+        description: "Erro ao processar solicitação",
       });
     } finally {
       setLoading(false);
@@ -125,6 +133,8 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
       currency: 'BRL'
     }).format(value);
   };
+
+  const isAmountExceeded = amount && parseFloat(amount) > balance;
 
   return (
     <Card>
@@ -142,13 +152,19 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
               id="amount"
               type="number"
               step="0.01"
-              min="0"
+              min="0.01"
               max={balance}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0,00"
               disabled={loading}
+              className={isAmountExceeded ? "border-destructive" : ""}
             />
+            {isAmountExceeded && (
+              <p className="text-sm text-destructive mt-1">
+                Valor excede o saldo disponível
+              </p>
+            )}
           </div>
 
           <div>
@@ -182,9 +198,9 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
           <Button 
             type="submit" 
             className="w-full bg-treexpay-medium hover:bg-treexpay-dark"
-            disabled={loading}
+            disabled={loading || isAmountExceeded || !amount || !pixType || !pixKey}
           >
-            {loading ? 'Carregando...' : 'Solicitar Saque'}
+            {loading ? 'Processando...' : 'Solicitar Saque'}
           </Button>
         </form>
       </CardContent>

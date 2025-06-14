@@ -2,10 +2,10 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WithdrawalForm } from "@/components/WithdrawalForm";
-import { useUserBalance } from "@/hooks/useUserBalance";
+import { useLocalBalance } from "@/hooks/useLocalBalance";
 
 export default function Financeiro() {
-  const { balance, loading: balanceLoading, refetch } = useUserBalance();
+  const { balance, loading: balanceLoading, refetch } = useLocalBalance();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -15,7 +15,7 @@ export default function Financeiro() {
   };
 
   const handleWithdrawalSuccess = () => {
-    // Atualizar saldo quando saque for solicitado (embora não seja debitado ainda)
+    // Atualizar interface quando saque for solicitado
     refetch();
   };
 

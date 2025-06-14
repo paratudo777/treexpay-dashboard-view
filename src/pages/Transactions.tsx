@@ -19,13 +19,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useTransactions, TransactionStatus } from "@/hooks/useTransactions";
 import { StatusBadge } from "@/components/transactions/StatusBadge";
+import { useLocalTransactions, LocalTransaction } from "@/hooks/useLocalTransactions";
 
 export default function Transactions() {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const { toast } = useToast();
-  const { transactions, loading, fetchTransactions } = useTransactions();
+  const { transactions, loading } = useLocalTransactions();
 
   // Format amount to BRL currency
   const formatAmount = (amount: number) => {
@@ -47,7 +47,27 @@ export default function Transactions() {
     });
   };
 
-  // Show toast when filter changes and fetch filtered data
+  // Get transaction type label
+  const getTransactionTypeLabel = (transaction: LocalTransaction) => {
+    switch (transaction.type) {
+      case 'withdrawal':
+        return 'Saque PIX';
+      case 'deposit':
+        return 'Depósito PIX';
+      case 'payment':
+        return 'Pagamento';
+      default:
+        return transaction.type;
+    }
+  };
+
+  // Filter transactions
+  const filteredTransactions = transactions.filter(transaction => {
+    if (statusFilter === "todos") return true;
+    return transaction.status === statusFilter;
+  });
+
+  // Show toast when filter changes
   const handleFilterChange = (filter: string) => {
     setStatusFilter(filter);
     
@@ -57,10 +77,6 @@ export default function Transactions() {
       title: "Filtro aplicado",
       description: `Mostrando ${filterName}.`
     });
-
-    // Convert filter to proper type and fetch transactions
-    const supabaseFilter = filter === "todos" ? undefined : filter as TransactionStatus;
-    fetchTransactions(supabaseFilter);
   };
 
   const getFilterLabel = (filter: string) => {
@@ -69,6 +85,8 @@ export default function Transactions() {
       case "approved": return "Aprovadas";
       case "pending": return "Pendentes";
       case "cancelled": return "Canceladas";
+      case "denied": return "Negadas";
+      case "paid": return "Pagas";
       case "refunded": return "Reembolsadas";
       default: return "Todos";
     }
@@ -105,11 +123,17 @@ export default function Transactions() {
               <DropdownMenuItem onClick={() => handleFilterChange("todos")}>
                 Todos
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFilterChange("pending")}>
+                Pendentes
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleFilterChange("approved")}>
                 Aprovadas
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleFilterChange("pending")}>
-                Pendentes
+              <DropdownMenuItem onClick={() => handleFilterChange("paid")}>
+                Pagas
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleFilterChange("denied")}>
+                Negadas
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleFilterChange("cancelled")}>
                 Canceladas
@@ -121,7 +145,7 @@ export default function Transactions() {
           </DropdownMenu>
         </div>
 
-        {transactions.length === 0 ? (
+        {filteredTransactions.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center">
               <p className="text-muted-foreground">Nenhuma transação encontrada.</p>
@@ -137,6 +161,7 @@ export default function Transactions() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Código</TableHead>
+                        <TableHead>Tipo</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Data e Hora</TableHead>
                         <TableHead>Descrição</TableHead>
@@ -144,11 +169,12 @@ export default function Transactions() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {transactions.map((transaction) => (
+                      {filteredTransactions.map((transaction) => (
                         <TableRow key={transaction.id}>
                           <TableCell className="font-mono">{transaction.code}</TableCell>
+                          <TableCell>{getTransactionTypeLabel(transaction)}</TableCell>
                           <TableCell>
-                            <StatusBadge status={transaction.status} />
+                            <StatusBadge status={transaction.status as any} />
                           </TableCell>
                           <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
                           <TableCell>{transaction.description}</TableCell>
@@ -165,16 +191,17 @@ export default function Transactions() {
 
             {/* Mobile view - Cards */}
             <div className="md:hidden space-y-4">
-              {transactions.map((transaction) => (
+              {filteredTransactions.map((transaction) => (
                 <Card key={transaction.id}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-center">
                       <CardTitle className="text-base font-mono">{transaction.code}</CardTitle>
-                      <StatusBadge status={transaction.status} />
+                      <StatusBadge status={transaction.status as any} />
                     </div>
                   </CardHeader>
                   <CardContent className="pb-4">
                     <div className="space-y-2">
+                      <p className="text-sm font-medium">{getTransactionTypeLabel(transaction)}</p>
                       <p className="text-sm text-muted-foreground">{formatDateTime(transaction.created_at)}</p>
                       <p>{transaction.description}</p>
                       <p className="text-lg font-semibold">

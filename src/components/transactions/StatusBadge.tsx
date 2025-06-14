@@ -1,8 +1,8 @@
 
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader, RefreshCw } from "lucide-react";
+import { Check, X, Loader, RefreshCw, CreditCard, Clock } from "lucide-react";
 
-type TransactionStatus = "pending" | "approved" | "cancelled" | "refunded";
+type TransactionStatus = "pending" | "approved" | "cancelled" | "refunded" | "denied" | "paid";
 
 interface StatusBadgeProps {
   status: TransactionStatus;
@@ -20,7 +20,7 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
         };
       case "pending":
         return {
-          icon: <Loader className="h-3 w-3 animate-spin" />,
+          icon: <Clock className="h-3 w-3" />,
           label: "Pendente",
           variant: "secondary" as const,
           className: "bg-treexpay-yellow text-white hover:bg-treexpay-yellow/80"
@@ -31,6 +31,20 @@ export const StatusBadge = ({ status }: StatusBadgeProps) => {
           label: "Cancelada",
           variant: "destructive" as const,
           className: "bg-treexpay-red text-white hover:bg-treexpay-red/80"
+        };
+      case "denied":
+        return {
+          icon: <X className="h-3 w-3" />,
+          label: "Negada",
+          variant: "destructive" as const,
+          className: "bg-treexpay-red text-white hover:bg-treexpay-red/80"
+        };
+      case "paid":
+        return {
+          icon: <CreditCard className="h-3 w-3" />,
+          label: "Paga",
+          variant: "default" as const,
+          className: "bg-blue-600 text-white hover:bg-blue-600/80"
         };
       case "refunded":
         return {
