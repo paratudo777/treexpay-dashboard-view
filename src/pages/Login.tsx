@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login, loading, isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -43,6 +44,7 @@ const Login = () => {
       return;
     }
 
+    setIsLoggingIn(true);
     console.log('Login: Tentando fazer login com:', email);
 
     const result = await login(email, password);
@@ -63,10 +65,11 @@ const Login = () => {
         description: result.error || "Verifique suas credenciais.",
         variant: "destructive",
       });
+      setIsLoggingIn(false);
     }
   };
 
-  // Se já estiver autenticado, não mostrar o formulário
+  // Mostrar tela de redirecionamento apenas se usuário está autenticado E não está no loading inicial
   if (isAuthenticated && !loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -78,6 +81,7 @@ const Login = () => {
     );
   }
 
+  // SEMPRE mostrar o formulário se o usuário não está autenticado
   return (
     <div className="min-h-screen flex items-center justify-center bg-background dark">
       <div className="w-full max-w-md p-4">
@@ -85,6 +89,9 @@ const Login = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold text-treexpay-medium">TreexPay</CardTitle>
             <CardDescription>Entre com suas credenciais para acessar a plataforma</CardDescription>
+            {loading && (
+              <p className="text-xs text-muted-foreground">Verificando sessão...</p>
+            )}
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -97,7 +104,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  disabled={loading}
+                  disabled={isLoggingIn}
                   className="bg-input"
                 />
               </div>
@@ -110,16 +117,16 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  disabled={loading}
+                  disabled={isLoggingIn}
                   className="bg-input"
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full bg-treexpay-dark hover:bg-treexpay-medium text-white"
-                disabled={loading}
+                disabled={isLoggingIn}
               >
-                {loading ? 'Entrando...' : 'Entrar'}
+                {isLoggingIn ? 'Entrando...' : 'Entrar'}
               </Button>
             </form>
           </CardContent>
