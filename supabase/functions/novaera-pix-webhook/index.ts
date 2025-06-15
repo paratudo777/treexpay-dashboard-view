@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -204,6 +205,57 @@ Deno.serve(async (req) => {
     }
 
     console.log('✅ Saldo do usuário incrementado:', netAmount);
+
+    // --- Send User Webhook Notification ---
+    try {
+        const { data: webhookConfig, error: webhookError } = await supabase
+            .from('user_webhooks')
+            .select('url, secret')
+            .eq('user_id', deposit.user_id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+        if (webhookError) {
+            console.error('🔔 Error fetching webhook config:', webhookError.message);
+        }
+
+        if (webhookConfig && webhookConfig.url) {
+            console.log(`🚀 Enviando webhook para: ${webhookConfig.url}`);
+            const payload = {
+                event: 'pix.paid',
+                data: {
+                    deposit_id: deposit.id,
+                    transaction_id: existingTransaction.id,
+                    amount: deposit.amount,
+                    net_amount: netAmount,
+                    paid_at: new Date().toISOString(),
+                }
+            };
+            const payloadString = JSON.stringify(payload);
+            
+            const requestHeaders = { 'Content-Type': 'application/json' };
+            
+            if (webhookConfig.secret) {
+                const encoder = new TextEncoder();
+                const key = await crypto.subtle.importKey( 'raw', encoder.encode(webhookConfig.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+                const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payloadString));
+                const signatureHex = Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, '0')).join('');
+                requestHeaders['X-Treex-Signature'] = signatureHex;
+            }
+
+            fetch(webhookConfig.url, {
+                method: 'POST',
+                headers: requestHeaders,
+                body: payloadString,
+            }).then(res => {
+                console.log(`✅ Webhook response from ${webhookConfig.url}: ${res.status}`);
+            }).catch(err => {
+                console.error(`❌ Error sending webhook to ${webhookConfig.url}:`, err.message);
+            });
+        }
+    } catch (e) {
+        console.error('CRITICAL: Failed to send user webhook', e);
+    }
 
     // Send OneSignal notification
     try {
