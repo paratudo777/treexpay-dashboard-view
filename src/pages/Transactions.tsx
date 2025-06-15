@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Filter } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -107,6 +106,25 @@ export default function Transactions() {
       default:
         return transaction.type;
     }
+  };
+
+  const formatDescription = (description: string) => {
+    if (!description) return "";
+    
+    const regex = /\(Líquido: R\$\s*([\d.]+)\)/;
+    const match = description.match(regex);
+
+    if (match && match[1]) {
+      const liquidAmount = parseFloat(match[1]);
+      if (!isNaN(liquidAmount)) {
+        const formattedLiquidAmount = liquidAmount.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        return description.replace(match[0], `(Líquido: R$ ${formattedLiquidAmount})`);
+      }
+    }
+    return description;
   };
 
   // Filter transactions
@@ -225,7 +243,7 @@ export default function Transactions() {
                             <StatusBadge status={transaction.status as any} />
                           </TableCell>
                           <TableCell>{formatDateTime(transaction.created_at)}</TableCell>
-                          <TableCell>{transaction.description}</TableCell>
+                          <TableCell>{formatDescription(transaction.description)}</TableCell>
                           <TableCell className="text-right">
                             {formatAmount(transaction.amount)}
                           </TableCell>
@@ -251,7 +269,7 @@ export default function Transactions() {
                     <div className="space-y-2">
                       <p className="text-sm font-medium">{getTransactionTypeLabel(transaction)}</p>
                       <p className="text-sm text-muted-foreground">{formatDateTime(transaction.created_at)}</p>
-                      <p>{transaction.description}</p>
+                      <p>{formatDescription(transaction.description)}</p>
                       <p className="text-lg font-semibold">
                         {formatAmount(transaction.amount)}
                       </p>
