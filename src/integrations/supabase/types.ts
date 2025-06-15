@@ -457,6 +457,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_monthly_ranking: {
+        Args: { p_start_date: string; p_end_date: string }
+        Returns: {
+          user_id: string
+          total_volume: number
+          last_sale_date: string
+        }[]
+      }
       incrementar_saldo_usuario: {
         Args: { p_user_id: string; p_amount: number }
         Returns: undefined

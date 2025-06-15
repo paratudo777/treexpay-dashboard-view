@@ -45,143 +45,86 @@ export const useRanking = () => {
       
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
 
-      console.log('Buscando dados para o ranking...');
+      console.log('Buscando ranking com a nova função otimizada...');
 
-      // 1. Buscar depósitos concluídos
-      const { data: deposits, error: depositsError } = await supabase
-        .from('deposits')
-        .select('user_id, amount, created_at')
-        .eq('status', 'completed')
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
+      // 1. Chamar a função do banco de dados para obter o ranking de forma eficiente
+      const { data: rankingData, error: rankingError } = await supabase.rpc(
+        'get_monthly_ranking',
+        {
+          p_start_date: startOfMonth.toISOString(),
+          p_end_date: endOfMonth.toISOString(),
+        }
+      );
 
-      if (depositsError) {
-        console.error('Erro ao buscar depósitos:', depositsError);
-        throw depositsError;
+      if (rankingError) {
+        console.error('Erro ao chamar RPC get_monthly_ranking:', rankingError);
+        throw rankingError;
       }
-      console.log(`Encontrados ${deposits?.length || 0} depósitos concluídos.`);
+      console.log(`Recebidos ${rankingData?.length || 0} usuários com volume.`);
 
-      // 2. Buscar pagamentos de checkout concluídos
-      const { data: checkoutPayments, error: checkoutPaymentsError } = await supabase
-        .from('checkout_payments')
-        .select('amount, created_at, checkouts:checkout_id ( user_id )')
-        .eq('status', 'paid')
-        .gte('created_at', startOfMonth.toISOString())
-        .lte('created_at', endOfMonth.toISOString());
+      // 2. Buscar profiles e apelidos para enriquecer os dados do ranking
+      const [
+        { data: profiles, error: profilesError },
+        { data: usuarios, error: usuariosError }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*'),
+        supabase.from('usuarios').select('user_id, apelido')
+      ]);
+
+      if (profilesError) throw profilesError;
+      if (usuariosError) throw usuariosError;
       
-      if (checkoutPaymentsError) {
-        console.error('Erro ao buscar pagamentos de checkout:', checkoutPaymentsError);
-        throw checkoutPaymentsError;
-      }
-      console.log(`Encontrados ${checkoutPayments?.length || 0} pagamentos de checkout.`);
-      
-      // 3. Buscar todos os profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-
-      if (profilesError) {
-        console.error('Erro ao buscar profiles:', profilesError);
-        throw profilesError;
-      }
-      console.log(`Encontrados ${profiles?.length || 0} profiles.`);
-
-      await processarRanking(deposits || [], checkoutPayments || [], profiles || []);
+      // 3. Processar e combinar os dados para montar o ranking final
+      await processarRanking(rankingData || [], profiles || [], usuarios || []);
 
     } catch (error) {
       console.error('Erro completo no fetchRanking:', error);
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao carregar ranking. Verifique sua conexão.",
+        description: "Erro ao carregar ranking. Tente novamente.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const processarRanking = async (deposits: any[], checkoutPayments: any[], profiles: any[]) => {
-    console.log('Processando ranking com:', {
-      depositos: deposits.length,
-      checkouts: checkoutPayments.length,
-      profiles: profiles.length
-    });
+  const processarRanking = async (rankingData: any[], profiles: any[], usuarios: any[]) => {
+    console.log('Processando ranking com dados do RPC...');
 
-    // Calcular volume por usuário
-    const volumePorUsuario = new Map<string, { volume: number; ultimaVenda: string }>();
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+    const apelidoMap = new Map(usuarios.map(u => [u.user_id, u.apelido]));
+    const rankedUserIds = new Set(rankingData.map(r => r.user_id));
 
-    const processSale = (userId: string, amount: number, date: string) => {
-      if (!userId) return;
-      
-      const userData = volumePorUsuario.get(userId) || { volume: 0, ultimaVenda: '1970-01-01T00:00:00Z' };
-      
-      userData.volume += Number(amount);
-      if (new Date(date) > new Date(userData.ultimaVenda)) {
-        userData.ultimaVenda = date;
-      }
-      volumePorUsuario.set(userId, userData);
-    };
-
-    // Processar depósitos
-    deposits.forEach(dep => processSale(dep.user_id, dep.amount, dep.created_at));
-
-    // Processar pagamentos de checkout
-    checkoutPayments.forEach(cp => {
-      if (cp.checkouts?.user_id) {
-        processSale(cp.checkouts.user_id, cp.amount, cp.created_at);
-      }
-    });
-
-    console.log('Volume por usuário calculado:', Object.fromEntries(volumePorUsuario));
-
-    // Criar lista de usuários para o ranking
     const usuariosCompletos: RankingUser[] = [];
-    
-    // Adicionar usuários com vendas no mês
-    for (const [userId, data] of volumePorUsuario.entries()) {
-      const profile = profiles.find(p => p.id === userId);
-      
+
+    // Adicionar usuários com volume (dados do RPC)
+    for (const rankItem of rankingData) {
+      const profile = profileMap.get(rankItem.user_id);
       if (profile) {
-        const userWithVolume: RankingUser = {
-          id: `${userId}-ranking`,
-          user_id: userId,
-          apelido: profile.name || `User...`,
+        const apelido = apelidoMap.get(rankItem.user_id) || profile.name || `User...`;
+        
+        usuariosCompletos.push({
+          id: `${rankItem.user_id}-ranking`,
+          user_id: rankItem.user_id,
+          apelido: apelido,
           name: profile.name,
           email: profile.email,
-          volume_total_mensal: data.volume,
-          ultima_venda_em: data.ultimaVenda,
+          volume_total_mensal: rankItem.total_volume,
+          ultima_venda_em: rankItem.last_sale_date,
           position: 0,
-          is_current_user: userId === user?.id
-        };
-        usuariosCompletos.push(userWithVolume);
+          is_current_user: rankItem.user_id === user?.id,
+        });
       }
     }
 
-    // Buscar usuários da tabela usuarios para completar com apelidos personalizados
-    const { data: usuarios, error: usuariosError } = await supabase
-      .from('usuarios')
-      .select('*');
-
-    if (!usuariosError && usuarios) {
-      console.log('Encontrados usuários com apelidos:', usuarios.length);
-      
-      const apelidoMap = new Map(usuarios.map(u => [u.user_id, u.apelido]));
-      
-      // Atualizar apelidos dos usuários que já estão no ranking
-      usuariosCompletos.forEach(user => {
-        const customApelido = apelidoMap.get(user.user_id);
-        if (customApelido) {
-          user.apelido = customApelido;
-        }
-      });
-
-      // Adicionar usuários com apelidos personalizados mas sem vendas no mês atual
-      usuarios.forEach(usuario => {
-        if (!volumePorUsuario.has(usuario.user_id)) {
-          const profile = profiles.find(p => p.id === usuario.user_id);
-          if (profile) {
-            const userWithoutVolume: RankingUser = {
-              id: usuario.id,
+    // Adicionar usuários da tabela 'usuarios' que não tiveram vendas este mês para que apareçam na lista
+    for (const usuario of usuarios) {
+      if (!rankedUserIds.has(usuario.user_id)) {
+        const profile = profileMap.get(usuario.user_id);
+        if (profile) {
+            usuariosCompletos.push({
+              id: `${usuario.user_id}-ranking-zero`,
               user_id: usuario.user_id,
               apelido: usuario.apelido,
               name: profile.name,
@@ -189,17 +132,13 @@ export const useRanking = () => {
               volume_total_mensal: 0,
               ultima_venda_em: null,
               position: 0,
-              is_current_user: usuario.user_id === user?.id
-            };
-            usuariosCompletos.push(userWithoutVolume);
-          }
+              is_current_user: usuario.user_id === user?.id,
+            });
         }
-      });
+      }
     }
 
-    console.log('Total de usuários para rankear:', usuariosCompletos.length);
-
-    // Ordenar por volume total e criar ranking
+    // Ordenar por volume e atribuir posições
     const rankingOrdenado = usuariosCompletos
       .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
       .map((usuario, index) => ({
@@ -207,20 +146,14 @@ export const useRanking = () => {
         position: index + 1
       }));
 
-    console.log('Ranking ordenado (top 5):', rankingOrdenado.slice(0, 5).map(u => ({apelido: u.apelido, volume: u.volume_total_mensal, pos: u.position})));
-
-    // Mostrar top 10 no ranking principal
+    // Definir estado do ranking (Top 10) e do usuário atual
     const top10 = rankingOrdenado.slice(0, 10);
     setRanking(top10);
     
-    // Buscar posição do usuário atual
     const currentUserData = rankingOrdenado.find(u => u.is_current_user);
     setCurrentUserRanking(currentUserData || null);
-
-    console.log('Ranking final definido:', {
-      top10Count: top10.length,
-      currentUser: currentUserData ? `${currentUserData.apelido} - Posição ${currentUserData.position}` : 'Não encontrado no ranking'
-    });
+    
+    console.log('Ranking final processado e definido.');
   };
 
   const updateApelido = async (newApelido: string) => {
@@ -291,63 +224,47 @@ export const useRanking = () => {
         fetchRanking();
     }
 
-    // Escutar mudanças em tempo real
+    // Escutar mudanças em tempo real para manter o ranking sempre atualizado
     const channel = supabase
-      .channel('ranking-realtime-v2')
+      .channel('ranking-realtime-v3') // Canal atualizado para evitar conflitos
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'usuarios'
-        },
+        { event: '*', schema: 'public', table: 'usuarios' },
         () => {
-          console.log('Mudança na tabela usuarios detectada, atualizando ranking...');
+          console.log('Mudança de apelido detectada, atualizando ranking...');
           fetchRanking();
         }
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'deposits',
-        },
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          console.log('Mudança de perfil detectada, atualizando ranking...');
+          fetchRanking();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'deposits' },
         (payload) => {
           const newRecord = payload.new as { status?: string };
           const oldRecord = payload.old as { status?: string };
           if (newRecord?.status === 'completed' && oldRecord?.status !== 'completed') {
-            console.log('Novo depósito concluído detectado, atualizando ranking...');
+            console.log('Depósito concluído, atualizando ranking...');
             fetchRanking();
           }
         }
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'checkout_payments',
-        },
+        { event: 'UPDATE', schema: 'public', table: 'checkout_payments' },
         (payload) => {
           const newRecord = payload.new as { status?: string };
           const oldRecord = payload.old as { status?: string };
           if (newRecord?.status === 'paid' && oldRecord?.status !== 'paid') {
-            console.log('Novo pagamento de checkout detectado, atualizando ranking...');
+            console.log('Pagamento de checkout concluído, atualizando ranking...');
             fetchRanking();
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        () => {
-          console.log('Mudança na tabela profiles detectada, atualizando ranking...');
-          fetchRanking();
         }
       )
       .subscribe();
