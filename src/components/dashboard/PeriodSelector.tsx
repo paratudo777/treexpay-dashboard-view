@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -140,12 +139,12 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
           <Button
             variant="outline"
             className={cn(
-              "w-full sm:w-[220px] justify-start text-left font-normal bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium",
+              "w-full sm:w-[220px] justify-start text-left font-normal bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium whitespace-normal h-auto min-h-[40px]",
               !selectedDate.from && "text-muted-foreground",
               activePeriod !== 'custom' && "hidden"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
+            <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0 self-start mt-1" />
             <div className="flex-1 text-left">
               {selectedDate.from ? (
                 selectedDate.to ? (
