@@ -3,7 +3,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-export type Period = 'today' | 'week' | 'month';
+export type Period = 'today' | 'week' | '15days' | 'month' | 'monthStart' | 'all' | 'custom';
+
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
 
 interface DashboardMetrics {
   totalDeposits: number;
@@ -20,7 +25,7 @@ interface DashboardMetrics {
   }>;
 }
 
-export const useDashboardMetrics = (period: Period = 'today') => {
+export const useDashboardMetrics = (period: Period = 'today', customRange?: DateRange) => {
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalDeposits: 0,
     totalWithdrawals: 0,
@@ -32,7 +37,15 @@ export const useDashboardMetrics = (period: Period = 'today') => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  const getDateRange = (period: Period) => {
+  const getDateRange = (period: Period, customRange?: DateRange) => {
+    if (period === 'custom' && customRange) {
+      const start = new Date(customRange.from);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(customRange.to);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
@@ -49,11 +62,30 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           start: weekStart,
           end: now
         };
+      case '15days':
+        const fifteenDaysStart = new Date(today);
+        fifteenDaysStart.setDate(today.getDate() - 15);
+        return {
+          start: fifteenDaysStart,
+          end: now
+        };
       case 'month':
         const monthStart = new Date(today);
         monthStart.setDate(today.getDate() - 30);
         return {
           start: monthStart,
+          end: now
+        };
+      case 'monthStart':
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return {
+          start: currentMonthStart,
+          end: now
+        };
+      case 'all':
+        const allTimeStart = new Date('2020-01-01');
+        return {
+          start: allTimeStart,
           end: now
         };
       default:
@@ -69,7 +101,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
     try {
       setLoading(true);
-      const { start, end } = getDateRange(period);
+      const { start, end } = getDateRange(period, customRange);
       
       console.log('📊 Buscando métricas do dashboard para período:', period);
       console.log('📅 Range:', start.toISOString(), 'até', end.toISOString());
@@ -138,9 +170,11 @@ export const useDashboardMetrics = (period: Period = 'today') => {
           });
         }
       } else {
-        // Para semana/mês, mostrar por dias
-        const days = period === 'week' ? 7 : 30;
-        for (let i = 0; i < days; i++) {
+        // Para outros períodos, mostrar por dias
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        for (let i = 0; i < diffDays; i++) {
           const dayStart = new Date(start);
           dayStart.setDate(start.getDate() + i);
           const dayEnd = new Date(dayStart);
@@ -190,7 +224,7 @@ export const useDashboardMetrics = (period: Period = 'today') => {
 
   useEffect(() => {
     fetchMetrics();
-  }, [user, period]);
+  }, [user, period, customRange]);
 
   return {
     metrics,

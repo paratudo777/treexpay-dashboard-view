@@ -7,17 +7,19 @@ import { PeriodSelector } from '@/components/dashboard/PeriodSelector';
 import { ArrowDownCircle, ArrowUpCircle, CreditCard, DollarSign } from 'lucide-react';
 import { useState } from 'react';
 import { useUserBalance } from '@/hooks/useUserBalance';
-import { useDashboardMetrics, type Period } from '@/hooks/useDashboardMetrics';
+import { useDashboardMetrics, type Period, type DateRange } from '@/hooks/useDashboardMetrics';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Dashboard = () => {
   const [activePeriod, setActivePeriod] = useState<Period>('today');
+  const [customDateRange, setCustomDateRange] = useState<DateRange | undefined>();
   const { balance, loading: balanceLoading } = useUserBalance();
-  const { metrics, loading: metricsLoading } = useDashboardMetrics(activePeriod);
+  const { metrics, loading: metricsLoading } = useDashboardMetrics(activePeriod, customDateRange);
   const { user } = useAuth();
 
-  const handlePeriodChange = (period: Period) => {
+  const handlePeriodChange = (period: Period, dateRange?: DateRange) => {
     setActivePeriod(period);
+    setCustomDateRange(dateRange);
   };
 
   const formatCurrency = (value: number) => {
