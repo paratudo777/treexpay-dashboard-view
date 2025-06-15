@@ -162,7 +162,7 @@ export default function Transactions() {
           {/* Filter dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
+              <Button variant="outline" className="flex items-center gap-2 bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium">
                 <Filter className="h-4 w-4" />
                 <span>{getFilterLabel(statusFilter)}</span>
               </Button>
