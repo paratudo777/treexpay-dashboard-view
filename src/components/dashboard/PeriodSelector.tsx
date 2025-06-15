@@ -39,14 +39,15 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
   const { toast } = useToast();
 
   const handlePeriodChange = (period: Period) => {
+    setActivePeriod(period);
+    
     if (period === 'custom') {
-      setActivePeriod(period);
       setIsCalendarOpen(true);
       return;
     }
     
-    setActivePeriod(period);
     setCustomDateRange(null);
+    setSelectedDate({});
     onPeriodChange(period);
   };
 
@@ -135,44 +136,43 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
       </Select>
 
       {/* Calendário para seleção personalizada */}
-      {isCalendarOpen && (
-        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                "w-full sm:w-[280px] justify-start text-left font-normal",
-                !selectedDate.from && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate.from ? (
-                selectedDate.to ? (
-                  <>
-                    {format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
-                    {format(selectedDate.to, "dd/MM/yyyy", { locale: ptBR })}
-                  </>
-                ) : (
-                  format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })
-                )
+      <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-full sm:w-[280px] justify-start text-left font-normal",
+              !selectedDate.from && "text-muted-foreground",
+              activePeriod !== 'custom' && "hidden"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {selectedDate.from ? (
+              selectedDate.to ? (
+                <>
+                  {format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })} -{" "}
+                  {format(selectedDate.to, "dd/MM/yyyy", { locale: ptBR })}
+                </>
               ) : (
-                <span>Selecione o período</span>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              initialFocus
-              mode="range"
-              defaultMonth={selectedDate.from}
-              selected={getCalendarSelection()}
-              onSelect={handleDateRangeSelect}
-              numberOfMonths={2}
-              className="pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
-      )}
+                format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })
+              )
+            ) : (
+              <span>Selecione o período</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={selectedDate.from}
+            selected={getCalendarSelection()}
+            onSelect={handleDateRangeSelect}
+            numberOfMonths={2}
+            className="pointer-events-auto"
+          />
+        </PopoverContent>
+      </Popover>
 
       {/* Exibir período personalizado selecionado */}
       {formatDateRange() && (
