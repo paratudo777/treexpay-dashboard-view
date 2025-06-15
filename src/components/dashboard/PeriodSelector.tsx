@@ -42,6 +42,9 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
     setActivePeriod(period);
     
     if (period === 'custom') {
+      // Definir data atual como padrão quando abrir o calendário
+      const today = new Date();
+      setSelectedDate({ from: today });
       setIsCalendarOpen(true);
       return;
     }
@@ -79,6 +82,11 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
       setCustomDateRange(dateRange);
       setIsCalendarOpen(false);
       onPeriodChange('custom', dateRange);
+      
+      toast({
+        title: "Período personalizado aplicado",
+        description: `Métricas atualizadas para o período de ${format(range.from, 'dd/MM/yyyy', { locale: ptBR })} até ${format(range.to, 'dd/MM/yyyy', { locale: ptBR })}`,
+      });
     }
   };
 
@@ -112,6 +120,9 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
   const getCalendarSelection = () => {
     if (selectedDate.from && selectedDate.to) {
       return { from: selectedDate.from, to: selectedDate.to };
+    }
+    if (selectedDate.from) {
+      return { from: selectedDate.from, to: selectedDate.from };
     }
     return undefined;
   };
@@ -154,7 +165,9 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
                   {format(selectedDate.to, "dd/MM/yyyy", { locale: ptBR })}
                 </>
               ) : (
-                format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })
+                <>
+                  {format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })} - Selecione data final
+                </>
               )
             ) : (
               <span>Selecione o período</span>
@@ -165,11 +178,13 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
           <Calendar
             initialFocus
             mode="range"
-            defaultMonth={selectedDate.from}
+            defaultMonth={selectedDate.from || new Date()}
             selected={getCalendarSelection()}
             onSelect={handleDateRangeSelect}
             numberOfMonths={2}
+            locale={ptBR}
             className="pointer-events-auto"
+            disabled={(date) => date > new Date()}
           />
         </PopoverContent>
       </Popover>
