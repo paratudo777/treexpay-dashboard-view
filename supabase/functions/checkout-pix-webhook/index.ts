@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -172,7 +173,9 @@ Deno.serve(async (req) => {
     }
 
     // Send OneSignal notification
+    console.log(`🔔 CHECKOUT_WEBHOOK: Iniciando processo de notificação para checkout ${checkoutId}`);
     try {
+      console.log(`🔔 CHECKOUT_WEBHOOK: Buscando perfil do usuário ${payment.checkouts.user_id}`);
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('onesignal_player_id, notifications_enabled')
@@ -180,26 +183,33 @@ Deno.serve(async (req) => {
         .single();
 
       if (profileError) {
-        console.error('🔔 Erro ao buscar perfil para notificação de checkout:', profileError.message);
-      } else if (profileData && profileData.onesignal_player_id && profileData.notifications_enabled) {
-        console.log('🚀 Enviando notificação de venda para o player ID:', profileData.onesignal_player_id);
-        const { error: notificationError } = await supabase.functions.invoke('send-onesignal-notification', {
-          body: {
+        console.error('🔔 CHECKOUT_WEBHOOK: Erro ao buscar perfil para notificação:', profileError.message);
+      } else if (profileData) {
+        console.log(`🔔 CHECKOUT_WEBHOOK: Perfil encontrado. Player ID: ${profileData.onesignal_player_id}, Notificações Ativas: ${profileData.notifications_enabled}`);
+        if (profileData.onesignal_player_id && profileData.notifications_enabled) {
+          console.log(`🚀 CHECKOUT_WEBHOOK: Enviando notificação de venda para o player ID: ${profileData.onesignal_player_id}`);
+          const notificationPayload = {
             playerId: profileData.onesignal_player_id,
             title: 'Venda Realizada!',
             message: `Você recebeu uma venda de R$ ${payment.amount.toFixed(2)} através do checkout "${payment.checkouts.title}".`
+          };
+          console.log('🔔 CHECKOUT_WEBHOOK: Payload da notificação:', notificationPayload);
+          const { error: notificationError } = await supabase.functions.invoke('send-onesignal-notification', {
+            body: notificationPayload
+          });
+          if (notificationError) {
+            console.error('🔔 CHECKOUT_WEBHOOK: Erro ao invocar a função send-onesignal-notification:', notificationError);
+          } else {
+            console.log('✅ CHECKOUT_WEBHOOK: Notificação de venda enviada com sucesso.');
           }
-        });
-        if (notificationError) {
-          console.error('🔔 Erro ao enviar notificação OneSignal de checkout:', notificationError);
         } else {
-          console.log('✅ Notificação de venda enviada com sucesso.');
+          console.warn(`⚠️ CHECKOUT_WEBHOOK: Notificação não enviada. Player ID: ${profileData.onesignal_player_id}, Notificações Ativas: ${profileData.notifications_enabled}`);
         }
       } else {
-        console.warn('⚠️ Player ID do OneSignal não encontrado ou notificações desativadas para o usuário, notificação de venda não enviada.');
+        console.warn(`⚠️ CHECKOUT_WEBHOOK: Perfil não encontrado para o usuário ${payment.checkouts.user_id}.`);
       }
     } catch(e) {
-      console.error('CRITICAL: Failed to send checkout notification', e)
+      console.error('CRITICAL: CHECKOUT_WEBHOOK: Falha catastrófica ao enviar notificação de checkout', e)
     }
     
     return new Response(

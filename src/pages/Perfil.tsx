@@ -1,7 +1,7 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Bell, FileText, Shield, Key, Book } from "lucide-react";
+import { User, Bell, FileText, Shield, Key, Book, Copy, TestTube2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
@@ -35,6 +35,7 @@ interface UserProfile {
   phone?: string;
   cpf?: string;
   notifications_enabled: boolean;
+  onesignal_player_id?: string;
 }
 
 export default function Perfil() {
@@ -45,6 +46,7 @@ export default function Perfil() {
   const [phone, setPhone] = useState('');
   const [cpf, setCpf] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
   const { user } = useAuth();
   
   useEffect(() => {
@@ -59,7 +61,7 @@ export default function Perfil() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email, balance, phone, cpf, notifications_enabled')
+        .select('id, name, email, balance, phone, cpf, notifications_enabled, onesignal_player_id')
         .eq('id', user.id)
         .single();
 
@@ -161,7 +163,11 @@ export default function Perfil() {
       if (error) throw error;
 
       if (window.OneSignal) {
-        window.OneSignal.push(() => {
+        window.OneSignal.push(async () => {
+          // Re-register to get player ID if enabling
+          if (newState) {
+            await window.OneSignal.registerForPushNotifications();
+          }
           window.OneSignal.disablePush(!newState);
         });
       }
@@ -206,6 +212,39 @@ export default function Perfil() {
 
   const openDocumentation = () => {
     window.open('https://docs.treexpay.com', '_blank');
+  };
+
+  const copyPlayerId = () => {
+    if (userProfile?.onesignal_player_id) {
+      navigator.clipboard.writeText(userProfile.onesignal_player_id);
+      toast({ title: "ID do Player copiado!" });
+    }
+  };
+
+  const sendTestNotification = async () => {
+    setIsSendingTest(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-test-notification');
+      
+      if (error) throw error;
+
+      if (data.success) {
+        toast({
+          title: "Notificação de teste enviada!",
+          description: "Verifique suas notificações em instantes.",
+        });
+      } else {
+        throw new Error(data.error || "Erro desconhecido");
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Falha ao enviar notificação",
+        description: error.message,
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
   };
 
   return (
@@ -359,6 +398,43 @@ export default function Perfil() {
                       onCheckedChange={handleToggleNotifications}
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Debug Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TestTube2 className="h-5 w-5" />
+                    Depuração de Notificações
+                  </CardTitle>
+                  <CardDescription>
+                    Use estas ferramentas para verificar sua integração com o OneSignal.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Seu OneSignal Player ID</Label>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        readOnly 
+                        value={userProfile?.onesignal_player_id || "Não encontrado ou não permitido"}
+                        className="font-mono text-sm"
+                      />
+                      <Button variant="outline" size="icon" onClick={copyPlayerId} disabled={!userProfile?.onesignal_player_id}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Este ID é gerado quando você permite notificações. Se não aparecer, tente recarregar a página ou redefinir a permissão de notificação no seu navegador para este site.
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={sendTestNotification} 
+                    disabled={!userProfile?.onesignal_player_id || isSendingTest}
+                  >
+                    {isSendingTest ? "Enviando..." : "Enviar Notificação de Teste"}
+                  </Button>
                 </CardContent>
               </Card>
 
