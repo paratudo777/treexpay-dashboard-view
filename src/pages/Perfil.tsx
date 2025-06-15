@@ -1,4 +1,3 @@
-
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,6 +34,7 @@ interface UserProfile {
   balance: number;
   phone?: string;
   cpf?: string;
+  notifications_enabled: boolean;
 }
 
 export default function Perfil() {
@@ -59,7 +59,7 @@ export default function Perfil() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email, balance, phone, cpf')
+        .select('id, name, email, balance, phone, cpf, notifications_enabled')
         .eq('id', user.id)
         .single();
 
@@ -68,6 +68,7 @@ export default function Perfil() {
       setUserProfile(data);
       setPhone(data.phone || '');
       setCpf(data.cpf || '');
+      setNotificationsEnabled(data.notifications_enabled);
     } catch (error) {
       console.error('Erro ao buscar perfil:', error);
     }
@@ -145,16 +146,41 @@ export default function Perfil() {
     }).format(date);
   };
 
-  const handleToggleNotifications = () => {
+  const handleToggleNotifications = async () => {
+    if (!user) return;
+
     const newState = !notificationsEnabled;
-    setNotificationsEnabled(newState);
-    
-    toast({
-      title: newState ? "Notificações ativadas" : "Notificações desativadas",
-      description: newState 
-        ? "Você receberá notificações sobre suas vendas." 
-        : "Você não receberá notificações sobre suas vendas.",
-    });
+    setNotificationsEnabled(newState); // Optimistic update
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ notifications_enabled: newState })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      if (window.OneSignal) {
+        window.OneSignal.push(() => {
+          window.OneSignal.disablePush(!newState);
+        });
+      }
+
+      toast({
+        title: newState ? "Notificações ativadas" : "Notificações desativadas",
+        description: newState
+          ? "Você receberá notificações sobre suas vendas."
+          : "Você não receberá mais notificações sobre suas vendas.",
+      });
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      setNotificationsEnabled(!newState); // Revert on error
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar sua preferência de notificação.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEnable2FA = () => {

@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -210,13 +209,13 @@ Deno.serve(async (req) => {
     try {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('onesignal_player_id')
+        .select('onesignal_player_id, notifications_enabled')
         .eq('id', deposit.user_id)
         .single();
 
       if (profileError) {
         console.error('🔔 Erro ao buscar perfil para notificação:', profileError.message);
-      } else if (profileData && profileData.onesignal_player_id) {
+      } else if (profileData && profileData.onesignal_player_id && profileData.notifications_enabled) {
         console.log('🚀 Enviando notificação para o player ID:', profileData.onesignal_player_id);
         const { error: notificationError } = await supabase.functions.invoke('send-onesignal-notification', {
           body: {
@@ -231,7 +230,7 @@ Deno.serve(async (req) => {
           console.log('✅ Notificação enviada com sucesso.');
         }
       } else {
-        console.warn('⚠️ Player ID do OneSignal não encontrado para o usuário, notificação não enviada.');
+        console.warn('⚠️ Player ID do OneSignal não encontrado ou notificações desativadas, notificação não enviada.');
       }
     } catch(e) {
       console.error('CRITICAL: Failed to send notification', e)
