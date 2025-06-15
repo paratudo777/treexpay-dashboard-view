@@ -107,6 +107,14 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
     return null;
   };
 
+  // Create a proper DateRange for the Calendar component or undefined
+  const getCalendarSelection = () => {
+    if (selectedDate.from && selectedDate.to) {
+      return { from: selectedDate.from, to: selectedDate.to };
+    }
+    return undefined;
+  };
+
   return (
     <div className="w-full sm:w-auto space-y-2">
       <Select value={activePeriod} onValueChange={handlePeriodChange}>
@@ -157,7 +165,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
               initialFocus
               mode="range"
               defaultMonth={selectedDate.from}
-              selected={selectedDate}
+              selected={getCalendarSelection()}
               onSelect={handleDateRangeSelect}
               numberOfMonths={2}
               className="pointer-events-auto"
