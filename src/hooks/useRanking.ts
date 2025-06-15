@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,55 +91,57 @@ export const useRanking = () => {
   };
 
   const processarRanking = async (rankingData: any[], profiles: any[], usuarios: any[]) => {
-    console.log('Processando ranking com dados do RPC...');
+    console.log('Processando ranking com nova lógica...');
+    console.log(`Dados com volume: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Usuários com apelido: ${usuarios?.length || 0}`);
 
     const profileMap = new Map(profiles.map(p => [p.id, p]));
     const apelidoMap = new Map(usuarios.map(u => [u.user_id, u.apelido]));
-    const rankedUserIds = new Set(rankingData.map(r => r.user_id));
 
-    const usuariosCompletos: RankingUser[] = [];
+    const userMap = new Map<string, RankingUser>();
 
-    // Adicionar usuários com volume (dados do RPC)
-    for (const rankItem of rankingData) {
-      const profile = profileMap.get(rankItem.user_id);
-      if (profile) {
-        const apelido = apelidoMap.get(rankItem.user_id) || profile.name || `User...`;
-        
-        usuariosCompletos.push({
-          id: `${rankItem.user_id}-ranking`,
-          user_id: rankItem.user_id,
-          apelido: apelido,
-          name: profile.name,
-          email: profile.email,
-          volume_total_mensal: rankItem.total_volume,
-          ultima_venda_em: rankItem.last_sale_date,
-          position: 0,
-          is_current_user: rankItem.user_id === user?.id,
+    // Adicionar todos os usuários da tabela 'usuarios' primeiro
+    for (const usuario of usuarios) {
+        const profile = profileMap.get(usuario.user_id);
+        userMap.set(usuario.user_id, {
+            id: `${usuario.user_id}-ranking-base`,
+            user_id: usuario.user_id,
+            apelido: usuario.apelido || profile?.name || `User...${usuario.user_id.substring(0,4)}`,
+            name: profile?.name,
+            email: profile?.email,
+            volume_total_mensal: 0, // Será sobrescrito se tiver vendas
+            ultima_venda_em: null, // Será sobrescrito se tiver vendas
+            position: 0,
+            is_current_user: usuario.user_id === user?.id,
         });
-      }
     }
 
-    // Adicionar usuários da tabela 'usuarios' que não tiveram vendas este mês para que apareçam na lista
-    for (const usuario of usuarios) {
-      if (!rankedUserIds.has(usuario.user_id)) {
-        const profile = profileMap.get(usuario.user_id);
-        if (profile) {
-            usuariosCompletos.push({
-              id: `${usuario.user_id}-ranking-zero`,
-              user_id: usuario.user_id,
-              apelido: usuario.apelido,
-              name: profile.name,
-              email: profile.email,
-              volume_total_mensal: 0,
-              ultima_venda_em: null,
-              position: 0,
-              is_current_user: usuario.user_id === user?.id,
+    // Adicionar/Atualizar usuários com volume de vendas
+    for (const rankItem of rankingData) {
+        const userId = rankItem.user_id;
+        if (!userId) continue;
+
+        const existingUser = userMap.get(userId);
+        if (existingUser) {
+            existingUser.volume_total_mensal = rankItem.total_volume;
+            existingUser.ultima_venda_em = rankItem.last_sale_date;
+        } else {
+            const profile = profileMap.get(userId);
+            userMap.set(userId, {
+                id: `${userId}-ranking-new`,
+                user_id: userId,
+                apelido: apelidoMap.get(userId) || profile?.name || `User...${userId.substring(0,4)}`,
+                name: profile?.name,
+                email: profile?.email,
+                volume_total_mensal: rankItem.total_volume,
+                ultima_venda_em: rankItem.last_sale_date,
+                position: 0,
+                is_current_user: userId === user?.id,
             });
         }
-      }
     }
+    
+    const usuariosCompletos = Array.from(userMap.values());
 
-    // Ordenar por volume e atribuir posições
     const rankingOrdenado = usuariosCompletos
       .sort((a, b) => b.volume_total_mensal - a.volume_total_mensal)
       .map((usuario, index) => ({
@@ -146,11 +149,27 @@ export const useRanking = () => {
         position: index + 1
       }));
 
-    // Definir estado do ranking (Top 10) e do usuário atual
     const top10 = rankingOrdenado.slice(0, 10);
     setRanking(top10);
     
-    const currentUserData = rankingOrdenado.find(u => u.is_current_user);
+    let currentUserData = rankingOrdenado.find(u => u.is_current_user);
+    
+    if (!currentUserData && user) {
+        const userProfile = profileMap.get(user.id);
+        console.log("Usuário logado não encontrado no ranking. Criando entrada placeholder.");
+        currentUserData = {
+            id: `${user.id}-placeholder`,
+            user_id: user.id,
+            apelido: "Defina seu apelido",
+            name: userProfile?.name,
+            email: userProfile?.email,
+            volume_total_mensal: 0,
+            ultima_venda_em: null,
+            position: rankingOrdenado.length + 1,
+            is_current_user: true,
+        };
+    }
+    
     setCurrentUserRanking(currentUserData || null);
     
     console.log('Ranking final processado e definido.');
