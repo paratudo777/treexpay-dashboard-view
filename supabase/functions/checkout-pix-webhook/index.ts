@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -172,6 +171,37 @@ Deno.serve(async (req) => {
       throw balanceError;
     }
 
+    // Send OneSignal notification
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('onesignal_player_id')
+        .eq('id', payment.checkouts.user_id)
+        .single();
+
+      if (profileError) {
+        console.error('🔔 Erro ao buscar perfil para notificação de checkout:', profileError.message);
+      } else if (profileData && profileData.onesignal_player_id) {
+        console.log('🚀 Enviando notificação de venda para o player ID:', profileData.onesignal_player_id);
+        const { error: notificationError } = await supabase.functions.invoke('send-onesignal-notification', {
+          body: {
+            playerId: profileData.onesignal_player_id,
+            title: 'Venda Realizada!',
+            message: `Você recebeu uma venda de R$ ${payment.amount.toFixed(2)} através do checkout "${payment.checkouts.title}".`
+          }
+        });
+        if (notificationError) {
+          console.error('🔔 Erro ao enviar notificação OneSignal de checkout:', notificationError);
+        } else {
+          console.log('✅ Notificação de venda enviada com sucesso.');
+        }
+      } else {
+        console.warn('⚠️ Player ID do OneSignal não encontrado para o usuário, notificação de venda não enviada.');
+      }
+    } catch(e) {
+      console.error('CRITICAL: Failed to send checkout notification', e)
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: true, 

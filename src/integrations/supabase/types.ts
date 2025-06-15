@@ -178,6 +178,7 @@ export type Database = {
           id: string
           name: string
           notifications_enabled: boolean
+          onesignal_player_id: string | null
           phone: string | null
           profile: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled: boolean
@@ -192,6 +193,7 @@ export type Database = {
           id: string
           name: string
           notifications_enabled?: boolean
+          onesignal_player_id?: string | null
           phone?: string | null
           profile?: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled?: boolean
@@ -206,6 +208,7 @@ export type Database = {
           id?: string
           name?: string
           notifications_enabled?: boolean
+          onesignal_player_id?: string | null
           phone?: string | null
           profile?: Database["public"]["Enums"]["user_profile"]
           two_fa_enabled?: boolean

@@ -206,6 +206,37 @@ Deno.serve(async (req) => {
 
     console.log('✅ Saldo do usuário incrementado:', netAmount);
 
+    // Send OneSignal notification
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('onesignal_player_id')
+        .eq('id', deposit.user_id)
+        .single();
+
+      if (profileError) {
+        console.error('🔔 Erro ao buscar perfil para notificação:', profileError.message);
+      } else if (profileData && profileData.onesignal_player_id) {
+        console.log('🚀 Enviando notificação para o player ID:', profileData.onesignal_player_id);
+        const { error: notificationError } = await supabase.functions.invoke('send-onesignal-notification', {
+          body: {
+            playerId: profileData.onesignal_player_id,
+            title: 'Depósito Recebido!',
+            message: `Seu depósito de R$ ${deposit.amount.toFixed(2)} foi confirmado. Saldo líquido de R$ ${netAmount.toFixed(2)} adicionado.`
+          }
+        });
+        if (notificationError) {
+          console.error('🔔 Erro ao enviar notificação OneSignal:', notificationError);
+        } else {
+          console.log('✅ Notificação enviada com sucesso.');
+        }
+      } else {
+        console.warn('⚠️ Player ID do OneSignal não encontrado para o usuário, notificação não enviada.');
+      }
+    } catch(e) {
+      console.error('CRITICAL: Failed to send notification', e)
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 

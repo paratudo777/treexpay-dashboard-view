@@ -1,5 +1,5 @@
 
-import { User, LogOut } from "lucide-react";
+import { Bell, User, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +29,15 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-2">
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="relative text-treexpay-medium hover:text-treexpay-dark"
+        >
+          <Bell className="h-5 w-5" />
+          <span className="sr-only">Notificações</span>
+        </Button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button 
