@@ -101,11 +101,6 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
   ];
 
   const getCurrentLabel = () => {
-    if (activePeriod === 'custom' && customDateRange) {
-      const fromDate = format(customDateRange.from, 'dd/MM/yyyy', { locale: ptBR });
-      const toDate = format(customDateRange.to, 'dd/MM/yyyy', { locale: ptBR });
-      return `${fromDate} - ${toDate}`;
-    }
     return periodOptions.find(option => option.value === activePeriod)?.label || 'Hoje';
   };
 
@@ -124,14 +119,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
     <div className="w-full sm:w-auto space-y-2">
       <Select value={activePeriod} onValueChange={handlePeriodChange}>
         <SelectTrigger className="w-full sm:w-[220px] bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium min-h-[40px]">
-          <SelectValue>
-            <div className="flex items-center justify-between w-full">
-              <span className="text-sm font-medium">{getCurrentLabel()}</span>
-              {activePeriod === 'custom' && (
-                <CalendarIcon className="h-4 w-4 ml-2 opacity-70" />
-              )}
-            </div>
-          </SelectValue>
+          <SelectValue placeholder={getCurrentLabel()} />
         </SelectTrigger>
         <SelectContent className="bg-gray-800 border-gray-700">
           {periodOptions.map((option) => (
@@ -149,7 +137,31 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
       {/* Calendário para seleção personalizada */}
       <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
         <PopoverTrigger asChild>
-          <div className="hidden" />
+          <Button
+            variant="outline"
+            className={cn(
+              "w-full sm:w-[220px] justify-start text-left font-normal bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium",
+              !selectedDate.from && "text-muted-foreground",
+              activePeriod !== 'custom' && "hidden"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            <div className="flex-1 text-left">
+              {selectedDate.from ? (
+                selectedDate.to ? (
+                  <span className="text-sm">
+                    {format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })} - {format(selectedDate.to, "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                ) : (
+                  <span className="text-sm">
+                    {format(selectedDate.from, "dd/MM/yyyy", { locale: ptBR })} - Selecione data final
+                  </span>
+                )
+              ) : (
+                <span className="text-sm">Selecione o período</span>
+              )}
+            </div>
+          </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
