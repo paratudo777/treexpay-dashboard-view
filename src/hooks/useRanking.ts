@@ -314,11 +314,9 @@ export const useRanking = () => {
           table: 'deposits',
         },
         (payload) => {
-          const oldStatus = (payload.old as any)?.status;
-          if (payload.new && 
-              payload.new.status === 'completed' &&
-              oldStatus !== 'completed'
-            ) {
+          const newRecord = payload.new as { status?: string };
+          const oldRecord = payload.old as { status?: string };
+          if (newRecord?.status === 'completed' && oldRecord?.status !== 'completed') {
             console.log('Novo depósito concluído detectado, atualizando ranking...');
             fetchRanking();
           }
@@ -332,11 +330,9 @@ export const useRanking = () => {
           table: 'checkout_payments',
         },
         (payload) => {
-          const oldStatus = (payload.old as any)?.status;
-          if (payload.new && 
-              payload.new.status === 'paid' &&
-              oldStatus !== 'paid'
-            ) {
+          const newRecord = payload.new as { status?: string };
+          const oldRecord = payload.old as { status?: string };
+          if (newRecord?.status === 'paid' && oldRecord?.status !== 'paid') {
             console.log('Novo pagamento de checkout detectado, atualizando ranking...');
             fetchRanking();
           }
