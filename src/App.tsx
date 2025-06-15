@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,7 +20,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import RouterFallback from "./components/RouterFallback";
-import OneSignalInitializer from "./components/OneSignalInitializer";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,7 +59,6 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <OneSignalInitializer />
             <RouterFallback />
             <div className="dark">
               <Suspense fallback={<SafeLoadingFallback />}>
