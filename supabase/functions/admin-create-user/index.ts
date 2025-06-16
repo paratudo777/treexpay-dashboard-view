@@ -78,7 +78,7 @@ serve(async (req) => {
     // Obter dados da requisição
     const { name, email, password, profile: userProfile, depositFee, withdrawalFee } = await req.json();
 
-    console.log('Creating user with admin client:', email);
+    console.log('Creating user with data:', { email, profile: userProfile });
 
     // Validar dados obrigatórios
     if (!name || !email || !password) {
@@ -133,19 +133,30 @@ serve(async (req) => {
     console.log('User created successfully:', authData.user.id);
 
     // Aguardar um momento para o trigger criar o profile
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Atualizar profile usando RPC
-    console.log('Updating profile...');
-    const { error: profileUpdateError } = await supabaseAdmin.rpc('update_user_profile', {
-      p_user_id: authData.user.id,
-      p_profile: userProfile || 'user',
-      p_active: true
-    });
+    // Atualizar o profile manualmente usando SQL direto para evitar problemas de tipo
+    console.log('Updating profile with SQL...');
+    const { error: profileUpdateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        name: name,
+        profile: userProfile === 'admin' ? 'admin' : 'user',
+        active: true
+      })
+      .eq('id', authData.user.id);
 
     if (profileUpdateError) {
       console.error('Profile update error:', profileUpdateError);
-      // Não é crítico, continuar
+      // Tentar deletar o usuário criado se falhou
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao configurar perfil do usuário' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
     // Criar configurações do usuário
