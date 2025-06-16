@@ -65,25 +65,39 @@ serve(async (req) => {
 
     console.log('User created, updating profile for user:', userId);
 
-    // Update the profile created by the trigger with explicit enum casting
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        profile: validProfile as 'admin' | 'user',
-        active: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+    // Wait a moment for the trigger to create the profile
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Use RPC to update profile with proper enum handling
+    const { error: profileError } = await supabase.rpc('update_user_profile', {
+      p_user_id: userId,
+      p_profile: validProfile,
+      p_active: true
+    });
 
     if (profileError) {
       console.error('Profile update error:', profileError);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `Error updating user profile: ${profileError.message}` 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      
+      // Fallback: try direct update with explicit casting
+      const { error: fallbackError } = await supabase
+        .from('profiles')
+        .update({
+          profile: validProfile,
+          active: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+
+      if (fallbackError) {
+        console.error('Fallback profile update error:', fallbackError);
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `Error updating user profile: ${fallbackError.message}` 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     console.log('Profile updated successfully');
