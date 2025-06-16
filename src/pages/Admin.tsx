@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
 import { FeeEditInput } from '@/components/admin/FeeEditInput';
 import { NetBalanceDisplay } from '@/components/admin/NetBalanceDisplay';
 import { UserDetailsModal } from '@/components/admin/UserDetailsModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface User {
   id: string;
@@ -56,6 +57,7 @@ export default function Admin() {
   const [resettingMetrics, setResettingMetrics] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
 
   // Fetch users with settings data
   const { data: users = [], isLoading } = useQuery({
@@ -119,28 +121,34 @@ export default function Admin() {
       return;
     }
 
+    if (!isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Você não tem permissão para criar usuários.",
+      });
+      return;
+    }
+
     setLoading(true);
     
     try {
-      console.log('Calling admin-create-user Edge Function...');
+      console.log('Creating user with admin client:', newUser.email);
       
-      // Call the Edge Function to create user securely
-      const { data, error } = await supabase.functions.invoke('admin-create-user', {
-        body: {
-          email: newUser.email,
-          password: newUser.password,
-          name: newUser.name,
-          profile: newUser.profile,
-          depositFee: newUser.depositFee,
-          withdrawalFee: newUser.withdrawalFee
+      // Criar usuário usando o cliente administrativo
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: newUser.email,
+        password: newUser.password,
+        email_confirm: true, // Confirmar email automaticamente
+        user_metadata: {
+          name: newUser.name
         }
       });
 
-      if (error) {
-        console.error('Edge Function error:', error);
+      if (authError) {
+        console.error('Auth error:', authError);
         
-        // Verificar se é erro de email já existente
-        if (error.message && error.message.includes('email address has already been registered')) {
+        if (authError.message.includes('email address has already been registered')) {
           toast({
             variant: "destructive",
             title: "Erro ao criar usuário",
@@ -150,33 +158,61 @@ export default function Admin() {
           toast({
             variant: "destructive",
             title: "Erro ao criar usuário",
-            description: error.message || "Erro interno do servidor.",
+            description: authError.message,
           });
         }
         return;
       }
 
-      if (!data?.success) {
-        // Verificar se é erro de email já existente na resposta
-        if (data?.error && data.error.includes('email address has already been registered')) {
-          toast({
-            variant: "destructive",
-            title: "Erro ao criar usuário",
-            description: `Já existe um usuário cadastrado com o email ${newUser.email}.`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Erro ao criar usuário",
-            description: data?.error || "Erro desconhecido.",
-          });
-        }
+      if (!authData.user) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao criar usuário - dados inválidos retornados.",
+        });
         return;
       }
 
-      console.log('User created successfully via Edge Function');
+      console.log('User created successfully:', authData.user.id);
 
-      // Clear form and close dialog
+      // Aguardar um momento para o trigger criar o profile
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Atualizar profile usando RPC
+      console.log('Updating profile...');
+      const { error: profileError } = await supabase.rpc('update_user_profile', {
+        p_user_id: authData.user.id,
+        p_profile: newUser.profile,
+        p_active: true
+      });
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        toast({
+          variant: "destructive",
+          title: "Usuário criado com perfil padrão",
+          description: "O usuário foi criado mas houve erro ao atualizar o perfil.",
+        });
+      }
+
+      // Criar configurações do usuário
+      console.log('Creating user settings...');
+      const { error: settingsError } = await supabase
+        .from('settings')
+        .insert({
+          user_id: authData.user.id,
+          deposit_fee: parseFloat(newUser.depositFee) || 0,
+          withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
+        });
+
+      if (settingsError) {
+        console.error('Settings error:', settingsError);
+        // Não é crítico, apenas log do erro
+      }
+
+      console.log('User creation completed successfully');
+
+      // Limpar formulário e fechar modal
       setNewUser({ 
         name: '', 
         email: '', 
@@ -187,7 +223,7 @@ export default function Admin() {
       });
       setIsCreateDialogOpen(false);
       
-      // Refresh the users list
+      // Atualizar lista de usuários
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       
       toast({
