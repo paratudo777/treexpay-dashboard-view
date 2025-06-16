@@ -11,7 +11,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseAdmin } from '@/lib/supabase-admin';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
 import { FeeEditInput } from '@/components/admin/FeeEditInput';
@@ -133,81 +132,38 @@ export default function Admin() {
     setLoading(true);
     
     try {
-      console.log('Creating user with admin client:', newUser.email);
+      console.log('Creating user via Edge Function:', newUser.email);
       
-      // Criar usuário usando o cliente administrativo
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: newUser.email,
-        password: newUser.password,
-        email_confirm: true, // Confirmar email automaticamente
-        user_metadata: {
-          name: newUser.name
+      // Chamar a Edge Function segura para criar usuário
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          name: newUser.name,
+          email: newUser.email,
+          password: newUser.password,
+          profile: newUser.profile,
+          depositFee: newUser.depositFee,
+          withdrawalFee: newUser.withdrawalFee
         }
       });
 
-      if (authError) {
-        console.error('Auth error:', authError);
-        
-        if (authError.message.includes('email address has already been registered')) {
-          toast({
-            variant: "destructive",
-            title: "Erro ao criar usuário",
-            description: `Já existe um usuário cadastrado com o email ${newUser.email}.`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Erro ao criar usuário",
-            description: authError.message,
-          });
-        }
-        return;
-      }
-
-      if (!authData.user) {
+      if (error) {
+        console.error('Edge Function error:', error);
         toast({
           variant: "destructive",
-          title: "Erro",
-          description: "Erro ao criar usuário - dados inválidos retornados.",
+          title: "Erro ao criar usuário",
+          description: "Erro interno. Tente novamente.",
         });
         return;
       }
 
-      console.log('User created successfully:', authData.user.id);
-
-      // Aguardar um momento para o trigger criar o profile
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Atualizar profile usando RPC
-      console.log('Updating profile...');
-      const { error: profileError } = await supabase.rpc('update_user_profile', {
-        p_user_id: authData.user.id,
-        p_profile: newUser.profile,
-        p_active: true
-      });
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
+      if (data.error) {
+        console.error('User creation error:', data.error);
         toast({
           variant: "destructive",
-          title: "Usuário criado com perfil padrão",
-          description: "O usuário foi criado mas houve erro ao atualizar o perfil.",
+          title: "Erro ao criar usuário",
+          description: data.error,
         });
-      }
-
-      // Criar configurações do usuário
-      console.log('Creating user settings...');
-      const { error: settingsError } = await supabase
-        .from('settings')
-        .insert({
-          user_id: authData.user.id,
-          deposit_fee: parseFloat(newUser.depositFee) || 0,
-          withdrawal_fee: parseFloat(newUser.withdrawalFee) || 0
-        });
-
-      if (settingsError) {
-        console.error('Settings error:', settingsError);
-        // Não é crítico, apenas log do erro
+        return;
       }
 
       console.log('User creation completed successfully');
@@ -228,7 +184,7 @@ export default function Admin() {
       
       toast({
         title: "Usuário criado com sucesso",
-        description: `${newUser.name} foi criado e está ativo.`,
+        description: data.message,
       });
 
     } catch (error) {
