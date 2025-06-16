@@ -133,30 +133,39 @@ serve(async (req) => {
     console.log('User created successfully:', authData.user.id);
 
     // Aguardar um momento para o trigger criar o profile
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Atualizar o profile manualmente usando SQL direto para evitar problemas de tipo
-    console.log('Updating profile with SQL...');
-    const { error: profileUpdateError } = await supabaseAdmin
-      .from('profiles')
-      .update({
-        name: name,
-        profile: userProfile === 'admin' ? 'admin' : 'user',
-        active: true
-      })
-      .eq('id', authData.user.id);
+    // Usar função RPC que faz o cast correto do enum
+    console.log('Updating profile using RPC function...');
+    const { error: profileUpdateError } = await supabaseAdmin.rpc('update_user_profile', {
+      p_user_id: authData.user.id,
+      p_profile: userProfile === 'admin' ? 'admin' : 'user',
+      p_active: true
+    });
 
     if (profileUpdateError) {
       console.error('Profile update error:', profileUpdateError);
       // Tentar deletar o usuário criado se falhou
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return new Response(
-        JSON.stringify({ error: 'Erro ao configurar perfil do usuário' }),
+        JSON.stringify({ error: 'Erro ao configurar perfil do usuário: ' + profileUpdateError.message }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
+    }
+
+    // Atualizar o nome no profile
+    console.log('Updating profile name...');
+    const { error: nameUpdateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ name: name })
+      .eq('id', authData.user.id);
+
+    if (nameUpdateError) {
+      console.error('Name update error:', nameUpdateError);
+      // Não é crítico, apenas log
     }
 
     // Criar configurações do usuário
