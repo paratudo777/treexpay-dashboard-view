@@ -545,6 +545,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      update_user_profile: {
+        Args: { p_user_id: string; p_profile: string; p_active?: boolean }
+        Returns: undefined
+      }
     }
     Enums: {
       deposit_status: "waiting" | "completed" | "expired"

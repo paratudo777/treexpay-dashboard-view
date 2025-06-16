@@ -26,7 +26,6 @@ serve(async (req) => {
     const { email, password, name, profile, depositFee, withdrawalFee } = body;
 
     console.log('Creating user with email:', email);
-    console.log('Profile to be set:', profile);
 
     // Validate profile value
     const validProfile = profile === 'admin' ? 'admin' : 'user';
@@ -63,12 +62,13 @@ serve(async (req) => {
       });
     }
 
-    console.log('User created, updating profile for user:', userId);
+    console.log('User created successfully, ID:', userId);
 
-    // Wait a moment for the trigger to create the profile
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait for trigger to create profile
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Use RPC to update profile with proper enum handling
+    // Update profile using the RPC function
+    console.log('Updating profile using RPC...');
     const { error: profileError } = await supabase.rpc('update_user_profile', {
       p_user_id: userId,
       p_profile: validProfile,
@@ -77,32 +77,19 @@ serve(async (req) => {
 
     if (profileError) {
       console.error('Profile update error:', profileError);
-      
-      // Fallback: try direct update with explicit casting
-      const { error: fallbackError } = await supabase
-        .from('profiles')
-        .update({
-          profile: validProfile,
-          active: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (fallbackError) {
-        console.error('Fallback profile update error:', fallbackError);
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: `Error updating user profile: ${fallbackError.message}` 
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: `Error updating user profile: ${profileError.message}` 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     console.log('Profile updated successfully');
 
-    // Check if settings already exist
+    // Create or update settings
+    console.log('Managing user settings...');
     const { data: existingSettings } = await supabase
       .from('settings')
       .select('id')
@@ -115,7 +102,7 @@ serve(async (req) => {
         .from('settings')
         .insert({
           user_id: userId,
-          deposit_fee: parseFloat(depositFee) || 11.99,
+          deposit_fee: parseFloat(depositFee) || 0,
           withdrawal_fee: parseFloat(withdrawalFee) || 0
         });
 
@@ -131,7 +118,7 @@ serve(async (req) => {
       const { error: settingsUpdateError } = await supabase
         .from('settings')
         .update({
-          deposit_fee: parseFloat(depositFee) || 11.99,
+          deposit_fee: parseFloat(depositFee) || 0,
           withdrawal_fee: parseFloat(withdrawalFee) || 0
         })
         .eq('user_id', userId);
