@@ -26,6 +26,11 @@ serve(async (req) => {
     const { email, password, name, profile, depositFee, withdrawalFee } = body;
 
     console.log('Creating user with email:', email);
+    console.log('Profile to be set:', profile);
+
+    // Validate profile value
+    const validProfile = profile === 'admin' ? 'admin' : 'user';
+    console.log('Validated profile:', validProfile);
 
     // Create user using admin API with service role
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -60,11 +65,11 @@ serve(async (req) => {
 
     console.log('User created, updating profile for user:', userId);
 
-    // Update the profile created by the trigger
+    // Update the profile created by the trigger with explicit enum casting
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
-        profile: profile || 'user',
+        profile: validProfile as 'admin' | 'user',
         active: true,
         updated_at: new Date().toISOString()
       })
@@ -74,14 +79,14 @@ serve(async (req) => {
       console.error('Profile update error:', profileError);
       return new Response(JSON.stringify({ 
         success: false, 
-        error: "Error updating user profile" 
+        error: `Error updating user profile: ${profileError.message}` 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    console.log('Profile updated, creating settings...');
+    console.log('Profile updated successfully');
 
     // Check if settings already exist
     const { data: existingSettings } = await supabase
@@ -91,11 +96,12 @@ serve(async (req) => {
       .maybeSingle();
 
     if (!existingSettings) {
+      console.log('Creating new settings for user');
       const { error: settingsError } = await supabase
         .from('settings')
         .insert({
           user_id: userId,
-          deposit_fee: parseFloat(depositFee) || 0,
+          deposit_fee: parseFloat(depositFee) || 11.99,
           withdrawal_fee: parseFloat(withdrawalFee) || 0
         });
 
@@ -103,18 +109,23 @@ serve(async (req) => {
         console.error('Settings creation error:', settingsError);
         // Don't fail the whole process for settings error
         console.log('Settings creation failed but user was created successfully');
+      } else {
+        console.log('Settings created successfully');
       }
     } else {
+      console.log('Updating existing settings for user');
       const { error: settingsUpdateError } = await supabase
         .from('settings')
         .update({
-          deposit_fee: parseFloat(depositFee) || 0,
+          deposit_fee: parseFloat(depositFee) || 11.99,
           withdrawal_fee: parseFloat(withdrawalFee) || 0
         })
         .eq('user_id', userId);
 
       if (settingsUpdateError) {
         console.error('Settings update error:', settingsUpdateError);
+      } else {
+        console.log('Settings updated successfully');
       }
     }
 
@@ -122,7 +133,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      user_id: userId 
+      user_id: userId,
+      message: 'Usuário criado com sucesso'
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -132,7 +144,7 @@ serve(async (req) => {
     console.error('Unexpected error in admin-create-user function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: "Internal server error" 
+      error: `Internal server error: ${error.message}` 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
