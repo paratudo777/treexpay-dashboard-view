@@ -22,8 +22,17 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
 
   const handleSave = async () => {
     const numValue = parseFloat(tempValue);
-    if (isNaN(numValue) || numValue < 0 || numValue > 100) {
-      // Resetar para o valor original se inválido
+    
+    // Validação específica por tipo de taxa
+    if (feeType === 'deposit_fee' && (isNaN(numValue) || numValue < 0 || numValue > 100)) {
+      // Taxa de depósito deve ser percentual entre 0 e 100
+      setTempValue(currentValue.toString());
+      setIsEditing(false);
+      return;
+    }
+    
+    if (feeType === 'withdrawal_fee' && (isNaN(numValue) || numValue < 0)) {
+      // Taxa de saque deve ser valor positivo
       setTempValue(currentValue.toString());
       setIsEditing(false);
       return;
@@ -61,10 +70,36 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
     return feeType === 'deposit_fee' ? 'depósito' : 'saque';
   };
 
+  const formatFeeDisplay = () => {
+    if (feeType === 'deposit_fee') {
+      // Taxa de depósito: percentual + fixo
+      return `${currentValue.toFixed(2)}% + R$ 1,50`;
+    } else {
+      // Taxa de saque: valor fixo
+      return `R$ ${currentValue.toFixed(2)}`;
+    }
+  };
+
+  const getInputPlaceholder = () => {
+    if (feeType === 'deposit_fee') {
+      return 'Ex: 8.99';
+    } else {
+      return 'Ex: 5.00';
+    }
+  };
+
+  const getInputLabel = () => {
+    if (feeType === 'deposit_fee') {
+      return '%';
+    } else {
+      return 'R$';
+    }
+  };
+
   if (!isEditing) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{currentValue.toFixed(2)}%</span>
+        <span className="text-sm font-medium">{formatFeeDisplay()}</span>
         <Button
           variant="ghost"
           size="sm"
@@ -84,9 +119,10 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
         type="number"
         step="0.01"
         min="0"
-        max="100"
+        max={feeType === 'deposit_fee' ? "100" : undefined}
         value={tempValue}
         onChange={(e) => setTempValue(e.target.value)}
+        placeholder={getInputPlaceholder()}
         className="w-20 h-8 text-xs"
         autoFocus
         onKeyDown={(e) => {
@@ -97,7 +133,7 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
           }
         }}
       />
-      <span className="text-xs">%</span>
+      <span className="text-xs">{getInputLabel()}</span>
       <Button
         variant="ghost"
         size="sm"

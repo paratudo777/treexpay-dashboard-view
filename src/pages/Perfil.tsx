@@ -145,6 +145,14 @@ export default function Perfil() {
     }).format(date);
   };
 
+  const formatTaxDisplay = (feeType: 'deposit' | 'withdrawal', value: number) => {
+    if (feeType === 'deposit') {
+      return `${value.toFixed(2)}% + R$ 1,50 (por transação)`;
+    } else {
+      return `R$ ${value.toFixed(2)} (por saque)`;
+    }
+  };
+
   const handleToggleNotifications = async () => {
     if (!user) return;
 
@@ -337,27 +345,39 @@ export default function Perfil() {
                 ) : userSettings ? (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center py-2 border-b border-border">
-                      <span className="font-medium">Taxa de Depósito</span>
+                      <div>
+                        <span className="font-medium">Taxa de Depósito</span>
+                        <p className="text-sm text-muted-foreground">Taxa percentual + taxa fixa por transação</p>
+                      </div>
                       <span className="text-treexpay-medium font-medium">
-                        {userSettings.deposit_fee.toFixed(2)}%
+                        {formatTaxDisplay('deposit', userSettings.deposit_fee)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border">
-                      <span className="font-medium">Taxa de Saque</span>
+                      <div>
+                        <span className="font-medium">Taxa de Saque</span>
+                        <p className="text-sm text-muted-foreground">Valor fixo por solicitação de saque</p>
+                      </div>
                       <span className="text-treexpay-medium font-medium">
-                        {userSettings.withdrawal_fee.toFixed(2)}%
+                        {formatTaxDisplay('withdrawal', userSettings.withdrawal_fee)}
                       </span>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="flex justify-between items-center py-2 border-b border-border">
-                      <span className="font-medium">Taxa de Depósito</span>
-                      <span className="text-treexpay-medium font-medium">0.00%</span>
+                      <div>
+                        <span className="font-medium">Taxa de Depósito</span>
+                        <p className="text-sm text-muted-foreground">Taxa percentual + taxa fixa por transação</p>
+                      </div>
+                      <span className="text-treexpay-medium font-medium">0.00% + R$ 1,50</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border">
-                      <span className="font-medium">Taxa de Saque</span>
-                      <span className="text-treexpay-medium font-medium">0.00%</span>
+                      <div>
+                        <span className="font-medium">Taxa de Saque</span>
+                        <p className="text-sm text-muted-foreground">Valor fixo por solicitação de saque</p>
+                      </div>
+                      <span className="text-treexpay-medium font-medium">R$ 0.00</span>
                     </div>
                   </div>
                 )}

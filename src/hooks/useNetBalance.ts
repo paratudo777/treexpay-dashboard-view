@@ -2,7 +2,7 @@
 import { useMemo } from 'react';
 import { useUserSettings } from './useUserSettings';
 
-const PROVIDER_FEE = 1.50; // Taxa fixa do provedor por transação
+const PROVIDER_FEE = 1.50; // Taxa fixa do provedor por transação de depósito
 
 interface NetBalanceCalculation {
   grossBalance: number;
@@ -33,19 +33,20 @@ export const useNetBalance = (userId: string, grossBalance: number, depositCount
     // Taxa percentual sobre o saldo bruto
     const percentageFee = (grossBalance * depositFeePercentage) / 100;
     
-    // Taxa fixa do provedor por transação
+    // Taxa fixa do provedor por transação de depósito (R$ 1,50 por depósito)
     const providerFees = depositCount * PROVIDER_FEE;
     
-    // Total de taxas
-    const totalFees = percentageFee + providerFees;
+    // Total de taxas de depósito
+    const totalDepositFees = percentageFee + providerFees;
     
-    // Saldo líquido
-    const netBalance = Math.max(0, grossBalance - totalFees);
+    // Para o cálculo do saldo líquido, consideramos apenas as taxas de depósito
+    // As taxas de saque são cobradas no momento do saque
+    const netBalance = Math.max(0, grossBalance - totalDepositFees);
 
     return {
       grossBalance,
       netBalance,
-      totalFees,
+      totalFees: totalDepositFees,
       depositFeePercentage,
       providerFee: providerFees,
       depositCount

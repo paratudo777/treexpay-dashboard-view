@@ -577,14 +577,14 @@ export default function Admin() {
                           <FeeEditInput
                             currentValue={depositFee}
                             onUpdate={(newValue) => updateUserFee(user.id, 'deposit_fee', newValue)}
-                            feeType="depósito"
+                            feeType="deposit_fee"
                           />
                         </TableCell>
                         <TableCell>
                           <FeeEditInput
                             currentValue={withdrawalFee}
                             onUpdate={(newValue) => updateUserFee(user.id, 'withdrawal_fee', newValue)}
-                            feeType="saque"
+                            feeType="withdrawal_fee"
                           />
                         </TableCell>
                         <TableCell>
