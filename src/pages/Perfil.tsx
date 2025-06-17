@@ -12,13 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidCpf, formatCpf, formatPhone } from "@/utils/cpfValidation";
+import { useUserSettings } from "@/hooks/useUserSettings";
 
-// Dados mockados para demonstração
-const mockFeesData = {
-  depositFee: "1.99%",
-  withdrawalFee: "2.50%",
-};
-
+// Dados mockados para notificações
 const mockNotifications = [
   { id: 1, message: "Depósito de R$ 1000,00 realizado com sucesso", date: "2025-05-18T14:30:00" },
   { id: 2, message: "Saque de R$ 500,00 processado", date: "2025-05-17T10:15:00" },
@@ -46,6 +42,9 @@ export default function Perfil() {
   const [cpf, setCpf] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const { user } = useAuth();
+  
+  // Usar o hook para buscar as configurações reais do usuário
+  const { settings: userSettings, loading: settingsLoading } = useUserSettings(user?.id);
   
   useEffect(() => {
     if (user) {
@@ -324,16 +323,44 @@ export default function Perfil() {
                 <CardDescription>Taxas aplicadas às suas transações</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="font-medium">Taxa de Depósito</span>
-                    <span className="text-treexpay-medium">{mockFeesData.depositFee}</span>
+                {settingsLoading ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Depósito</span>
+                      <span className="text-muted-foreground">Carregando...</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Saque</span>
+                      <span className="text-muted-foreground">Carregando...</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="font-medium">Taxa de Saque</span>
-                    <span className="text-treexpay-medium">{mockFeesData.withdrawalFee}</span>
+                ) : userSettings ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Depósito</span>
+                      <span className="text-treexpay-medium font-medium">
+                        {userSettings.deposit_fee.toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Saque</span>
+                      <span className="text-treexpay-medium font-medium">
+                        {userSettings.withdrawal_fee.toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Depósito</span>
+                      <span className="text-treexpay-medium font-medium">0.00%</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-border">
+                      <span className="font-medium">Taxa de Saque</span>
+                      <span className="text-treexpay-medium font-medium">0.00%</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

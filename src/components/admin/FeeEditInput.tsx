@@ -7,7 +7,7 @@ import { Check, X, Edit } from 'lucide-react';
 interface FeeEditInputProps {
   currentValue: number;
   onUpdate: (newValue: number) => Promise<boolean>;
-  feeType: string;
+  feeType: 'deposit_fee' | 'withdrawal_fee';
 }
 
 export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputProps) => {
@@ -57,6 +57,10 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
     setIsEditing(true);
   };
 
+  const getFeeTypeName = () => {
+    return feeType === 'deposit_fee' ? 'depósito' : 'saque';
+  };
+
   if (!isEditing) {
     return (
       <div className="flex items-center gap-2">
@@ -66,7 +70,7 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
           size="sm"
           onClick={handleEdit}
           className="h-6 w-6 p-0 hover:bg-gray-100"
-          title={`Editar taxa de ${feeType}`}
+          title={`Editar taxa de ${getFeeTypeName()}`}
         >
           <Edit className="h-3 w-3" />
         </Button>
