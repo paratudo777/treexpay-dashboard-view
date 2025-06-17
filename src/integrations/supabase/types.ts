@@ -246,6 +246,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking: {
+        Row: {
+          apelido: string
+          created_at: string | null
+          id: string
+          ultima_venda_em: string | null
+          updated_at: string | null
+          user_id: string
+          volume_total_mensal: number | null
+        }
+        Insert: {
+          apelido: string
+          created_at?: string | null
+          id?: string
+          ultima_venda_em?: string | null
+          updated_at?: string | null
+          user_id: string
+          volume_total_mensal?: number | null
+        }
+        Update: {
+          apelido?: string
+          created_at?: string | null
+          id?: string
+          ultima_venda_em?: string | null
+          updated_at?: string | null
+          user_id?: string
+          volume_total_mensal?: number | null
+        }
+        Relationships: []
+      }
       settings: {
         Row: {
           created_at: string
@@ -397,36 +427,6 @@ export type Database = {
         }
         Relationships: []
       }
-      usuarios: {
-        Row: {
-          apelido: string
-          created_at: string | null
-          id: string
-          ultima_venda_em: string | null
-          updated_at: string | null
-          user_id: string
-          volume_total_mensal: number | null
-        }
-        Insert: {
-          apelido: string
-          created_at?: string | null
-          id?: string
-          ultima_venda_em?: string | null
-          updated_at?: string | null
-          user_id: string
-          volume_total_mensal?: number | null
-        }
-        Update: {
-          apelido?: string
-          created_at?: string | null
-          id?: string
-          ultima_venda_em?: string | null
-          updated_at?: string | null
-          user_id?: string
-          volume_total_mensal?: number | null
-        }
-        Relationships: []
-      }
       vendas: {
         Row: {
           created_at: string | null
@@ -454,7 +454,7 @@ export type Database = {
             foreignKeyName: "vendas_usuario_id_fkey"
             columns: ["usuario_id"]
             isOneToOne: false
-            referencedRelation: "usuarios"
+            referencedRelation: "ranking"
             referencedColumns: ["id"]
           },
         ]

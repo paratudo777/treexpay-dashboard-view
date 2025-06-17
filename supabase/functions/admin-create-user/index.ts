@@ -132,48 +132,46 @@ serve(async (req) => {
 
     console.log('User created successfully:', authData.user.id);
 
-    // Aguardar um pouco mais para o trigger criar o profile
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Aguardar o trigger criar o profile automaticamente
+    console.log('Waiting for trigger to create profile...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Atualizar o profile diretamente com SQL usando query raw
-    console.log('Updating profile with raw SQL...');
-    
-    // Primeiro, verificar se o profile foi criado
-    const { data: existingProfile } = await supabaseAdmin
+    // Verificar se o profile foi criado pelo trigger
+    const { data: createdProfile, error: profileCheckError } = await supabaseAdmin
       .from('profiles')
-      .select('id')
+      .select('id, profile')
       .eq('id', authData.user.id)
       .maybeSingle();
 
-    if (!existingProfile) {
-      console.log('Profile not created by trigger, creating manually...');
-      // Criar profile manualmente se o trigger falhou
-      const { error: createProfileError } = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          email: email,
-          name: name,
-          profile: 'user', // Sempre criar como user primeiro
-          active: true
-        });
-
-      if (createProfileError) {
-        console.error('Manual profile creation error:', createProfileError);
-        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-        return new Response(
-          JSON.stringify({ error: 'Erro ao criar perfil do usuário: ' + createProfileError.message }),
-          { 
-            status: 500, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
+    if (profileCheckError) {
+      console.error('Profile check error:', profileCheckError);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return new Response(
+        JSON.stringify({ error: 'Erro ao verificar perfil criado: ' + profileCheckError.message }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    // Agora usar a função RPC para atualizar o profile se necessário
-    if (userProfile === 'admin') {
-      console.log('Updating to admin profile using RPC...');
+    if (!createdProfile) {
+      console.error('Profile was not created by trigger');
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return new Response(
+        JSON.stringify({ error: 'Erro: perfil não foi criado automaticamente pelo sistema' }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('Profile created successfully by trigger:', createdProfile);
+
+    // Se o usuário deve ser admin, usar a função RPC para atualizar
+    if (userProfile === 'admin' && createdProfile.profile !== 'admin') {
+      console.log('Updating user to admin profile...');
       const { error: adminUpdateError } = await supabaseAdmin.rpc('update_user_profile', {
         p_user_id: authData.user.id,
         p_profile: 'admin',
@@ -181,20 +179,9 @@ serve(async (req) => {
       });
 
       if (adminUpdateError) {
-        console.error('Admin profile update error:', adminUpdateError);
-        // Não falhar por isso, apenas registrar o erro
+        console.error('Admin update error:', adminUpdateError);
+        // Não é crítico, apenas log
       }
-    }
-
-    // Atualizar o nome se necessário
-    const { error: nameUpdateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ name: name })
-      .eq('id', authData.user.id);
-
-    if (nameUpdateError) {
-      console.error('Name update error:', nameUpdateError);
-      // Não é crítico, apenas log
     }
 
     // Criar configurações do usuário
