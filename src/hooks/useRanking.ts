@@ -46,7 +46,7 @@ export const useRanking = () => {
       
       const { startOfMonth, endOfMonth } = getCurrentMonthPeriod();
 
-      console.log('Buscando ranking com a nova função otimizada...');
+      console.log('Buscando ranking com a função otimizada...');
 
       // 1. Chamar a função do banco de dados para obter o ranking de forma eficiente
       const { data: rankingData, error: rankingError } = await supabase.rpc(
@@ -63,20 +63,20 @@ export const useRanking = () => {
       }
       console.log(`Recebidos ${rankingData?.length || 0} usuários com volume.`);
 
-      // 2. Buscar profiles e apelidos para enriquecer os dados do ranking
+      // 2. Buscar profiles e dados de ranking para enriquecer os dados
       const [
         { data: profiles, error: profilesError },
-        { data: usuarios, error: usuariosError }
+        { data: rankingUsers, error: rankingUsersError }
       ] = await Promise.all([
         supabase.from('profiles').select('*'),
-        supabase.from('usuarios').select('user_id, apelido')
+        supabase.from('ranking').select('user_id, apelido')
       ]);
 
       if (profilesError) throw profilesError;
-      if (usuariosError) throw usuariosError;
+      if (rankingUsersError) throw rankingUsersError;
       
       // 3. Processar e combinar os dados para montar o ranking final
-      await processarRanking(rankingData || [], profiles || [], usuarios || []);
+      await processarRanking(rankingData || [], profiles || [], rankingUsers || []);
 
     } catch (error) {
       console.error('Erro completo no fetchRanking:', error);
@@ -90,28 +90,28 @@ export const useRanking = () => {
     }
   };
 
-  const processarRanking = async (rankingData: any[], profiles: any[], usuarios: any[]) => {
+  const processarRanking = async (rankingData: any[], profiles: any[], rankingUsers: any[]) => {
     console.log('Processando ranking com nova lógica...');
-    console.log(`Dados com volume: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Usuários com apelido: ${usuarios?.length || 0}`);
+    console.log(`Dados com volume: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Usuários com apelido: ${rankingUsers?.length || 0}`);
 
     const profileMap = new Map(profiles.map(p => [p.id, p]));
-    const apelidoMap = new Map(usuarios.map(u => [u.user_id, u.apelido]));
+    const apelidoMap = new Map(rankingUsers.map(u => [u.user_id, u.apelido]));
 
     const userMap = new Map<string, RankingUser>();
 
-    // Adicionar todos os usuários da tabela 'usuarios' primeiro
-    for (const usuario of usuarios) {
-        const profile = profileMap.get(usuario.user_id);
-        userMap.set(usuario.user_id, {
-            id: `${usuario.user_id}-ranking-base`,
-            user_id: usuario.user_id,
-            apelido: usuario.apelido || profile?.name || `User...${usuario.user_id.substring(0,4)}`,
+    // Adicionar todos os usuários da tabela 'ranking' primeiro
+    for (const rankingUser of rankingUsers) {
+        const profile = profileMap.get(rankingUser.user_id);
+        userMap.set(rankingUser.user_id, {
+            id: `${rankingUser.user_id}-ranking-base`,
+            user_id: rankingUser.user_id,
+            apelido: rankingUser.apelido || profile?.name || `User...${rankingUser.user_id.substring(0,4)}`,
             name: profile?.name,
             email: profile?.email,
             volume_total_mensal: 0, // Será sobrescrito se tiver vendas
             ultima_venda_em: null, // Será sobrescrito se tiver vendas
             position: 0,
-            is_current_user: usuario.user_id === user?.id,
+            is_current_user: rankingUser.user_id === user?.id,
         });
     }
 
@@ -189,9 +189,9 @@ export const useRanking = () => {
         return false;
       }
 
-      // Verificar se o usuário já existe na tabela usuarios
+      // Verificar se o usuário já existe na tabela ranking
       const { data: existingUser } = await supabase
-        .from('usuarios')
+        .from('ranking')
         .select('id')
         .eq('user_id', user.id)
         .single();
@@ -199,7 +199,7 @@ export const useRanking = () => {
       if (existingUser) {
         // Atualizar apelido existente
         const { error } = await supabase
-          .from('usuarios')
+          .from('ranking')
           .update({ 
             apelido: newApelido,
             updated_at: new Date().toISOString()
@@ -210,7 +210,7 @@ export const useRanking = () => {
       } else {
         // Criar novo registro de usuário
         const { error } = await supabase
-          .from('usuarios')
+          .from('ranking')
           .insert({
             user_id: user.id,
             apelido: newApelido,
@@ -245,10 +245,10 @@ export const useRanking = () => {
 
     // Escutar mudanças em tempo real para manter o ranking sempre atualizado
     const channel = supabase
-      .channel('ranking-realtime-v3') // Canal atualizado para evitar conflitos
+      .channel('ranking-realtime-v4') // Canal atualizado para evitar conflitos
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'usuarios' },
+        { event: '*', schema: 'public', table: 'ranking' },
         () => {
           console.log('Mudança de apelido detectada, atualizando ranking...');
           fetchRanking();

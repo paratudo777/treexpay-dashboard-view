@@ -1,10 +1,13 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { validateWebhookSignature, validateWebhookPayload, checkRateLimit } from '../secure-webhook-validator/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Duplicate processing prevention
+const processedTransactions = new Set<string>();
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,21 +17,83 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const WEBHOOK_SECRET = Deno.env.get('NOVAERA_WEBHOOK_SECRET') || 'default-secret';
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Supabase credentials not configured');
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const body = await req.json();
+    // Rate limiting check
+    const clientIP = req.headers.get('cf-connecting-ip') || 
+                    req.headers.get('x-forwarded-for') || 
+                    'unknown';
+    
+    if (!checkRateLimit(clientIP, 20, 60000)) { // 20 requests per minute
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded' }),
+        { 
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const bodyText = await req.text();
+    const body = JSON.parse(bodyText);
 
     console.log('📥 Webhook PIX recebido:', JSON.stringify(body, null, 2));
+
+    // Validate webhook signature
+    const signature = req.headers.get('x-signature') || req.headers.get('signature');
+    if (signature) {
+      const isValidSignature = await validateWebhookSignature(bodyText, signature, WEBHOOK_SECRET);
+      if (!isValidSignature) {
+        console.log('❌ Invalid webhook signature');
+        return new Response(
+          JSON.stringify({ error: 'Invalid signature' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      console.log('✅ Webhook signature validated');
+    }
+
+    // Validate payload structure
+    const validation = validateWebhookPayload(body);
+    if (!validation.valid) {
+      console.log('❌ Invalid payload:', validation.error);
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { 
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     const transactionRef = body?.externalRef || body?.data?.externalRef || body?.externalId || body?.data?.externalId;
 
     if (!transactionRef) {
       console.log('❌ Referência da transação não encontrada');
       throw new Error('Transaction reference not found');
+    }
+
+    // Prevent duplicate processing
+    if (processedTransactions.has(transactionRef)) {
+      console.log('✅ Transaction already processed:', transactionRef);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Transaction already processed',
+          transactionRef
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     console.log('🔍 Referência encontrada:', transactionRef);
@@ -71,6 +136,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Mark as processed
+    processedTransactions.add(transactionRef);
+    
+    // Clean up old processed transactions (keep last 1000)
+    if (processedTransactions.size > 1000) {
+      const transactionsArray = Array.from(processedTransactions);
+      processedTransactions.clear();
+      transactionsArray.slice(-500).forEach(tx => processedTransactions.add(tx));
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const depositId = transactionRef.replace('deposit_', '');
     console.log('🏦 ID do depósito extraído:', depositId);
 
