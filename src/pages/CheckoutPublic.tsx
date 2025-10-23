@@ -54,6 +54,11 @@ export default function CheckoutPublic() {
     }
   }, [slug]);
 
+  // Log quando payment method muda
+  useEffect(() => {
+    console.log('🔧 Payment method mudou para:', paymentMethod);
+  }, [paymentMethod]);
+
   // Timer countdown
   useEffect(() => {
     if (!timerStarted || timeLeft <= 0 || paymentStatus === 'paid') return;
@@ -283,6 +288,15 @@ export default function CheckoutPublic() {
       .replace(/(-\d{2})\d+?$/, '$1');
   };
 
+  console.log('🎨 CheckoutPublic render state:', { 
+    loading, 
+    checkout: checkout?.title,
+    paymentMethod,
+    pixData: !!pixData,
+    paymentStatus,
+    processingPayment
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -439,14 +453,20 @@ export default function CheckoutPublic() {
             <>
               <CardHeader className="text-center">
                 {checkout.image_url && (
-                  <img 
-                    src={checkout.image_url} 
-                    alt={checkout.title}
-                    className="w-full h-64 object-cover rounded-lg mb-4"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
+                  <div className="mb-4">
+                    <img 
+                      src={checkout.image_url} 
+                      alt={checkout.title}
+                      className="w-full h-64 object-cover rounded-lg"
+                      onError={(e) => {
+                        console.error('❌ Erro ao carregar imagem:', checkout.image_url);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Imagem carregada com sucesso:', checkout.image_url);
+                      }}
+                    />
+                  </div>
                 )}
                 <CardTitle className="text-2xl">{checkout.title}</CardTitle>
                 {checkout.description && (
@@ -482,7 +502,10 @@ export default function CheckoutPublic() {
 
                 <div className="space-y-3">
                   <Label>Forma de Pagamento</Label>
-                  <RadioGroup value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
+                  <RadioGroup value={paymentMethod} onValueChange={(v) => {
+                    console.log('🔄 Mudando método de pagamento para:', v);
+                    setPaymentMethod(v as any);
+                  }}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="pix" id="pix" />
                       <Label htmlFor="pix" className="cursor-pointer flex items-center gap-2">
