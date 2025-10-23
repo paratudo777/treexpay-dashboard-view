@@ -340,7 +340,7 @@ export default function CheckoutPublic() {
                     </p>
                   )}
                 </div>
-                <div className="space-y-2 text-sm bg-green-50 dark:bg-green-950/20 p-4 rounded">
+                <div className="space-y-2 text-sm bg-accent/50 p-4 rounded border border-accent">
                   {checkout.image_url && (
                     <img 
                       src={checkout.image_url} 
@@ -418,8 +418,8 @@ export default function CheckoutPublic() {
                   </Button>
                 </div>
               </div>
-              <div className="text-center text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/20 p-3 rounded">
-                <p className="flex items-center justify-center gap-2">
+              <div className="text-center text-sm bg-accent/50 p-3 rounded border border-accent">
+                <p className="flex items-center justify-center gap-2 text-muted-foreground">
                   <Loader className="h-4 w-4 animate-spin" />
                   Aguardando confirmação do pagamento...
                 </p>
@@ -501,7 +501,7 @@ export default function CheckoutPublic() {
                 </div>
 
                 {paymentMethod === 'credit_card' && (
-                  <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                  <div className="space-y-3 p-4 border border-border rounded-lg bg-card">
                     <div className="space-y-2">
                       <Label htmlFor="cardNumber">Número do Cartão *</Label>
                       <Input
