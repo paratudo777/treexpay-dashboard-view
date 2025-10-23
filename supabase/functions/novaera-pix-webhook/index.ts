@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { validateWebhookSignature, validateWebhookPayload, checkRateLimit } from '../secure-webhook-validator/index.ts'
+import { validateWebhookSignature, validateWebhookPayload, checkRateLimit } from '../_shared/webhook-validator.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

@@ -1,11 +1,3 @@
-
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 interface WebhookValidationResult {
   valid: boolean;
   error?: string;
@@ -37,7 +29,6 @@ export const validateWebhookSignature = async (
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
     
-    // Timing-safe comparison
     return computedSignatureHex === signature;
   } catch (error) {
     console.error('Signature validation error:', error);
@@ -46,12 +37,10 @@ export const validateWebhookSignature = async (
 };
 
 export const validateWebhookPayload = (body: any): WebhookValidationResult => {
-  // Basic payload validation
   if (!body || typeof body !== 'object') {
     return { valid: false, error: 'Invalid payload format' };
   }
 
-  // Check for required fields based on webhook type
   const requiredFields = ['status', 'externalRef'];
   for (const field of requiredFields) {
     if (!body[field] && !body.data?.[field]) {
@@ -59,7 +48,6 @@ export const validateWebhookPayload = (body: any): WebhookValidationResult => {
     }
   }
 
-  // Validate amount if present
   const amount = body.amount || body.data?.amount;
   if (amount && (typeof amount !== 'number' || amount <= 0)) {
     return { valid: false, error: 'Invalid amount value' };
@@ -68,7 +56,6 @@ export const validateWebhookPayload = (body: any): WebhookValidationResult => {
   return { valid: true, data: body };
 };
 
-// Rate limiting implementation
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 export const checkRateLimit = (
@@ -91,35 +78,3 @@ export const checkRateLimit = (
   rateLimitData.count++;
   return true;
 };
-
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    // This is a utility function, not a direct endpoint
-    return new Response(
-      JSON.stringify({ 
-        message: 'Webhook validation utilities loaded',
-        functions: ['validateWebhookSignature', 'validateWebhookPayload', 'checkRateLimit']
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-  }
-});

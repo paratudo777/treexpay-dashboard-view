@@ -52,3 +52,12 @@ verify_jwt = false
 
 [functions.checkout-pix-webhook]
 verify_jwt = false
+
+[functions.checkout-pix-payment]
+verify_jwt = false
+
+[functions.checkout-card-payment]
+verify_jwt = false
+
+[functions.send-checkout-notification]
+verify_jwt = true
