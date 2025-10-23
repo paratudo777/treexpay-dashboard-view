@@ -2,7 +2,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FileText, Wallet, LogOut, Settings, MessageSquare, Trophy, CreditCard } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, LogOut, Settings, MessageSquare, Trophy, CreditCard, ShoppingCart } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from './ui/button';
 
@@ -28,6 +28,11 @@ const navItems: NavItem[] = [
     name: 'Depósitos',
     href: '/depositos',
     icon: Wallet
+  },
+  {
+    name: 'Checkouts',
+    href: '/checkouts',
+    icon: ShoppingCart
   },
   {
     name: 'Financeiro',
