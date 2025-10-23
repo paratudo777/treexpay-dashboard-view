@@ -7,7 +7,10 @@ import { useToast } from '@/hooks/use-toast';
 export interface Checkout {
   id: string;
   title: string;
+  description: string;
   amount: number;
+  image_url: string;
+  notification_email: string;
   url_slug: string;
   active: boolean;
   created_at: string;
@@ -16,7 +19,10 @@ export interface Checkout {
 
 export interface CreateCheckoutData {
   title: string;
+  description: string;
   amount: number;
+  image_url: string;
+  notification_email: string;
 }
 
 export const useCheckouts = () => {
@@ -67,6 +73,16 @@ export const useCheckouts = () => {
     if (!user) return false;
 
     try {
+      // Verificar limite de 5 produtos
+      if (checkouts.length >= 5) {
+        toast({
+          variant: "destructive",
+          title: "Limite atingido",
+          description: "Você atingiu o limite de 5 produtos.",
+        });
+        return false;
+      }
+
       // Gerar slug único
       const { data: slugData, error: slugError } = await supabase
         .rpc('generate_checkout_slug');
@@ -80,7 +96,10 @@ export const useCheckouts = () => {
         .insert({
           user_id: user.id,
           title: checkoutData.title,
+          description: checkoutData.description,
           amount: checkoutData.amount,
+          image_url: checkoutData.image_url,
+          notification_email: checkoutData.notification_email,
           url_slug: slugData
         });
 
@@ -97,10 +116,14 @@ export const useCheckouts = () => {
       return true;
     } catch (error) {
       console.error('Error creating checkout:', error);
+      const errorMessage = error.message?.includes('Limite') 
+        ? 'Você atingiu o limite de 5 produtos.'
+        : 'Erro ao criar checkout.';
+      
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Erro ao criar checkout.",
+        description: errorMessage,
       });
       return false;
     }
