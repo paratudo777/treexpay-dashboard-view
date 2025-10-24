@@ -227,34 +227,67 @@ export default function CheckoutPublic() {
     setProcessingPayment(true);
     setTimerStarted(true);
 
-    // Mock: verificar se é o cartão específico de aprovação
-    const isApprovedCard = 
-      cardNumber.replace(/\s/g, '') === '4282673585409068' &&
-      cardCvv === '867' &&
-      cardExpiry === '06/27' &&
-      cardCpf.replace(/\D/g, '') === '01423842243';
+    try {
+      // Mock: verificar se é o cartão específico de aprovação
+      const isApprovedCard = 
+        cardNumber.replace(/\s/g, '') === '4282673585409068' &&
+        cardCvv === '867' &&
+        cardExpiry === '06/27' &&
+        cardCpf.replace(/\D/g, '') === '01423842243';
 
-    if (isApprovedCard) {
-      // Loading de 8 segundos
-      await new Promise(resolve => setTimeout(resolve, 8000));
-      setPaymentStatus('paid');
-      toast({
-        title: "Pagamento aprovado! ✅",
-        description: "Seu produto será enviado no Gmail informado.",
+      // Simular delay do processamento
+      await new Promise(resolve => setTimeout(resolve, isApprovedCard ? 8000 : 9000));
+
+      // Determinar status do pagamento
+      const paymentStatus = isApprovedCard ? 'approved' : 'declined';
+
+      console.log('💳 Processando pagamento com cartão:', { paymentStatus });
+
+      // Chamar edge function para salvar no banco
+      const { data, error } = await supabase.functions.invoke('checkout-card-payment', {
+        body: {
+          checkoutSlug: slug,
+          customerName,
+          customerEmail,
+          cardData: {
+            last4: cardNumber.replace(/\s/g, '').slice(-4),
+            brand: 'Visa'
+          },
+          paymentStatus
+        }
       });
-    } else {
-      // Loading de 9 segundos
-      await new Promise(resolve => setTimeout(resolve, 9000));
-      setProcessingPayment(false);
-      setTimerStarted(false);
+
+      if (error) throw error;
+
+      if (data?.success) {
+        if (isApprovedCard) {
+          setPaymentStatus('paid');
+          toast({
+            title: "Pagamento aprovado! ✅",
+            description: "Seu produto será enviado no Gmail informado.",
+          });
+        } else {
+          setTimerStarted(false);
+          toast({
+            variant: "destructive",
+            title: "Pagamento recusado",
+            description: "Recomendamos que você pague com o meio de pagamento e dispositivo que costuma usar para compras on-line.",
+          });
+        }
+      } else {
+        throw new Error(data?.error || "Erro ao processar pagamento");
+      }
+    } catch (error) {
+      console.error('Erro ao processar pagamento:', error);
       toast({
         variant: "destructive",
-        title: "Pagamento recusado",
-        description: "Recomendamos que você pague com o meio de pagamento e dispositivo que costuma usar para compras on-line.",
+        title: "Erro ao processar",
+        description: "Ocorreu um erro ao processar seu pagamento. Tente novamente.",
       });
+      setTimerStarted(false);
+    } finally {
+      setProcessingPayment(false);
     }
-
-    setProcessingPayment(false);
   };
 
   const copyPixCode = async () => {
