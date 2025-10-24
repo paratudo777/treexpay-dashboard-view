@@ -39,7 +39,6 @@ export default function CheckoutPublic() {
   const [paymentId, setPaymentId] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutos em segundos
   const [timerStarted, setTimerStarted] = useState(false);
-  const [renderError, setRenderError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Dados do cartão
@@ -63,7 +62,12 @@ export default function CheckoutPublic() {
       paymentMethod,
       pixData: !!pixData,
       paymentStatus,
-      processingPayment
+      processingPayment,
+      cardNumber: cardNumber ? 'presente' : 'vazio',
+      cardCvv: cardCvv ? 'presente' : 'vazio',
+      cardExpiry: cardExpiry ? 'presente' : 'vazio',
+      cardCpf: cardCpf ? 'presente' : 'vazio',
+      cardName: cardName ? 'presente' : 'vazio'
     });
   });
 
@@ -71,8 +75,15 @@ export default function CheckoutPublic() {
     console.log('🔧 Payment method mudou para:', paymentMethod);
     if (paymentMethod === 'credit_card') {
       console.log('💳 Campos do cartão devem estar visíveis agora');
+      console.log('💳 Estados dos campos:', {
+        cardNumber: cardNumber || 'vazio',
+        cardCvv: cardCvv || 'vazio',
+        cardExpiry: cardExpiry || 'vazio',
+        cardCpf: cardCpf || 'vazio',
+        cardName: cardName || 'vazio'
+      });
     }
-  }, [paymentMethod]);
+  }, [paymentMethod, cardNumber, cardCvv, cardExpiry, cardCpf, cardName]);
 
   // Timer countdown
   useEffect(() => {
@@ -354,50 +365,44 @@ export default function CheckoutPublic() {
   };
 
   const formatCardNumber = (value: string) => {
-    return value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
+    try {
+      const cleaned = value.replace(/\s/g, '');
+      const formatted = cleaned.replace(/(\d{4})/g, '$1 ').trim();
+      console.log('💳 Formatando número do cartão:', { original: value, cleaned, formatted });
+      return formatted;
+    } catch (error) {
+      console.error('❌ Erro ao formatar número do cartão:', error);
+      return value;
+    }
   };
 
   const formatCpf = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-      .replace(/(-\d{2})\d+?$/, '$1');
+    try {
+      const formatted = value
+        .replace(/\D/g, '')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+        .replace(/(-\d{2})\d+?$/, '$1');
+      console.log('💳 Formatando CPF:', { original: value, formatted });
+      return formatted;
+    } catch (error) {
+      console.error('❌ Erro ao formatar CPF:', error);
+      return value;
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (renderError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-            <h1 className="text-2xl font-bold text-foreground mb-2">
-              Erro ao processar
-            </h1>
-            <p className="text-muted-foreground mb-4">
-              {renderError}
-            </p>
-            <Button onClick={() => window.location.reload()}>
-              Recarregar página
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
   if (!checkout) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -412,20 +417,19 @@ export default function CheckoutPublic() {
     );
   }
 
-  try {
-    return (
-    <div className="min-h-screen bg-background">
-      {/* Banner vermelho de tempo limitado */}
-      {timerStarted && paymentStatus !== 'paid' && (
-        <div className="bg-destructive text-destructive-foreground py-3 px-4 text-center font-semibold flex items-center justify-center gap-2">
-          <Clock className="h-5 w-5 animate-pulse" />
-          Oferta por tempo limitado! {formatTime(timeLeft)}
-        </div>
-      )}
+  return (
+      <div className="min-h-screen bg-gray-900 dark">
+        {/* Banner vermelho de tempo limitado */}
+        {timerStarted && paymentStatus !== 'paid' && (
+          <div className="bg-destructive text-destructive-foreground py-3 px-4 text-center font-semibold flex items-center justify-center gap-2">
+            <Clock className="h-5 w-5 animate-pulse" />
+            Oferta por tempo limitado! {formatTime(timeLeft)}
+          </div>
+        )}
 
-      <div className="flex items-center justify-center p-4 py-8">
-        <Card className="w-full max-w-2xl">
-          {paymentStatus === 'paid' ? (
+         <div className="flex items-center justify-center p-4 py-8">
+          <Card className="w-full max-w-2xl">
+           {paymentStatus === 'paid' ? (
             // Tela de sucesso
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
@@ -716,10 +720,5 @@ export default function CheckoutPublic() {
         </Card>
       </div>
     </div>
-    );
-  } catch (error) {
-    console.error('❌ ERRO DE RENDER:', error);
-    setRenderError(error instanceof Error ? error.message : 'Erro desconhecido ao renderizar a página');
-    return null;
-  }
+  );
 }
