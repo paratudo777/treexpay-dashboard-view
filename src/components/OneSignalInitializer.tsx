@@ -25,26 +25,33 @@ const OneSignalInitializer = () => {
         allowLocalhostAsSecureOrigin: true,
       });
 
-      OneSignal.getUserId(async (playerId: string | null | undefined) => {
+      // Use a API correta do OneSignal v16
+      OneSignal.User.PushSubscription.addEventListener('change', async (event: any) => {
+        const playerId = event.current?.id;
         if (playerId) {
           console.log('OneSignal Player ID:', playerId);
           
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('onesignal_player_id')
-            .eq('id', user.id)
-            .single();
-
-          if (profile && profile.onesignal_player_id !== playerId) {
-            const { error } = await supabase
+          try {
+            const { data: profile } = await supabase
               .from('profiles')
-              .update({ onesignal_player_id: playerId })
-              .eq('id', user.id);
-            if (error) {
-              console.error('Error updating OneSignal Player ID:', error);
-            } else {
-              console.log('OneSignal Player ID updated successfully.');
+              .select('onesignal_player_id')
+              .eq('id', user.id)
+              .single();
+
+            if (profile && profile.onesignal_player_id !== playerId) {
+              const { error } = await supabase
+                .from('profiles')
+                .update({ onesignal_player_id: playerId })
+                .eq('id', user.id);
+              
+              if (error) {
+                console.error('Error updating OneSignal Player ID:', error);
+              } else {
+                console.log('OneSignal Player ID updated successfully.');
+              }
             }
+          } catch (error) {
+            console.error('Error handling OneSignal:', error);
           }
         }
       });

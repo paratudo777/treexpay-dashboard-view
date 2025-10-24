@@ -63,9 +63,8 @@ const App = () => {
           <AuthProvider>
             <OneSignalInitializer />
             <RouterFallback />
-            <div className="dark">
-              <Suspense fallback={<SafeLoadingFallback />}>
-                <Routes>
+            <Suspense fallback={<SafeLoadingFallback />}>
+              <Routes>
                   <Route path="/" element={<Login />} />
                   <Route 
                     path="/dashboard" 
@@ -143,7 +142,6 @@ const App = () => {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
-            </div>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
