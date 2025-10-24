@@ -361,7 +361,7 @@ export default function CheckoutPublic() {
   }
 
   return (
-    <div className="dark min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       {/* Banner vermelho de tempo limitado */}
       {timerStarted && paymentStatus !== 'paid' && (
         <div className="bg-destructive text-destructive-foreground py-3 px-4 text-center font-semibold flex items-center justify-center gap-2">

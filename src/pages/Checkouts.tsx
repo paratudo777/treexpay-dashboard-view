@@ -10,7 +10,6 @@ import { CreateCheckoutModal } from '@/components/checkout/CreateCheckoutModal';
 import { EditCheckoutModal } from '@/components/checkout/EditCheckoutModal';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { getCheckoutUrl } from '@/config/constants';
 
 export default function Checkouts() {
   const { checkouts, loading, toggleCheckoutStatus, deleteCheckout } = useCheckouts();
@@ -28,7 +27,7 @@ export default function Checkouts() {
   };
 
   const copyCheckoutUrl = (slug: string) => {
-    const url = getCheckoutUrl(slug);
+    const url = `${window.location.origin}/checkout/${slug}`;
     navigator.clipboard.writeText(url);
     toast({
       title: "URL copiada",
