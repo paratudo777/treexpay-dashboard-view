@@ -9,6 +9,7 @@ import { QrCode, Loader, Copy, CheckCircle, CreditCard, AlertCircle, Clock } fro
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { qrImage } from '@/utils/pixHelpers';
+import { CardPaymentErrorBoundary } from '@/components/checkout/CardPaymentErrorBoundary';
 
 interface CheckoutData {
   id: string;
@@ -366,19 +367,21 @@ export default function CheckoutPublic() {
 
   const formatCardNumber = (value: string) => {
     try {
-      const cleaned = value.replace(/\s/g, '');
+      if (!value) return '';
+      const cleaned = String(value).replace(/\s/g, '');
       const formatted = cleaned.replace(/(\d{4})/g, '$1 ').trim();
       console.log('💳 Formatando número do cartão:', { original: value, cleaned, formatted });
       return formatted;
     } catch (error) {
       console.error('❌ Erro ao formatar número do cartão:', error);
-      return value;
+      return value || '';
     }
   };
 
   const formatCpf = (value: string) => {
     try {
-      const formatted = value
+      if (!value) return '';
+      const formatted = String(value)
         .replace(/\D/g, '')
         .replace(/(\d{3})(\d)/, '$1.$2')
         .replace(/(\d{3})(\d)/, '$1.$2')
@@ -388,7 +391,7 @@ export default function CheckoutPublic() {
       return formatted;
     } catch (error) {
       console.error('❌ Erro ao formatar CPF:', error);
-      return value;
+      return value || '';
     }
   };
 
@@ -624,72 +627,106 @@ export default function CheckoutPublic() {
                   </RadioGroup>
                 </div>
 
-                {paymentMethod === 'credit_card' && (
-                  <div className="space-y-3 p-4 border border-border rounded-lg bg-card">
-                    <div className="space-y-2">
-                      <Label htmlFor="cardNumber">Número do Cartão *</Label>
-                      <Input
-                        id="cardNumber"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                        placeholder="0000 0000 0000 0000"
-                        maxLength={19}
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="cardExpiry">Validade *</Label>
-                        <Input
-                          id="cardExpiry"
-                          value={cardExpiry}
-                          onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, '');
-                            if (value.length >= 2) {
-                              value = value.slice(0, 2) + '/' + value.slice(2, 4);
-                            }
-                            setCardExpiry(value);
-                          }}
-                          placeholder="MM/AA"
-                          maxLength={5}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="cardCvv">CVV *</Label>
-                        <Input
-                          id="cardCvv"
-                          value={cardCvv}
-                          onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                          placeholder="000"
-                          maxLength={3}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cardName">Nome no Cartão *</Label>
-                      <Input
-                        id="cardName"
-                        value={cardName}
-                        onChange={(e) => setCardName(e.target.value.toUpperCase())}
-                        placeholder="NOME COMO ESTÁ NO CARTÃO"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cardCpf">CPF *</Label>
-                      <Input
-                        id="cardCpf"
-                        value={cardCpf}
-                        onChange={(e) => setCardCpf(formatCpf(e.target.value))}
-                        placeholder="000.000.000-00"
-                        maxLength={14}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
+                 {paymentMethod === 'credit_card' && (
+                   <CardPaymentErrorBoundary>
+                     <div className="space-y-3 p-4 border border-border rounded-lg bg-card">
+                       <div className="space-y-2">
+                         <Label htmlFor="cardNumber">Número do Cartão *</Label>
+                         <Input
+                           id="cardNumber"
+                           value={cardNumber}
+                           onChange={(e) => {
+                             try {
+                               const newValue = formatCardNumber(e.target.value || '');
+                               setCardNumber(newValue);
+                             } catch (error) {
+                               console.error('❌ Erro no onChange cardNumber:', error);
+                             }
+                           }}
+                           placeholder="0000 0000 0000 0000"
+                           maxLength={19}
+                           required
+                         />
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                         <div className="space-y-2">
+                           <Label htmlFor="cardExpiry">Validade *</Label>
+                           <Input
+                             id="cardExpiry"
+                             value={cardExpiry}
+                             onChange={(e) => {
+                               try {
+                                 let value = (e.target.value || '').replace(/\D/g, '');
+                                 if (value.length >= 2) {
+                                   value = value.slice(0, 2) + '/' + value.slice(2, 4);
+                                 }
+                                 setCardExpiry(value);
+                               } catch (error) {
+                                 console.error('❌ Erro no onChange cardExpiry:', error);
+                               }
+                             }}
+                             placeholder="MM/AA"
+                             maxLength={5}
+                             required
+                           />
+                         </div>
+                         <div className="space-y-2">
+                           <Label htmlFor="cardCvv">CVV *</Label>
+                           <Input
+                             id="cardCvv"
+                             value={cardCvv}
+                             onChange={(e) => {
+                               try {
+                                 const newValue = (e.target.value || '').replace(/\D/g, '');
+                                 setCardCvv(newValue);
+                               } catch (error) {
+                                 console.error('❌ Erro no onChange cardCvv:', error);
+                               }
+                             }}
+                             placeholder="000"
+                             maxLength={3}
+                             required
+                           />
+                         </div>
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="cardName">Nome no Cartão *</Label>
+                         <Input
+                           id="cardName"
+                           value={cardName}
+                           onChange={(e) => {
+                             try {
+                               const newValue = (e.target.value || '').toUpperCase();
+                               setCardName(newValue);
+                             } catch (error) {
+                               console.error('❌ Erro no onChange cardName:', error);
+                             }
+                           }}
+                           placeholder="NOME COMO ESTÁ NO CARTÃO"
+                           required
+                         />
+                       </div>
+                       <div className="space-y-2">
+                         <Label htmlFor="cardCpf">CPF *</Label>
+                         <Input
+                           id="cardCpf"
+                           value={cardCpf}
+                           onChange={(e) => {
+                             try {
+                               const newValue = formatCpf(e.target.value || '');
+                               setCardCpf(newValue);
+                             } catch (error) {
+                               console.error('❌ Erro no onChange cardCpf:', error);
+                             }
+                           }}
+                           placeholder="000.000.000-00"
+                           maxLength={14}
+                           required
+                         />
+                       </div>
+                     </div>
+                   </CardPaymentErrorBoundary>
+                 )}
 
                 <Button 
                   onClick={paymentMethod === 'pix' ? processPixPayment : processCardPayment}
