@@ -39,6 +39,7 @@ export default function CheckoutPublic() {
   const [paymentId, setPaymentId] = useState<string>('');
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutos em segundos
   const [timerStarted, setTimerStarted] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Dados do cartão
@@ -213,7 +214,12 @@ export default function CheckoutPublic() {
   };
 
   const processCardPayment = async () => {
-    if (!checkout) return;
+    console.log('💳 Iniciando processamento de cartão...');
+    
+    if (!checkout) {
+      console.error('❌ Checkout não encontrado');
+      return;
+    }
 
     if (!customerName.trim() || !cardNumber || !cardCvv || !cardExpiry || !cardCpf) {
       toast({
@@ -235,13 +241,15 @@ export default function CheckoutPublic() {
         cardExpiry === '06/27' &&
         cardCpf.replace(/\D/g, '') === '01423842243';
 
+      console.log('💳 Simulando processamento...', { isApprovedCard });
+
       // Simular delay do processamento
       await new Promise(resolve => setTimeout(resolve, isApprovedCard ? 8000 : 9000));
 
       // Determinar status do pagamento
       const paymentStatus = isApprovedCard ? 'approved' : 'declined';
 
-      console.log('💳 Processando pagamento com cartão:', { paymentStatus });
+      console.log('💳 Chamando edge function com status:', paymentStatus);
 
       // Chamar edge function para salvar no banco
       const { data, error } = await supabase.functions.invoke('checkout-card-payment', {
@@ -257,16 +265,26 @@ export default function CheckoutPublic() {
         }
       });
 
-      if (error) throw error;
+      console.log('💳 Resposta da edge function:', { data, error });
+
+      if (error) {
+        console.error('❌ Erro da edge function:', error);
+        throw error;
+      }
 
       if (data?.success) {
+        console.log('✅ Pagamento processado com sucesso');
+        
         if (isApprovedCard) {
+          console.log('✅ Pagamento APROVADO');
           setPaymentStatus('paid');
+          setPaymentId(data.payment?.id || '');
           toast({
             title: "Pagamento aprovado! ✅",
             description: "Seu produto será enviado no Gmail informado.",
           });
         } else {
+          console.log('❌ Pagamento RECUSADO');
           setTimerStarted(false);
           toast({
             variant: "destructive",
@@ -275,17 +293,23 @@ export default function CheckoutPublic() {
           });
         }
       } else {
+        console.error('❌ Resposta sem success:', data);
         throw new Error(data?.error || "Erro ao processar pagamento");
       }
     } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
+      console.error('❌ ERRO FATAL ao processar pagamento:', error);
+      
+      // Garantir que estados sejam resetados
+      setTimerStarted(false);
+      setProcessingPayment(false);
+      
       toast({
         variant: "destructive",
         title: "Erro ao processar",
-        description: "Ocorreu um erro ao processar seu pagamento. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao processar seu pagamento. Tente novamente.",
       });
-      setTimerStarted(false);
     } finally {
+      console.log('💳 Finalizando processamento');
       setProcessingPayment(false);
     }
   };
@@ -343,6 +367,27 @@ export default function CheckoutPublic() {
     );
   }
 
+  if (renderError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              Erro ao processar
+            </h1>
+            <p className="text-muted-foreground mb-4">
+              {renderError}
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              Recarregar página
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!checkout) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -360,7 +405,8 @@ export default function CheckoutPublic() {
     );
   }
 
-  return (
+  try {
+    return (
     <div className="min-h-screen bg-background">
       {/* Banner vermelho de tempo limitado */}
       {timerStarted && paymentStatus !== 'paid' && (
@@ -663,5 +709,10 @@ export default function CheckoutPublic() {
         </Card>
       </div>
     </div>
-  );
+    );
+  } catch (error) {
+    console.error('❌ ERRO DE RENDER:', error);
+    setRenderError(error instanceof Error ? error.message : 'Erro desconhecido ao renderizar a página');
+    return null;
+  }
 }
