@@ -54,9 +54,23 @@ export default function CheckoutPublic() {
     }
   }, [slug]);
 
-  // Log quando payment method muda
+  // Debug: Log render e payment method changes
+  useEffect(() => {
+    console.log('🎨 CheckoutPublic renderizou:', { 
+      loading, 
+      checkout: checkout?.title,
+      paymentMethod,
+      pixData: !!pixData,
+      paymentStatus,
+      processingPayment
+    });
+  });
+
   useEffect(() => {
     console.log('🔧 Payment method mudou para:', paymentMethod);
+    if (paymentMethod === 'credit_card') {
+      console.log('💳 Campos do cartão devem estar visíveis agora');
+    }
   }, [paymentMethod]);
 
   // Timer countdown
@@ -288,15 +302,6 @@ export default function CheckoutPublic() {
       .replace(/(-\d{2})\d+?$/, '$1');
   };
 
-  console.log('🎨 CheckoutPublic render state:', { 
-    loading, 
-    checkout: checkout?.title,
-    paymentMethod,
-    pixData: !!pixData,
-    paymentStatus,
-    processingPayment
-  });
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -502,20 +507,26 @@ export default function CheckoutPublic() {
 
                 <div className="space-y-3">
                   <Label>Forma de Pagamento</Label>
-                  <RadioGroup value={paymentMethod} onValueChange={(v) => {
-                    console.log('🔄 Mudando método de pagamento para:', v);
-                    setPaymentMethod(v as any);
-                  }}>
-                    <div className="flex items-center space-x-2">
+                  <RadioGroup 
+                    value={paymentMethod} 
+                    onValueChange={(v) => {
+                      console.log('🔄 RadioGroup onValueChange chamado com:', v);
+                      const newMethod = v as 'pix' | 'credit_card';
+                      console.log('🔄 Setando paymentMethod para:', newMethod);
+                      setPaymentMethod(newMethod);
+                      console.log('🔄 PaymentMethod setado!');
+                    }}
+                  >
+                    <div className="flex items-center space-x-2 p-3 rounded-lg hover:bg-accent/50 transition-colors">
                       <RadioGroupItem value="pix" id="pix" />
-                      <Label htmlFor="pix" className="cursor-pointer flex items-center gap-2">
+                      <Label htmlFor="pix" className="cursor-pointer flex items-center gap-2 flex-1">
                         <QrCode className="h-4 w-4" />
                         PIX
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2 p-3 rounded-lg hover:bg-accent/50 transition-colors">
                       <RadioGroupItem value="credit_card" id="credit_card" />
-                      <Label htmlFor="credit_card" className="cursor-pointer flex items-center gap-2">
+                      <Label htmlFor="credit_card" className="cursor-pointer flex items-center gap-2 flex-1">
                         <CreditCard className="h-4 w-4" />
                         Cartão de Crédito
                       </Label>
