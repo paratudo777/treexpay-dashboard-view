@@ -5,9 +5,12 @@ import { RankingHeader } from "@/components/ranking/RankingHeader";
 import { UserNicknameEditor } from "@/components/ranking/UserNicknameEditor";
 import { RankingList } from "@/components/ranking/RankingList";
 import { RankingInfoCard } from "@/components/ranking/RankingInfoCard";
+import { AdminRankingEditor } from "@/components/ranking/AdminRankingEditor";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Ranking() {
   const { ranking, loading, currentUserRanking, updateApelido } = useRanking();
+  const { isAdmin } = useAuth();
 
   return (
     <DashboardLayout>
@@ -17,6 +20,7 @@ export default function Ranking() {
           currentUserRanking={currentUserRanking}
           updateApelido={updateApelido}
         />
+        {isAdmin && <AdminRankingEditor ranking={ranking} />}
         <RankingList ranking={ranking} loading={loading} />
         <RankingInfoCard />
       </div>
