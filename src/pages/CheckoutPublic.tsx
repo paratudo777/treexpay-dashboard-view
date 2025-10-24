@@ -255,8 +255,8 @@ export default function CheckoutPublic() {
       const { data, error } = await supabase.functions.invoke('checkout-card-payment', {
         body: {
           checkoutSlug: slug,
-          customerName,
-          customerEmail,
+          customerName: customerName.trim(),
+          customerEmail: customerEmail.trim() || null,
           cardData: {
             last4: cardNumber.replace(/\s/g, '').slice(-4),
             brand: 'Visa'
@@ -269,10 +269,15 @@ export default function CheckoutPublic() {
 
       if (error) {
         console.error('❌ Erro da edge function:', error);
-        throw error;
+        throw new Error(error.message || 'Erro ao processar pagamento');
       }
 
-      if (data?.success) {
+      if (!data) {
+        console.error('❌ Resposta vazia da edge function');
+        throw new Error('Resposta vazia do servidor');
+      }
+
+      if (data.success) {
         console.log('✅ Pagamento processado com sucesso');
         
         if (isApprovedCard) {
@@ -294,7 +299,7 @@ export default function CheckoutPublic() {
         }
       } else {
         console.error('❌ Resposta sem success:', data);
-        throw new Error(data?.error || "Erro ao processar pagamento");
+        throw new Error(data.error || "Erro ao processar pagamento");
       }
     } catch (error) {
       console.error('❌ ERRO FATAL ao processar pagamento:', error);
@@ -303,10 +308,12 @@ export default function CheckoutPublic() {
       setTimerStarted(false);
       setProcessingPayment(false);
       
+      const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro ao processar seu pagamento. Tente novamente.";
+      
       toast({
         variant: "destructive",
         title: "Erro ao processar",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao processar seu pagamento. Tente novamente.",
+        description: errorMessage,
       });
     } finally {
       console.log('💳 Finalizando processamento');

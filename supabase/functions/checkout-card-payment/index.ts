@@ -15,17 +15,37 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('❌ Variáveis de ambiente ausentes');
       throw new Error('Missing environment variables');
     }
 
     console.log('🔐 Iniciando processamento de pagamento com cartão...');
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const body = await req.json();
+    
+    let body;
+    try {
+      body = await req.json();
+    } catch (jsonError) {
+      console.error('❌ Erro ao parsear JSON:', jsonError);
+      throw new Error('Invalid JSON in request body');
+    }
 
     const { checkoutSlug, customerName, customerEmail, cardData, paymentStatus = 'paid' } = body;
 
-    console.log('📦 Dados recebidos:', { checkoutSlug, customerName, paymentStatus });
+    console.log('📦 Dados recebidos:', { 
+      checkoutSlug, 
+      customerName, 
+      customerEmail: customerEmail ? 'presente' : 'ausente',
+      cardData: cardData ? 'presente' : 'ausente',
+      paymentStatus 
+    });
+
+    // Validar dados obrigatórios
+    if (!checkoutSlug || !customerName) {
+      console.error('❌ Dados obrigatórios ausentes:', { checkoutSlug: !!checkoutSlug, customerName: !!customerName });
+      throw new Error('Missing required fields: checkoutSlug and customerName');
+    }
 
     // Buscar checkout
     const { data: checkout, error: checkoutError } = await supabase
@@ -37,10 +57,10 @@ Deno.serve(async (req) => {
 
     if (checkoutError || !checkout) {
       console.error('❌ Checkout não encontrado:', checkoutError);
-      throw new Error('Checkout not found');
+      throw new Error('Checkout not found or inactive');
     }
 
-    console.log('✅ Checkout encontrado:', checkout.title);
+    console.log('✅ Checkout encontrado:', { title: checkout.title, amount: checkout.amount });
 
     // Determinar status baseado no paymentStatus
     const status = paymentStatus === 'approved' ? 'paid' : (paymentStatus === 'declined' ? 'failed' : 'pending');
@@ -60,7 +80,7 @@ Deno.serve(async (req) => {
         net_amount: checkout.amount,
         status: status,
         payment_method: 'credit_card',
-        card_data: cardData,
+        card_data: cardData || null,
         paid_at: paidAt,
         expires_at: new Date(Date.now() + 600000).toISOString()
       })
@@ -76,15 +96,27 @@ Deno.serve(async (req) => {
     console.log('🎯 Triggers irão processar transação e saldo automaticamente');
 
     return new Response(
-      JSON.stringify({ success: true, payment }),
+      JSON.stringify({ 
+        success: true, 
+        payment: {
+          id: payment.id,
+          status: payment.status,
+          amount: payment.amount
+        }
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('❌ Erro geral:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage 
+      }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

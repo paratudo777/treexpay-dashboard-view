@@ -10,9 +10,10 @@ import { Shield, Save } from "lucide-react";
 
 interface AdminRankingEditorProps {
   ranking: RankingUser[];
+  refetch: () => Promise<void>;
 }
 
-export function AdminRankingEditor({ ranking }: AdminRankingEditorProps) {
+export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps) {
   const [editedUsers, setEditedUsers] = useState<Map<string, { apelido: string; volume: string }>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -77,6 +78,10 @@ export function AdminRankingEditor({ ranking }: AdminRankingEditorProps) {
       const newEdited = new Map(editedUsers);
       newEdited.delete(userId);
       setEditedUsers(newEdited);
+
+      // Forçar atualização do ranking
+      console.log('🔄 Atualizando ranking após salvar...');
+      await refetch();
 
     } catch (error: any) {
       console.error('Erro ao salvar:', error);

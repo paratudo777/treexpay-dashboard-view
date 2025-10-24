@@ -9,7 +9,7 @@ import { AdminRankingEditor } from "@/components/ranking/AdminRankingEditor";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Ranking() {
-  const { ranking, loading, currentUserRanking, updateApelido } = useRanking();
+  const { ranking, loading, currentUserRanking, updateApelido, refetch } = useRanking();
   const { isAdmin } = useAuth();
 
   return (
@@ -20,7 +20,7 @@ export default function Ranking() {
           currentUserRanking={currentUserRanking}
           updateApelido={updateApelido}
         />
-        {isAdmin && <AdminRankingEditor ranking={ranking} />}
+        {isAdmin && <AdminRankingEditor ranking={ranking} refetch={refetch} />}
         <RankingList ranking={ranking} loading={loading} />
         <RankingInfoCard />
       </div>
