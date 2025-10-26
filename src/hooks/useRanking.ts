@@ -69,7 +69,7 @@ export const useRanking = () => {
         { data: rankingUsers, error: rankingUsersError }
       ] = await Promise.all([
         supabase.from('profiles').select('*'),
-        supabase.from('ranking').select('user_id, apelido')
+        supabase.from('ranking').select('user_id, apelido, volume_total_mensal, ultima_venda_em')
       ]);
 
       if (profilesError) throw profilesError;
@@ -95,49 +95,55 @@ export const useRanking = () => {
     console.log(`Dados com volume: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Usuários com apelido: ${rankingUsers?.length || 0}`);
 
     const profileMap = new Map(profiles.map(p => [p.id, p]));
-    const apelidoMap = new Map(rankingUsers.map(u => [u.user_id, u.apelido]));
+    const rankingMap = new Map(rankingUsers.map(u => [u.user_id, u]));
+    const volumeCalculadoMap = new Map(rankingData.map(r => [r.user_id, r]));
 
     const userMap = new Map<string, RankingUser>();
 
     // Adicionar todos os usuários da tabela 'ranking' primeiro
     for (const rankingUser of rankingUsers) {
         const profile = profileMap.get(rankingUser.user_id);
+        const volumeCalculado = volumeCalculadoMap.get(rankingUser.user_id);
+        
+        // Usar volume manual da tabela ranking se existir (> 0), senão usar o calculado
+        const volumeFinal = rankingUser.volume_total_mensal > 0 
+          ? rankingUser.volume_total_mensal 
+          : (volumeCalculado?.total_volume || 0);
+          
+        const ultimaVendaFinal = rankingUser.volume_total_mensal > 0
+          ? rankingUser.ultima_venda_em
+          : (volumeCalculado?.last_sale_date || null);
+        
         userMap.set(rankingUser.user_id, {
             id: `${rankingUser.user_id}-ranking-base`,
             user_id: rankingUser.user_id,
             apelido: rankingUser.apelido || profile?.name || `User...${rankingUser.user_id.substring(0,4)}`,
             name: profile?.name,
             email: profile?.email,
-            volume_total_mensal: 0, // Será sobrescrito se tiver vendas
-            ultima_venda_em: null, // Será sobrescrito se tiver vendas
+            volume_total_mensal: volumeFinal,
+            ultima_venda_em: ultimaVendaFinal,
             position: 0,
             is_current_user: rankingUser.user_id === user?.id,
         });
     }
 
-    // Adicionar/Atualizar usuários com volume de vendas
+    // Adicionar usuários que têm volume mas não estão na tabela ranking
     for (const rankItem of rankingData) {
         const userId = rankItem.user_id;
-        if (!userId) continue;
+        if (!userId || userMap.has(userId)) continue;
 
-        const existingUser = userMap.get(userId);
-        if (existingUser) {
-            existingUser.volume_total_mensal = rankItem.total_volume;
-            existingUser.ultima_venda_em = rankItem.last_sale_date;
-        } else {
-            const profile = profileMap.get(userId);
-            userMap.set(userId, {
-                id: `${userId}-ranking-new`,
-                user_id: userId,
-                apelido: apelidoMap.get(userId) || profile?.name || `User...${userId.substring(0,4)}`,
-                name: profile?.name,
-                email: profile?.email,
-                volume_total_mensal: rankItem.total_volume,
-                ultima_venda_em: rankItem.last_sale_date,
-                position: 0,
-                is_current_user: userId === user?.id,
-            });
-        }
+        const profile = profileMap.get(userId);
+        userMap.set(userId, {
+            id: `${userId}-ranking-new`,
+            user_id: userId,
+            apelido: profile?.name || `User...${userId.substring(0,4)}`,
+            name: profile?.name,
+            email: profile?.email,
+            volume_total_mensal: rankItem.total_volume,
+            ultima_venda_em: rankItem.last_sale_date,
+            position: 0,
+            is_current_user: userId === user?.id,
+        });
     }
     
     const usuariosCompletos = Array.from(userMap.values());
