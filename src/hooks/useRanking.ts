@@ -91,33 +91,37 @@ export const useRanking = () => {
   };
 
   const processarRanking = async (rankingData: any[], profiles: any[], rankingUsers: any[]) => {
-    console.log('Processando ranking com nova lógica...');
-    console.log(`Dados com volume: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Usuários com apelido: ${rankingUsers?.length || 0}`);
+    console.log('🔄 Processando ranking...');
+    console.log(`Vendas calculadas: ${rankingData?.length || 0}, Perfis: ${profiles?.length || 0}, Ranking DB: ${rankingUsers?.length || 0}`);
 
     const profileMap = new Map(profiles.map(p => [p.id, p]));
-    const rankingMap = new Map(rankingUsers.map(u => [u.user_id, u]));
-    const volumeCalculadoMap = new Map(rankingData.map(r => [r.user_id, r]));
+    const rankingDbMap = new Map(rankingUsers.map(u => [u.user_id, u]));
+    const vendasReaisMap = new Map(rankingData.map(r => [r.user_id, r]));
 
     const userMap = new Map<string, RankingUser>();
 
-    // Adicionar todos os usuários da tabela 'ranking' primeiro
+    // Processar todos os usuários da tabela ranking
     for (const rankingUser of rankingUsers) {
         const profile = profileMap.get(rankingUser.user_id);
-        const volumeCalculado = volumeCalculadoMap.get(rankingUser.user_id);
+        const vendasReais = vendasReaisMap.get(rankingUser.user_id);
         
-        // Usar volume manual da tabela ranking se existir (> 0), senão usar o calculado
-        const volumeFinal = rankingUser.volume_total_mensal > 0 
-          ? rankingUser.volume_total_mensal 
-          : (volumeCalculado?.total_volume || 0);
-          
-        const ultimaVendaFinal = rankingUser.volume_total_mensal > 0
-          ? rankingUser.ultima_venda_em
-          : (volumeCalculado?.last_sale_date || null);
+        // Se há volume manual editado pelo admin (> 0), use-o
+        // Caso contrário, use o volume calculado das vendas reais
+        const volumeManual = rankingUser.volume_total_mensal || 0;
+        const volumeReal = vendasReais?.total_volume || 0;
+        
+        // Priorizar volume manual se existir, senão usar vendas reais
+        const volumeFinal = volumeManual > 0 ? volumeManual : volumeReal;
+        const ultimaVendaFinal = volumeManual > 0 
+          ? rankingUser.ultima_venda_em 
+          : (vendasReais?.last_sale_date || null);
+        
+        console.log(`👤 ${rankingUser.apelido}: Manual=${volumeManual}, Real=${volumeReal}, Final=${volumeFinal}`);
         
         userMap.set(rankingUser.user_id, {
-            id: `${rankingUser.user_id}-ranking-base`,
+            id: `${rankingUser.user_id}-ranking`,
             user_id: rankingUser.user_id,
-            apelido: rankingUser.apelido || profile?.name || `User...${rankingUser.user_id.substring(0,4)}`,
+            apelido: rankingUser.apelido || profile?.name || `User${rankingUser.user_id.substring(0,4)}`,
             name: profile?.name,
             email: profile?.email,
             volume_total_mensal: volumeFinal,
@@ -127,22 +131,23 @@ export const useRanking = () => {
         });
     }
 
-    // Adicionar usuários que têm volume mas não estão na tabela ranking
-    for (const rankItem of rankingData) {
-        const userId = rankItem.user_id;
-        if (!userId || userMap.has(userId)) continue;
+    // Adicionar usuários com vendas que não estão na tabela ranking ainda
+    for (const venda of rankingData) {
+        if (!venda.user_id || userMap.has(venda.user_id)) continue;
 
-        const profile = profileMap.get(userId);
-        userMap.set(userId, {
-            id: `${userId}-ranking-new`,
-            user_id: userId,
-            apelido: profile?.name || `User...${userId.substring(0,4)}`,
+        const profile = profileMap.get(venda.user_id);
+        console.log(`➕ Novo usuário com vendas: ${profile?.name || venda.user_id.substring(0,4)}`);
+        
+        userMap.set(venda.user_id, {
+            id: `${venda.user_id}-new`,
+            user_id: venda.user_id,
+            apelido: profile?.name || `User${venda.user_id.substring(0,4)}`,
             name: profile?.name,
             email: profile?.email,
-            volume_total_mensal: rankItem.total_volume,
-            ultima_venda_em: rankItem.last_sale_date,
+            volume_total_mensal: venda.total_volume,
+            ultima_venda_em: venda.last_sale_date,
             position: 0,
-            is_current_user: userId === user?.id,
+            is_current_user: venda.user_id === user?.id,
         });
     }
     
