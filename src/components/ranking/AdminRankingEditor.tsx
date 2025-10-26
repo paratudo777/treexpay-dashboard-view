@@ -44,36 +44,53 @@ export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps
     setSaving(new Set(saving).add(userId));
 
     try {
-      const updates: any = {
+      // Preparar dados para upsert
+      const upsertData: any = {
+        user_id: userId,
         updated_at: new Date().toISOString()
       };
 
+      // Validar e adicionar apelido
       if (changes.apelido) {
-        // Validar apelido
         if (changes.apelido.length > 10 || !/^[A-Za-z0-9]+$/.test(changes.apelido)) {
           throw new Error("Apelido inválido: use apenas letras e números, máximo 10 caracteres");
         }
-        updates.apelido = changes.apelido;
+        upsertData.apelido = changes.apelido;
+      } else {
+        // Manter o apelido atual se não foi editado
+        upsertData.apelido = user.apelido;
       }
 
+      // Validar e adicionar volume
       if (changes.volume) {
         const volumeNum = parseFloat(changes.volume);
         if (isNaN(volumeNum) || volumeNum < 0) {
           throw new Error("Volume inválido: digite um número válido");
         }
-        updates.volume_total_mensal = volumeNum;
+        upsertData.volume_total_mensal = volumeNum;
+      } else {
+        // Manter o volume atual se não foi editado
+        upsertData.volume_total_mensal = user.volume_total_mensal;
       }
 
+      // Usar upsert para criar ou atualizar o registro
       const { error } = await supabase
         .from('ranking')
-        .update(updates)
-        .eq('user_id', userId);
+        .upsert(upsertData, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao salvar no ranking:', error);
+        throw error;
+      }
+
+      console.log('✅ Salvo com sucesso no ranking:', { userId, changes });
 
       toast({
         title: "✅ Salvo com sucesso!",
-        description: `Alterações aplicadas para ${user.apelido}`,
+        description: `Alterações aplicadas para ${changes.apelido || user.apelido}`,
       });
 
       // Limpar edições deste usuário
@@ -86,7 +103,7 @@ export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps
       await refetch();
 
     } catch (error: any) {
-      console.error('Erro ao salvar:', error);
+      console.error('❌ Erro ao salvar:', error);
       toast({
         variant: "destructive",
         title: "Erro ao salvar",
