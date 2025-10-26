@@ -24,8 +24,10 @@ export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps
   };
 
   const handleVolumeChange = (userId: string, value: string) => {
+    // Permitir vírgula e ponto como separador decimal
+    const normalizedValue = value.replace(',', '.');
     const current = editedUsers.get(userId) || { apelido: "", volume: "" };
-    setEditedUsers(new Map(editedUsers.set(userId, { ...current, volume: value })));
+    setEditedUsers(new Map(editedUsers.set(userId, { ...current, volume: normalizedValue })));
   };
 
   const saveChanges = async (userId: string, user: RankingUser) => {
@@ -152,11 +154,10 @@ export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps
                     </TableCell>
                     <TableCell>
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         value={edited?.volume ?? user.volume_total_mensal}
                         onChange={(e) => handleVolumeChange(user.user_id, e.target.value)}
-                        placeholder="Novo volume"
+                        placeholder="Ex: 1500,50"
                         className="max-w-[150px]"
                       />
                       <span className="text-xs text-muted-foreground ml-2">
