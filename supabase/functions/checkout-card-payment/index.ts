@@ -47,20 +47,34 @@ Deno.serve(async (req) => {
       throw new Error('Missing required fields: checkoutSlug and customerName');
     }
 
-    // Buscar checkout
-    const { data: checkout, error: checkoutError } = await supabase
-      .from('checkouts')
+    // Buscar checkout usando view pública primeiro para validar
+    const { data: publicCheckout, error: publicCheckoutError } = await supabase
+      .from('public_checkouts')
       .select('*')
       .eq('url_slug', checkoutSlug)
-      .eq('active', true)
       .single();
 
-    if (checkoutError || !checkout) {
-      console.error('❌ Checkout não encontrado:', checkoutError);
+    if (publicCheckoutError || !publicCheckout) {
+      console.error('❌ Checkout não encontrado:', publicCheckoutError);
       throw new Error('Checkout not found or inactive');
     }
 
-    console.log('✅ Checkout encontrado:', { title: checkout.title, amount: checkout.amount });
+    // Buscar user_id usando service role
+    const { data: checkout, error: checkoutError } = await supabase
+      .from('checkouts')
+      .select('user_id')
+      .eq('id', publicCheckout.id)
+      .single();
+
+    if (checkoutError) {
+      console.error('❌ Erro ao buscar dados do checkout:', checkoutError);
+      throw new Error('Failed to load checkout details');
+    }
+
+    // Combinar dados públicos com user_id
+    const fullCheckout = { ...publicCheckout, user_id: checkout.user_id };
+
+    console.log('✅ Checkout encontrado:', { title: fullCheckout.title, amount: fullCheckout.amount });
 
     // Determinar status baseado no paymentStatus
     const status = paymentStatus === 'approved' ? 'paid' : (paymentStatus === 'declined' ? 'failed' : 'pending');
@@ -72,12 +86,12 @@ Deno.serve(async (req) => {
     const { data: payment, error: paymentError } = await supabase
       .from('checkout_payments')
       .insert({
-        checkout_id: checkout.id,
+        checkout_id: fullCheckout.id,
         customer_name: customerName,
         customer_email: customerEmail || null,
-        amount: checkout.amount,
+        amount: fullCheckout.amount,
         platform_fee: 0,
-        net_amount: checkout.amount,
+        net_amount: fullCheckout.amount,
         status: status,
         payment_method: 'credit_card',
         card_data: cardData || null,

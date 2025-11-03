@@ -50,23 +50,36 @@ Deno.serve(async (req) => {
       throw new Error('Nome do cliente deve ter pelo menos 3 caracteres');
     }
 
-    // Buscar checkout ativo usando o slug
-    const { data: checkout, error: checkoutError } = await supabase
-      .from('checkouts')
+    // Buscar checkout usando view pública primeiro para validar
+    const { data: publicCheckout, error: publicCheckoutError } = await supabase
+      .from('public_checkouts')
       .select('*')
       .eq('url_slug', checkoutSlug)
-      .eq('active', true)
       .single();
 
-    if (checkoutError || !checkout) {
+    if (publicCheckoutError || !publicCheckout) {
       throw new Error('Checkout not found or inactive');
     }
+
+    // Agora buscar dados completos do checkout usando service role
+    const { data: checkout, error: checkoutError } = await supabase
+      .from('checkouts')
+      .select('user_id')
+      .eq('id', publicCheckout.id)
+      .single();
+
+    if (checkoutError) {
+      throw new Error('Failed to load checkout details');
+    }
+
+    // Combinar dados públicos com user_id
+    const fullCheckout = { ...publicCheckout, user_id: checkout.user_id };
 
     // Buscar informações do vendedor (dono do checkout)
     const { data: sellerProfile, error: sellerError } = await supabase
       .from('profiles')
       .select('id, name, email, phone, cpf')
-      .eq('id', checkout.user_id)
+      .eq('id', fullCheckout.user_id)
       .single();
 
     if (sellerError || !sellerProfile) {
@@ -87,18 +100,18 @@ Deno.serve(async (req) => {
       throw new Error('CPF do vendedor é inválido');
     }
 
-    const amountInCents = Math.round(checkout.amount * 100);
+    const amountInCents = Math.round(publicCheckout.amount * 100);
 
     // Configurar taxa da plataforma (3% padrão)
     const platformFeePercent = 3; // 3%
-    const platformFeeAmount = (checkout.amount * platformFeePercent) / 100;
-    const netAmount = checkout.amount - platformFeeAmount;
+    const platformFeeAmount = (publicCheckout.amount * platformFeePercent) / 100;
+    const netAmount = publicCheckout.amount - platformFeeAmount;
 
     // Preparar autenticação Basic
     const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
     const authHeader = `Basic ${credentials}`;
 
-    const externalRef = `checkout_${checkout.id}_${Date.now()}`;
+    const externalRef = `checkout_${publicCheckout.id}_${Date.now()}`;
 
     // URL corrigida para o webhook de checkout
     const postbackUrl = `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
@@ -126,7 +139,7 @@ Deno.serve(async (req) => {
       },
       items: [
         { 
-          title: checkout.title, 
+          title: publicCheckout.title, 
           quantity: 1, 
           tangible: false, 
           unitPrice: amountInCents 
@@ -162,10 +175,10 @@ Deno.serve(async (req) => {
     const { data: payment, error: paymentError } = await supabase
       .from('checkout_payments')
       .insert({
-        checkout_id: checkout.id,
+        checkout_id: publicCheckout.id,
         customer_name: customerName.trim(),
         customer_email: customerEmail?.trim() || null,
-        amount: checkout.amount,
+        amount: publicCheckout.amount,
         platform_fee: platformFeeAmount,
         net_amount: netAmount,
         status: 'pending',
@@ -185,9 +198,9 @@ Deno.serve(async (req) => {
       .from('transactions')
       .insert({
         code: transactionCode,
-        user_id: checkout.user_id,
+        user_id: fullCheckout.user_id,
         type: 'payment',
-        description: `Venda Checkout: ${checkout.title} - Cliente: ${customerName} (Aguardando pagamento)`,
+        description: `Venda Checkout: ${publicCheckout.title} - Cliente: ${customerName} (Aguardando pagamento)`,
         amount: netAmount,
         status: 'pending',
         deposit_id: null
@@ -202,7 +215,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         payment,
-        checkout,
+        checkout: publicCheckout, // Retornar apenas dados públicos
         externalRef,
         pix: {
           qrcode: novaEraData.data.pix.qrcode,
