@@ -150,9 +150,9 @@ serve(async (req) => {
       );
     }
 
-    // Use BASE_URL environment variable with fallback to treexpay.site
-    const baseUrl = Deno.env.get('BASE_URL') || 'https://treexpay.site';
-    const checkoutUrl = `${baseUrl}/checkout/${checkoutSlug}`;
+    // Get the origin from the request or use the Referer header
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || '';
+    const checkoutUrl = origin ? `${origin}/checkout/${checkoutSlug}` : `/checkout/${checkoutSlug}`;
 
     console.log(`Created checkout with URL: ${checkoutUrl}`);
 
