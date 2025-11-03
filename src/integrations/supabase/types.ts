@@ -101,6 +101,13 @@ export type Database = {
             referencedRelation: "checkouts"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "checkout_payments_checkout_id_fkey"
+            columns: ["checkout_id"]
+            isOneToOne: false
+            referencedRelation: "public_checkouts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       checkouts: {
@@ -525,7 +532,39 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_checkouts: {
+        Row: {
+          active: boolean | null
+          amount: number | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          image_url: string | null
+          title: string | null
+          url_slug: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          image_url?: string | null
+          title?: string | null
+          url_slug?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          image_url?: string | null
+          title?: string | null
+          url_slug?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
