@@ -546,6 +546,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_admin_user: { Args: never; Returns: boolean }
+      owns_checkout: {
+        Args: { _checkout_id: string; _user_id: string }
+        Returns: boolean
+      }
       reject_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
       reset_monthly_volumes: { Args: never; Returns: undefined }
       update_user_profile: {
