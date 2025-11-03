@@ -147,11 +147,11 @@ export default function CheckoutPublic() {
     try {
       setLoading(true);
       
+      // Usar view pública que não expõe user_id e notification_email
       const { data, error } = await supabase
-        .from('checkouts')
+        .from('public_checkouts')
         .select('*')
         .eq('url_slug', slug)
-        .eq('active', true)
         .single();
 
       if (error || !data) {
