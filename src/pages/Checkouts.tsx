@@ -1,15 +1,15 @@
-
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, ExternalLink, Edit, Trash2, Power, PowerOff, Copy } from 'lucide-react';
+import { Plus, ExternalLink, Edit, Trash2, Power, PowerOff, Copy, Package, Mail } from 'lucide-react';
 import { useCheckouts } from '@/hooks/useCheckouts';
 import { CreateCheckoutModal } from '@/components/checkout/CreateCheckoutModal';
 import { EditCheckoutModal } from '@/components/checkout/EditCheckoutModal';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 export default function Checkouts() {
   const { checkouts, loading, toggleCheckoutStatus, deleteCheckout } = useCheckouts();
@@ -89,40 +89,73 @@ export default function Checkouts() {
               </Card>
             ) : (
               checkouts.map((checkout) => (
-                <Card key={checkout.id}>
-                  <CardHeader>
-                    <div className="flex gap-4">
-                      {checkout.image_url && (
-                        <div className="flex-shrink-0">
-                          <img 
-                            src={checkout.image_url} 
-                            alt={checkout.title}
-                            className="w-24 h-24 object-cover rounded-lg border"
-                            onError={(e) => {
-                              e.currentTarget.src = 'https://via.placeholder.com/96?text=Sem+Imagem';
-                            }}
-                          />
+                <Card key={checkout.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="flex flex-col md:flex-row gap-0">
+                    {/* Imagem do produto */}
+                    <div className="md:w-48 w-full h-48 md:h-auto flex-shrink-0 bg-muted relative overflow-hidden">
+                      {checkout.image_url ? (
+                        <img 
+                          src={checkout.image_url} 
+                          alt={checkout.title}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect width="18" height="18" x="3" y="3" rx="2" ry="2"/%3E%3Ccircle cx="9" cy="9" r="2"/%3E%3Cpath d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/%3E%3C/svg%3E';
+                            e.currentTarget.classList.add('p-12', 'opacity-20');
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-muted">
+                          <Package className="w-12 h-12 text-muted-foreground opacity-20" />
                         </div>
                       )}
-                      <div className="flex-grow">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="flex items-center gap-2">
-                              {checkout.title}
-                              <Badge variant={checkout.active ? "default" : "secondary"}>
-                                {checkout.active ? "Ativo" : "Inativo"}
-                              </Badge>
-                            </CardTitle>
-                            <CardDescription className="mt-1">
-                              {formatCurrency(checkout.amount)}
-                            </CardDescription>
-                            {checkout.description && (
-                              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                                {checkout.description}
+                    </div>
+
+                    {/* Conteúdo */}
+                    <div className="flex-1 p-6">
+                      <div className="flex flex-col md:flex-row justify-between gap-4">
+                        {/* Informações principais */}
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                              <CardTitle className="text-xl mb-2 flex items-center gap-2 flex-wrap">
+                                {checkout.title}
+                                <Badge 
+                                  variant={checkout.active ? "default" : "secondary"}
+                                  className={cn(
+                                    "text-xs font-semibold",
+                                    checkout.active && "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
+                                  )}
+                                >
+                                  {checkout.active ? "● Ativo" : "○ Inativo"}
+                                </Badge>
+                              </CardTitle>
+                              <div className="text-2xl font-bold text-primary mb-2">
+                                {formatCurrency(checkout.amount)}
+                              </div>
+                              {checkout.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                                  {checkout.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Metadados */}
+                          <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                            <p className="font-mono">/checkout/{checkout.url_slug}</p>
+                            {checkout.notification_email && (
+                              <p className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" />
+                                {checkout.notification_email}
                               </p>
                             )}
+                            <p>Criado em {new Date(checkout.created_at).toLocaleDateString('pt-BR')}</p>
                           </div>
-                          <div className="flex gap-2">
+                        </div>
+
+                        {/* Ações */}
+                        <div className="flex md:flex-col gap-2 flex-wrap">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -207,17 +240,7 @@ export default function Checkouts() {
                         </div>
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <p>URL: /checkout/{checkout.url_slug}</p>
-                      {checkout.notification_email && (
-                        <p>Notificações: {checkout.notification_email}</p>
-                      )}
-                      <p>Criado em: {new Date(checkout.created_at).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </Card>
               ))
             )}
           </div>

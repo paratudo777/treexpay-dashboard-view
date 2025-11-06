@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { useCheckouts } from '@/hooks/useCheckouts';
-import { Package, DollarSign, Image, Mail, Info, AlertCircle, Loader2 } from 'lucide-react';
+import { Package, DollarSign, Image, Mail, Info, AlertCircle, Loader2, Moon, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CreateCheckoutModalProps {
@@ -24,6 +25,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
   const [notificationEmail, setNotificationEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const { createCheckout, checkouts } = useCheckouts();
 
   const isLimitReached = checkouts.length >= 5;
@@ -88,13 +90,23 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[580px] max-h-[90vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className={cn("max-w-[580px] max-h-[90vh] overflow-y-auto p-0 gap-0", isDarkMode && "dark")}>
         <DialogHeader className="px-6 pt-6 pb-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Package className="w-5 h-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Package className="w-5 h-5 text-primary" />
+              </div>
+              <DialogTitle className="text-xl font-semibold">Criar Novo Produto</DialogTitle>
             </div>
-            <DialogTitle className="text-xl font-semibold">Criar Novo Produto</DialogTitle>
+            <div className="flex items-center gap-2">
+              <Sun className="h-4 w-4 text-muted-foreground" />
+              <Switch
+                checked={isDarkMode}
+                onCheckedChange={setIsDarkMode}
+              />
+              <Moon className="h-4 w-4 text-muted-foreground" />
+            </div>
           </div>
           {isLimitReached ? (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20">
@@ -122,7 +134,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="title" className="text-sm font-semibold">Título</Label>
+                <Label htmlFor="title" className="text-xs font-bold uppercase tracking-wide">Título</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -155,7 +167,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-semibold">Descrição</Label>
+              <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wide">Descrição</Label>
               <Textarea
                 id="description"
                 value={description}
@@ -183,7 +195,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="amount" className="text-sm font-semibold">Valor (R$)</Label>
+              <Label htmlFor="amount" className="text-xs font-bold uppercase tracking-wide">Valor (R$)</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">R$</span>
                 <Input
@@ -216,7 +228,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="imageUrl" className="text-sm font-semibold">URL da Imagem</Label>
+                <Label htmlFor="imageUrl" className="text-xs font-bold uppercase tracking-wide">URL da Imagem</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -253,7 +265,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label htmlFor="notificationEmail" className="text-sm font-semibold">Gmail</Label>
+                <Label htmlFor="notificationEmail" className="text-xs font-bold uppercase tracking-wide">Gmail</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
