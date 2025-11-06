@@ -201,19 +201,29 @@ export default function Admin() {
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          active: !currentStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
+      const { data, error } = await supabase.functions.invoke('admin-manage-user', {
+        body: {
+          action: 'toggle_status',
+          userId: userId,
+          active: !currentStatus
+        }
+      });
 
       if (error) {
+        console.error('Edge function error:', error);
         toast({
           variant: "destructive",
           title: "Erro",
           description: "Erro ao atualizar status do usuário.",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: data.error,
         });
         return;
       }
@@ -237,14 +247,15 @@ export default function Admin() {
 
   const resetPassword = async (userId: string, userEmail: string) => {
     try {
-      // Generate a temporary password
-      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
-      
-      const { error } = await supabase.auth.admin.updateUserById(userId, {
-        password: tempPassword
+      const { data, error } = await supabase.functions.invoke('admin-manage-user', {
+        body: {
+          action: 'reset_password',
+          userId: userId
+        }
       });
 
       if (error) {
+        console.error('Edge function error:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -253,9 +264,18 @@ export default function Admin() {
         return;
       }
 
+      if (data.error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: data.error,
+        });
+        return;
+      }
+
       toast({
         title: "Senha resetada",
-        description: `Nova senha temporária: ${tempPassword}`,
+        description: `Nova senha temporária: ${data.tempPassword}`,
       });
     } catch (error) {
       console.error('Error resetting password:', error);

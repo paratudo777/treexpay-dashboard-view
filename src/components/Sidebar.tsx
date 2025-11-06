@@ -1,9 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FileText, Wallet, LogOut, Settings, MessageSquare, Trophy, CreditCard, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Button } from './ui/button';
 type NavItem = {
   name: string;
   href: string;
@@ -76,12 +75,6 @@ export function Sidebar({
       onNavigate();
     }
   };
-  const openWhatsApp = () => {
-    window.open('https://wa.me/5518991913165', '_blank');
-    if (onNavigate) {
-      onNavigate();
-    }
-  };
 
   // Filtrar itens baseado no isAdmin
   const filteredNavItems = navItems.filter(item => {
@@ -115,15 +108,8 @@ export function Sidebar({
         </ul>
       </nav>
 
-      {/* Support and Logout buttons */}
-      <div className="p-4 border-t border-sidebar-border space-y-2">
-        {/* Support button */}
-        <Button onClick={openWhatsApp} className="w-full bg-treexpay-dark hover:bg-treexpay-medium flex items-center gap-2 transition-all duration-200 ease-in-out transform hover:scale-105">
-          <MessageSquare className="h-4 w-4" />
-          <span>Falar com o Suporte</span>
-        </Button>
-        
-        {/* Logout button */}
+      {/* Logout button */}
+      <div className="p-4 border-t border-sidebar-border">
         <button onClick={handleLogout} className="flex items-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200 ease-in-out transform hover:scale-105">
           <LogOut className="h-5 w-5" />
           <span className="ml-3">Sair</span>
