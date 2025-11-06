@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock, Eye } from 'lucide-react';
+import { Plus, UserCheck, UserX, RotateCcw, DollarSign, Clock, Eye, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
@@ -279,6 +279,57 @@ export default function Admin() {
       });
     } catch (error) {
       console.error('Error resetting password:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Erro interno. Tente novamente.",
+      });
+    }
+  };
+
+  const deleteUser = async (userId: string, userName: string) => {
+    const confirmed = window.confirm(
+      `Tem certeza que deseja EXCLUIR permanentemente o usuário "${userName}"? Esta ação não pode ser desfeita.`
+    );
+    
+    if (!confirmed) return;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-manage-user', {
+        body: {
+          action: 'delete_user',
+          userId: userId,
+          deleteUser: true
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: "Erro ao excluir usuário.",
+        });
+        return;
+      }
+
+      if (data.error) {
+        toast({
+          variant: "destructive",
+          title: "Erro",
+          description: data.error,
+        });
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      
+      toast({
+        title: "Usuário excluído",
+        description: `${userName} foi excluído permanentemente.`,
+      });
+    } catch (error) {
+      console.error('Error deleting user:', error);
       toast({
         variant: "destructive",
         title: "Erro",
@@ -652,6 +703,14 @@ export default function Admin() {
                               title="Resetar senha"
                             >
                               <RotateCcw className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => deleteUser(user.id, user.name)}
+                              title="Excluir usuário"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

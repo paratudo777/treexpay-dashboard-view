@@ -23,24 +23,22 @@ serve(async (req) => {
       }
     );
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
+    // Get JWT token from Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Token de autenticação não fornecido' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
 
-    // Verify user is authenticated
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
+    // Verify JWT and get user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Não autenticado' }), {
+      console.error('Auth error:', userError);
+      return new Response(JSON.stringify({ error: 'Token inválido ou expirado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401,
       });
@@ -54,6 +52,7 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile || profile.profile !== 'admin') {
+      console.error('Profile check error:', profileError);
       return new Response(JSON.stringify({ error: 'Sem permissão de administrador' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 403,
