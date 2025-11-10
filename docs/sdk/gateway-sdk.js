@@ -1,19 +1,19 @@
 /**
- * Gateway SDK - JavaScript/Node.js
+ * TreexPay SDK - JavaScript/Node.js
  * 
- * SDK simplificado para integração com a Gateway de Pagamentos
+ * SDK simplificado para integração com a TreexPay Gateway de Pagamentos
  */
 
 const crypto = require('crypto');
 const axios = require('axios');
 
-class GatewaySDK {
+class TreexPaySDK {
   constructor(config) {
     this.apiKey = config.apiKey;
     this.accessToken = config.accessToken;
     this.baseURL = config.sandbox 
-      ? 'https://sandbox.gateway.com/v1'
-      : 'https://api.gateway.com/v1';
+      ? 'https://sandbox.treexpay.site/api/v1'
+      : 'https://treexpay.site/api/v1';
     
     this.client = axios.create({
       baseURL: this.baseURL,
@@ -230,21 +230,21 @@ class GatewaySDK {
 /**
  * Classe auxiliar para OAuth2
  */
-class GatewayOAuth {
+class TreexPayOAuth {
   constructor(clientId, clientSecret, redirectUri, sandbox = false) {
     this.clientId = clientId;
     this.clientSecret = clientSecret;
     this.redirectUri = redirectUri;
     this.baseURL = sandbox 
-      ? 'https://sandbox.gateway.com'
-      : 'https://api.gateway.com';
+      ? 'https://sandbox.treexpay.site'
+      : 'https://treexpay.site';
   }
 
   /**
    * Gerar URL de autorização
    */
   getAuthorizationUrl(scopes, state) {
-    const url = new URL(`${this.baseURL}/oauth/authorize`);
+    const url = new URL(`${this.baseURL}/api/v1/oauth/authorize`);
     url.searchParams.set('client_id', this.clientId);
     url.searchParams.set('redirect_uri', this.redirectUri);
     url.searchParams.set('response_type', 'code');
@@ -301,8 +301,8 @@ class GatewayOAuth {
 }
 
 module.exports = {
-  GatewaySDK,
-  GatewayOAuth
+  TreexPaySDK,
+  TreexPayOAuth
 };
 
 /**
@@ -311,9 +311,9 @@ module.exports = {
 
 // Exemplo 1: Usar com API Key
 /*
-const { GatewaySDK } = require('./gateway-sdk');
+const { TreexPaySDK } = require('./treexpay-sdk');
 
-const gateway = new GatewaySDK({
+const gateway = new TreexPaySDK({
   apiKey: 'sk_live_abc123xyz789',
   sandbox: false
 });
@@ -336,10 +336,10 @@ console.log('QR Code PIX:', payment.payment_method.pix.qr_code);
 
 // Exemplo 2: Usar com OAuth
 /*
-const { GatewayOAuth, GatewaySDK } = require('./gateway-sdk');
+const { TreexPayOAuth, TreexPaySDK } = require('./treexpay-sdk');
 
 // Iniciar OAuth
-const oauth = new GatewayOAuth(
+const oauth = new TreexPayOAuth(
   'app_abc123',
   'secret_xyz789',
   'https://suaapp.com/callback'
@@ -356,7 +356,7 @@ console.log('Redirecione para:', authUrl);
 const tokens = await oauth.exchangeCode('AUTH_CODE_xyz');
 
 // Usar access token
-const gateway = new GatewaySDK({
+const gateway = new TreexPaySDK({
   accessToken: tokens.access_token
 });
 
@@ -367,10 +367,10 @@ console.log('Saldo:', balance.available / 100);
 // Exemplo 3: Validar webhook
 /*
 const express = require('express');
-const { GatewaySDK } = require('./gateway-sdk');
+const { TreexPaySDK } = require('./treexpay-sdk');
 
 const app = express();
-const gateway = new GatewaySDK({ apiKey: 'sk_live_abc123' });
+const gateway = new TreexPaySDK({ apiKey: 'sk_live_abc123' });
 
 app.post('/webhooks/gateway', 
   express.raw({ type: 'application/json' }), 

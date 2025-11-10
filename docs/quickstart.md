@@ -1,10 +1,10 @@
-# Quickstart - Integração Gateway de Pagamentos
+# Quickstart - Integração TreexPay
 
-Guia rápido para lojistas integrarem a gateway e começarem a receber pagamentos.
+Guia rápido para lojistas integrarem a TreexPay e começarem a receber pagamentos.
 
 ## 1. Criar Conta e Aplicação
 
-1. Acesse [dashboard.gateway.com](https://dashboard.gateway.com)
+1. Acesse [treexpay.site](https://treexpay.site)
 2. Crie sua conta
 3. Complete o KYC (envie documentos)
 4. Crie uma aplicação em **Configurações > Aplicações**
@@ -18,10 +18,10 @@ Se você está construindo uma plataforma onde múltiplos lojistas vão se conec
 
 ```javascript
 // 1. Redirecionar lojista para autorização
-const authUrl = `https://api.gateway.com/oauth/authorize?client_id=SEU_CLIENT_ID&redirect_uri=https://suaapp.com/callback&response_type=code&scope=payments:read payments:write balance:read payouts:write&state=RANDOM_STATE`;
+const authUrl = `https://treexpay.site/api/v1/oauth/authorize?client_id=SEU_CLIENT_ID&redirect_uri=https://suaapp.com/callback&response_type=code&scope=payments:read payments:write balance:read payouts:write&state=RANDOM_STATE`;
 
 // 2. Após autorização, receber code e trocar por token
-const response = await fetch('https://api.gateway.com/v1/oauth/token', {
+const response = await fetch('https://treexpay.site/api/v1/oauth/token', {
   method: 'POST',
   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   body: new URLSearchParams({
@@ -51,7 +51,7 @@ Se é apenas sua loja conectando:
 ### Com PIX (mais simples):
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "X-API-Key: sk_live_SUA_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -82,7 +82,7 @@ curl -X POST https://api.gateway.com/v1/payments \
     "type": "pix",
     "pix": {
       "qr_code": "00020126580014br.gov.bcb.pix...",
-      "qr_code_url": "https://api.gateway.com/qr/pay_abc123xyz.png",
+      "qr_code_url": "https://treexpay.site/qr/pay_abc123xyz.png",
       "expiration": "2025-01-10T15:30:00Z"
     }
   }
@@ -96,7 +96,7 @@ curl -X POST https://api.gateway.com/v1/payments \
 ### Com Cartão de Crédito:
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "X-API-Key: sk_live_SUA_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -126,7 +126,7 @@ curl -X POST https://api.gateway.com/v1/payments \
 ### Registrar Webhook:
 
 ```bash
-curl -X POST https://api.gateway.com/v1/webhooks \
+curl -X POST https://treexpay.site/api/v1/webhooks \
   -H "X-API-Key: sk_live_SUA_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -201,7 +201,7 @@ app.listen(3000);
 ## 5. Consultar Saldo
 
 ```bash
-curl https://api.gateway.com/v1/merchants/SEU_MERCHANT_ID/balance \
+curl https://treexpay.site/api/v1/merchants/SEU_MERCHANT_ID/balance \
   -H "X-API-Key: sk_live_SUA_API_KEY"
 ```
 
@@ -222,7 +222,7 @@ curl https://api.gateway.com/v1/merchants/SEU_MERCHANT_ID/balance \
 ## 6. Solicitar Saque (Payout)
 
 ```bash
-curl -X POST https://api.gateway.com/v1/merchants/SEU_MERCHANT_ID/payouts \
+curl -X POST https://treexpay.site/api/v1/merchants/SEU_MERCHANT_ID/payouts \
   -H "X-API-Key: sk_live_SUA_API_KEY" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -252,7 +252,7 @@ Você receberá um webhook `payout.completed` quando o saque for processado.
 
 Para testar sem cobranças reais:
 
-1. Use `https://sandbox.gateway.com` ao invés de `https://api.gateway.com`
+1. Use `https://sandbox.treexpay.site/api/v1` ao invés de `https://treexpay.site/api/v1`
 2. Use API keys de sandbox (começam com `sk_test_`)
 3. No sandbox:
    - PIX é confirmado instantaneamente
@@ -271,10 +271,10 @@ Para testar sem cobranças reais:
 
 ## Suporte
 
-- **Documentação completa**: [docs.gateway.com](https://docs.gateway.com)
-- **Dashboard**: [dashboard.gateway.com](https://dashboard.gateway.com)
-- **Suporte**: suporte@gateway.com
-- **Status da API**: [status.gateway.com](https://status.gateway.com)
+- **Documentação completa**: [treexpay.site/docs](https://treexpay.site/docs)
+- **Dashboard**: [treexpay.site](https://treexpay.site)
+- **Suporte**: suporte@treexpay.site
+- **Status da API**: [status.treexpay.site](https://status.treexpay.site)
 
 ## Checklist de Go-Live
 

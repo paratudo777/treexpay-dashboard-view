@@ -1,13 +1,13 @@
-# Fluxo OAuth2 Authorization Code
+# Fluxo OAuth2 Authorization Code - TreexPay
 
 ## Visão Geral
 
-O fluxo OAuth2 permite que lojistas autorizem sua aplicação a acessar recursos da gateway sem compartilhar credenciais.
+O fluxo OAuth2 permite que lojistas autorizem sua aplicação a acessar recursos da TreexPay sem compartilhar credenciais.
 
 ## Passo 1: Redirecionar para Autorização
 
 ```
-GET https://api.gateway.com/oauth/authorize
+GET https://treexpay.site/api/v1/oauth/authorize
   ?client_id=app_abc123xyz
   &redirect_uri=https://suaaplicacao.com/callback
   &response_type=code
@@ -53,7 +53,7 @@ https://suaaplicacao.com/callback
 ## Passo 4: Trocar Code por Access Token
 
 ```bash
-curl -X POST https://api.gateway.com/v1/oauth/token \
+curl -X POST https://treexpay.site/api/v1/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code" \
   -d "code=AUTH_CODE_abc123xyz789" \
@@ -77,7 +77,7 @@ curl -X POST https://api.gateway.com/v1/oauth/token \
 ## Passo 5: Usar Access Token
 
 ```bash
-curl https://api.gateway.com/v1/payments \
+curl https://treexpay.site/api/v1/payments \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 ```
 
@@ -86,7 +86,7 @@ curl https://api.gateway.com/v1/payments \
 Quando o access_token expirar, use o refresh_token:
 
 ```bash
-curl -X POST https://api.gateway.com/v1/oauth/token \
+curl -X POST https://treexpay.site/api/v1/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=refresh_token" \
   -d "refresh_token=refresh_abc123xyz789" \
@@ -115,7 +115,7 @@ app.get('/connect', (req, res) => {
   const state = crypto.randomBytes(16).toString('hex');
   stateStore.set(state, { timestamp: Date.now() });
 
-  const authUrl = new URL('https://api.gateway.com/oauth/authorize');
+  const authUrl = new URL('https://treexpay.site/api/v1/oauth/authorize');
   authUrl.searchParams.set('client_id', CLIENT_ID);
   authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
   authUrl.searchParams.set('response_type', 'code');
@@ -137,7 +137,7 @@ app.get('/callback', async (req, res) => {
 
   // Trocar code por token
   try {
-    const response = await axios.post('https://api.gateway.com/v1/oauth/token', 
+    const response = await axios.post('https://treexpay.site/api/v1/oauth/token',
       new URLSearchParams({
         grant_type: 'authorization_code',
         code,

@@ -1,9 +1,9 @@
-# Exemplos cURL
+# Exemplos cURL - TreexPay API
 
 ## Criar Pagamento com Cartão de Crédito
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -63,7 +63,7 @@ curl -X POST https://api.gateway.com/v1/payments \
 ## Criar Pagamento PIX
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -92,7 +92,7 @@ curl -X POST https://api.gateway.com/v1/payments \
     "type": "pix",
     "pix": {
       "qr_code": "00020126580014br.gov.bcb.pix...",
-      "qr_code_url": "https://api.gateway.com/qr/pay_pix123xyz.png",
+      "qr_code_url": "https://treexpay.site/qr/pay_pix123xyz.png",
       "expiration": "2025-01-10T15:30:00Z"
     }
   },
@@ -109,7 +109,7 @@ curl -X POST https://api.gateway.com/v1/payments \
 ## Criar Pagamento Boleto
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -137,9 +137,9 @@ curl -X POST https://api.gateway.com/v1/payments \
   "payment_method": {
     "type": "boleto",
     "boleto": {
-      "barcode": "34191.79001 01043.510047 91020.150008 1 89560000015000",
-      "pdf_url": "https://api.gateway.com/boleto/pay_bol123xyz.pdf",
-      "expiration": "2025-01-13T23:59:59Z"
+        "barcode": "34191.79001 01043.510047 91020.150008 1 89560000015000",
+        "pdf_url": "https://treexpay.site/boleto/pay_bol123xyz.pdf",
+        "expiration": "2025-01-13T23:59:59Z"
     }
   },
   "customer": {
@@ -155,14 +155,14 @@ curl -X POST https://api.gateway.com/v1/payments \
 ## Consultar Pagamento
 
 ```bash
-curl https://api.gateway.com/v1/payments/pay_abc123xyz789 \
+curl https://treexpay.site/api/v1/payments/pay_abc123xyz789 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ## Registrar Webhook
 
 ```bash
-curl -X POST https://api.gateway.com/v1/webhooks \
+curl -X POST https://treexpay.site/api/v1/webhooks \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -202,7 +202,7 @@ curl -X POST https://api.gateway.com/v1/webhooks \
 ## Consultar Saldo
 
 ```bash
-curl https://api.gateway.com/v1/merchants/mch_abc123/balance \
+curl https://treexpay.site/api/v1/merchants/mch_abc123/balance \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -221,7 +221,7 @@ curl https://api.gateway.com/v1/merchants/mch_abc123/balance \
 ## Criar Payout (Saque)
 
 ```bash
-curl -X POST https://api.gateway.com/v1/merchants/mch_abc123/payouts \
+curl -X POST https://treexpay.site/api/v1/merchants/mch_abc123/payouts \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: $(uuidgen)" \
@@ -259,14 +259,14 @@ curl -X POST https://api.gateway.com/v1/merchants/mch_abc123/payouts \
 ## Listar Payouts
 
 ```bash
-curl "https://api.gateway.com/v1/merchants/mch_abc123/payouts?status=completed&limit=10" \
+curl "https://treexpay.site/api/v1/merchants/mch_abc123/payouts?status=completed&limit=10" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ## Criar API Key
 
 ```bash
-curl -X POST https://api.gateway.com/v1/api-keys \
+curl -X POST https://treexpay.site/api/v1/api-keys \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -292,14 +292,14 @@ curl -X POST https://api.gateway.com/v1/api-keys \
 Depois de criar, use a API key no header `X-API-Key`:
 
 ```bash
-curl https://api.gateway.com/v1/payments \
+curl https://treexpay.site/api/v1/payments \
   -H "X-API-Key: sk_live_abc123xyz789def456ghi"
 ```
 
 ## Sandbox: Simular Status de Pagamento
 
 ```bash
-curl -X POST https://sandbox.gateway.com/v1/sandbox/payments/simulate \
+curl -X POST https://sandbox.treexpay.site/api/v1/sandbox/payments/simulate \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -311,7 +311,7 @@ curl -X POST https://sandbox.gateway.com/v1/sandbox/payments/simulate \
 ## Health Check
 
 ```bash
-curl https://api.gateway.com/v1/health
+curl https://treexpay.site/api/v1/health
 ```
 
 ### Resposta:
@@ -328,7 +328,7 @@ curl https://api.gateway.com/v1/health
 Para integrações server-to-server, você pode usar API Keys ao invés de OAuth:
 
 ```bash
-curl -X POST https://api.gateway.com/v1/payments \
+curl -X POST https://treexpay.site/api/v1/payments \
   -H "X-API-Key: sk_live_abc123xyz789def456ghi" \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \

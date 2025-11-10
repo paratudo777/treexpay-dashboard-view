@@ -1,15 +1,15 @@
 openapi: 3.0.3
 info:
-  title: Gateway de Pagamentos API
-  description: API pública para integração de merchants com a gateway de pagamentos
+  title: TreexPay API
+  description: API pública para integração de merchants com a TreexPay - Gateway de Pagamentos
   version: 1.0.0
   contact:
-    email: api@gateway.com
+    email: api@treexpay.site
 servers:
-  - url: https://api.gateway.com/v1
-    description: Produção
-  - url: https://sandbox.gateway.com/v1
-    description: Sandbox/Testes
+  - url: https://treexpay.site/api/v1
+    description: Produção - TreexPay
+  - url: https://sandbox.treexpay.site/api/v1
+    description: Sandbox/Testes - TreexPay
 
 security:
   - bearerAuth: []
@@ -19,6 +19,7 @@ paths:
   /oauth/authorize:
     get:
       summary: Iniciar fluxo OAuth2 Authorization Code
+      description: Redireciona o merchant para autorização. Exemplo de URL completa https://treexpay.site/api/v1/oauth/authorize?client_id=app_abc123&redirect_uri=https://suaapp.com/callback&response_type=code&scope=payments:read&state=xyz
       tags: [OAuth]
       security: []
       parameters:
@@ -573,6 +574,7 @@ components:
                   type: string
                 qr_code_url:
                   type: string
+                  example: "https://treexpay.site/qr/pay_abc123.png"
                 expiration:
                   type: string
                   format: date-time
@@ -583,6 +585,7 @@ components:
                   type: string
                 pdf_url:
                   type: string
+                  example: "https://treexpay.site/boleto/pay_bol123.pdf"
                 expiration:
                   type: string
                   format: date-time
