@@ -1,8 +1,12 @@
 
-# Handle client-side routing for SPA
-# All routes should fallback to index.html with 200 status
-/*    /index.html   200
+# API Proxy - Forward /api/v1/* to Supabase Edge Functions
+/api/v1/*  https://fhwfonispezljglrclia.supabase.co/functions/v1/:splat  200!
 
+# Ensure static assets are served correctly
+/assets/*    /assets/:splat   200
+/favicon.ico    /favicon.ico   200
+
+# Handle client-side routing for SPA
 # Specific routes for better handling
 /dashboard    /index.html   200
 /transactions    /index.html   200
@@ -14,6 +18,5 @@
 /admin    /index.html   200
 /checkout/*    /index.html   200
 
-# Ensure static assets are served correctly
-/assets/*    /assets/:splat   200
-/favicon.ico    /favicon.ico   200
+# All other routes fallback to index.html (SPA)
+/*    /index.html   200

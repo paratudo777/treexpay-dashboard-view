@@ -2,8 +2,21 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # API Proxy - Rewrite /api/v1/* to Supabase Edge Functions
+  RewriteCond %{REQUEST_URI} ^/api/v1/(.*)$
+  RewriteRule ^api/v1/(.*)$ https://fhwfonispezljglrclia.supabase.co/functions/v1/$1 [P,L]
+  
+  # SPA Fallback (only for non-API routes)
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/api/
   RewriteRule . /index.html [L]
+</IfModule>
+
+# Enable proxy (required for [P] flag)
+<IfModule mod_proxy.c>
+  ProxyRequests Off
+  ProxyPreserveHost On
 </IfModule>

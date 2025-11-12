@@ -1,7 +1,7 @@
 
 project_id = "fhwfonispezljglrclia"
 
-[functions.api-health]
+[functions.health]
 verify_jwt = false
 
 [api]
