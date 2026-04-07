@@ -69,7 +69,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                 className={`
                   relative rounded-lg p-3 md:p-4 flex items-center justify-between gap-3
                   ${user.is_current_user 
-                    ? 'ring-2 ring-treexpay-medium bg-treexpay-light/10' 
+                    ? 'ring-2 ring-primary bg-primary/10' 
                     : 'bg-muted/30'
                   }
                 `}
