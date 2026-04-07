@@ -214,7 +214,23 @@ export default function ApiSettings() {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">Nenhuma chave encontrada.</p>
-                    <Button onClick={loadApiKeys}><Plus className="h-4 w-4 mr-2" />Gerar Chaves</Button>
+                    <Button onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const { error: rpcError } = await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
+                        if (rpcError) {
+                          console.error('Erro RPC:', rpcError);
+                          toast({ title: 'Erro ao gerar chaves', description: rpcError.message, variant: 'destructive' });
+                        } else {
+                          toast({ title: 'Chaves geradas com sucesso!' });
+                          await loadApiKeys();
+                        }
+                      } catch (err: any) {
+                        console.error('Erro ao gerar chaves:', err);
+                        toast({ title: 'Erro ao gerar chaves', description: err.message, variant: 'destructive' });
+                      }
+                      setLoading(false);
+                    }}><Plus className="h-4 w-4 mr-2" />Gerar Chaves</Button>
                   </div>
                 )}
               </CardContent>
