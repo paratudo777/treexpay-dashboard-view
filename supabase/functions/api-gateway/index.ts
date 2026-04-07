@@ -18,51 +18,95 @@ const getAdmin = () => {
   return createClient(url, key)
 }
 
-// ── Autenticação por API Key ──
+// ── Autenticação por API Key (sk_live_...) ──
 async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_key_id: string } | Response> {
   const apiKey = req.headers.get('x-api-key') || req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey || apiKey.length < 16 || !/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
+  if (!apiKey || apiKey.length < 16) {
     return json({ error: 'Missing or invalid API key' }, 401)
   }
 
-  const prefix = apiKey.substring(0, 16)
   const admin = getAdmin()
 
+  // Try matching by secret_key directly (new pk/sk system)
   const { data, error } = await admin
     .from('api_keys')
-    .select('id, user_id, key_hash, status')
-    .eq('key_prefix', prefix)
-    .single()
+    .select('id, user_id, status')
+    .eq('secret_key', apiKey)
+    .eq('status', 'active')
+    .maybeSingle()
 
-  if (error || !data || data.status !== 'active') {
-    return json({ error: 'Invalid or inactive API key' }, 403)
+  if (data) {
+    // Update last_used_at (fire and forget)
+    admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then()
+    return { user_id: data.user_id, api_key_id: data.id }
   }
 
-  // Verify hash
-  const encoder = new TextEncoder()
-  const hash = await crypto.subtle.digest('SHA-256', encoder.encode(apiKey))
-  const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+  // Fallback: try legacy hash-based auth
+  if (/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
+    const prefix = apiKey.substring(0, 16)
+    const { data: legacy } = await admin
+      .from('api_keys')
+      .select('id, user_id, key_hash, status')
+      .eq('key_prefix', prefix)
+      .eq('status', 'active')
+      .maybeSingle()
 
-  if (hex !== data.key_hash) {
-    return json({ error: 'Invalid API key' }, 403)
+    if (legacy) {
+      const encoder = new TextEncoder()
+      const hash = await crypto.subtle.digest('SHA-256', encoder.encode(apiKey))
+      const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
+      if (hex === legacy.key_hash) {
+        admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', legacy.id).then()
+        return { user_id: legacy.user_id, api_key_id: legacy.id }
+      }
+    }
   }
 
-  // Update last_used_at (fire and forget)
-  admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then()
-
-  return { user_id: data.user_id, api_key_id: data.id }
+  return json({ error: 'Invalid or inactive API key' }, 403)
 }
 
-// ── Webhook dispatcher ──
-async function sendWebhook(url: string, payload: Record<string, unknown>) {
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+// ── Webhook dispatcher with retry ──
+async function dispatchWebhooks(admin: ReturnType<typeof getAdmin>, userId: string, paymentId: string, payment: any) {
+  // 1. Send to payment-level webhook_url
+  if (payment.webhook_url && !payment.webhook_sent) {
+    sendWithRetry(payment.webhook_url, {
+      event: 'payment.paid',
+      payment: { id: paymentId, amount: payment.amount, status: 'paid', paid_at: payment.paid_at },
     })
-  } catch (e) {
-    console.error('Webhook delivery failed:', e)
+    admin.from('api_payments').update({ webhook_sent: true }).eq('id', paymentId).then()
+  }
+
+  // 2. Send to user-level webhooks
+  const { data: webhooks } = await admin
+    .from('user_webhooks')
+    .select('url')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+
+  if (webhooks) {
+    for (const wh of webhooks) {
+      sendWithRetry(wh.url, {
+        event: 'payment.paid',
+        payment: { id: paymentId, amount: payment.amount, status: 'paid', paid_at: payment.paid_at },
+      })
+    }
+  }
+}
+
+async function sendWithRetry(url: string, payload: any, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) return
+      console.error(`Webhook ${url} returned ${res.status}, retry ${i + 1}/${retries}`)
+    } catch (e) {
+      console.error(`Webhook ${url} failed, retry ${i + 1}/${retries}:`, e)
+    }
+    if (i < retries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)))
   }
 }
 
@@ -87,12 +131,12 @@ Deno.serve(async (req) => {
       })
     }
 
-    // ── Autenticação obrigatória para todos os outros endpoints ──
+    // ── Auth ──
     const auth = await authenticateApiKey(req)
     if (auth instanceof Response) return auth
     const { user_id, api_key_id } = auth
 
-    // ── POST /payments — Criar pagamento ──
+    // ── POST /payments ──
     if (path === '/payments' && req.method === 'POST') {
       const body = await req.json()
       const { amount, description, customer_email, webhook_url, metadata } = body
@@ -107,9 +151,7 @@ Deno.serve(async (req) => {
       const { data: payment, error } = await admin
         .from('api_payments')
         .insert({
-          api_key_id,
-          user_id,
-          amount,
+          api_key_id, user_id, amount,
           description: description || null,
           customer_email: customer_email || null,
           webhook_url: webhook_url || null,
@@ -131,11 +173,10 @@ Deno.serve(async (req) => {
         description: payment.description,
         customer_email: payment.customer_email,
         created_at: payment.created_at,
-        webhook_url: payment.webhook_url ? '(configured)' : null,
       }, 201)
     }
 
-    // ── GET /payments — Listar pagamentos ──
+    // ── GET /payments ──
     if (path === '/payments' && req.method === 'GET') {
       const status = url.searchParams.get('status')
       const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
@@ -156,24 +197,21 @@ Deno.serve(async (req) => {
       return json({ data, total: count, limit, offset })
     }
 
-    // ── GET /payments/:id — Consultar pagamento ──
+    // ── GET /payments/:id ──
     const paymentMatch = path.match(/^\/payments\/([a-f0-9-]{36})$/)
     if (paymentMatch && req.method === 'GET') {
-      const paymentId = paymentMatch[1]
-
       const { data, error } = await admin
         .from('api_payments')
-        .select('id, amount, status, description, customer_email, metadata, webhook_url, webhook_sent, created_at, updated_at, paid_at')
-        .eq('id', paymentId)
+        .select('id, amount, status, description, customer_email, metadata, webhook_sent, created_at, updated_at, paid_at')
+        .eq('id', paymentMatch[1])
         .eq('api_key_id', api_key_id)
         .single()
 
       if (error || !data) return json({ error: 'Payment not found' }, 404)
-
       return json(data)
     }
 
-    // ── PATCH /payments/:id/status — Atualizar status (admin/manual) ──
+    // ── PATCH /payments/:id/status ──
     const statusMatch = path.match(/^\/payments\/([a-f0-9-]{36})\/status$/)
     if (statusMatch && (req.method === 'PATCH' || req.method === 'PUT')) {
       const paymentId = statusMatch[1]
@@ -185,46 +223,32 @@ Deno.serve(async (req) => {
         return json({ error: `status must be one of: ${validStatuses.join(', ')}` }, 400)
       }
 
-      // Verificar que o pagamento pertence a esta API key
-      const { data: existing, error: findError } = await admin
+      const { data: existing } = await admin
         .from('api_payments')
-        .select('id, status, webhook_url, webhook_sent')
+        .select('id, status, webhook_url, webhook_sent, amount')
         .eq('id', paymentId)
         .eq('api_key_id', api_key_id)
         .single()
 
-      if (findError || !existing) return json({ error: 'Payment not found' }, 404)
+      if (!existing) return json({ error: 'Payment not found' }, 404)
 
       const updateData: Record<string, unknown> = { status: newStatus }
       if (newStatus === 'paid' && existing.status !== 'paid') {
         updateData.paid_at = new Date().toISOString()
       }
 
-      const { data: updated, error: updateError } = await admin
+      const { data: updated, error } = await admin
         .from('api_payments')
         .update(updateData)
         .eq('id', paymentId)
-        .select('id, amount, status, description, customer_email, paid_at, webhook_url, webhook_sent')
+        .select('id, amount, status, description, customer_email, paid_at, webhook_sent')
         .single()
 
-      if (updateError) return json({ error: 'Failed to update payment' }, 500)
+      if (error) return json({ error: 'Failed to update payment' }, 500)
 
-      // Se pagou e tem webhook, disparar
-      if (newStatus === 'paid' && updated.webhook_url && !existing.webhook_sent) {
-        sendWebhook(updated.webhook_url, {
-          event: 'payment.paid',
-          payment: {
-            id: updated.id,
-            amount: updated.amount,
-            status: 'paid',
-            paid_at: updated.paid_at,
-          },
-        })
-
-        // Marcar webhook como enviado
-        admin.from('api_payments').update({ webhook_sent: true }).eq('id', paymentId).then()
-
-        // Creditar saldo no merchant
+      // Dispatch webhooks & credit balance when paid
+      if (newStatus === 'paid' && existing.status !== 'paid') {
+        dispatchWebhooks(admin, user_id, paymentId, { ...updated, webhook_url: existing.webhook_url, webhook_sent: existing.webhook_sent })
         admin.rpc('incrementar_saldo_usuario', { p_user_id: user_id, p_amount: updated.amount }).then()
       }
 

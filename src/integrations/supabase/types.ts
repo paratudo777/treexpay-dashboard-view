@@ -21,6 +21,8 @@ export type Database = {
           key_hash: string
           key_prefix: string
           last_used_at: string | null
+          public_key: string | null
+          secret_key: string | null
           status: string
           user_id: string
         }
@@ -30,6 +32,8 @@ export type Database = {
           key_hash: string
           key_prefix: string
           last_used_at?: string | null
+          public_key?: string | null
+          secret_key?: string | null
           status?: string
           user_id: string
         }
@@ -39,6 +43,8 @@ export type Database = {
           key_hash?: string
           key_prefix?: string
           last_used_at?: string | null
+          public_key?: string | null
+          secret_key?: string | null
           status?: string
           user_id?: string
         }
@@ -625,6 +631,10 @@ export type Database = {
     Functions: {
       approve_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
       count_user_checkouts: { Args: { p_user_id: string }; Returns: number }
+      generate_api_keys_for_user: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       generate_checkout_slug: { Args: never; Returns: string }
       generate_transaction_code: { Args: never; Returns: string }
       get_monthly_ranking: {

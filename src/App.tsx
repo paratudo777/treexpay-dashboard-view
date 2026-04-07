@@ -16,6 +16,7 @@ import Financeiro from "./pages/Financeiro";
 import Ranking from "./pages/Ranking";
 import Admin from "./pages/Admin";
 import AdminWithdrawals from "./pages/AdminWithdrawals";
+import ApiSettings from "./pages/ApiSettings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -111,6 +112,14 @@ const App = () => {
                     element={
                       <ProtectedRoute>
                         <Ranking />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/api" 
+                    element={
+                      <ProtectedRoute>
+                        <ApiSettings />
                       </ProtectedRoute>
                     } 
                   />
