@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart, Code } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 type NavItem = {
@@ -18,6 +18,7 @@ const navItems: NavItem[] = [
   { name: 'Checkouts', href: '/checkouts', icon: ShoppingCart },
   { name: 'Financeiro', href: '/financeiro', icon: Wallet },
   { name: 'Ranking', href: '/ranking', icon: Trophy },
+  { name: 'API', href: '/api', icon: Code },
   { name: 'Administração', href: '/admin', icon: Settings, adminOnly: true },
   { name: 'Solicitações de Saque', href: '/admin/saques', icon: CreditCard, adminOnly: true },
 ];
