@@ -34,27 +34,33 @@ export default function ApiSettings() {
 
   const loadApiKeys = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('*')
-      .eq('user_id', user!.id)
-      .eq('status', 'active')
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-    if (!error && data) {
-      setApiKeys(data);
-    } else if (!data) {
-      // Generate keys if none exist
-      const { error: rpcError } = await supabase.rpc('generate_api_keys_for_user', { p_user_id: user!.id });
-      if (!rpcError) {
-        const { data: newData } = await supabase
-          .from('api_keys')
-          .select('*')
-          .eq('user_id', user!.id)
-          .eq('status', 'active')
-          .maybeSingle();
-        setApiKeys(newData);
+      if (data) {
+        setApiKeys(data);
+      } else {
+        // Try to generate keys if none exist
+        try {
+          await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
+          const { data: newData } = await supabase
+            .from('api_keys')
+            .select('*')
+            .eq('user_id', user!.id)
+            .eq('status', 'active')
+            .maybeSingle();
+          if (newData) setApiKeys(newData);
+        } catch (rpcErr) {
+          console.error('RPC generate keys error:', rpcErr);
+        }
       }
+    } catch (err) {
+      console.error('loadApiKeys error:', err);
     }
     setLoading(false);
   };
