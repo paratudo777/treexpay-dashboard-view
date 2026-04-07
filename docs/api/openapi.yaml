@@ -1,401 +1,31 @@
 openapi: 3.0.3
 info:
   title: TreexPay API
-  description: API pública para integração de merchants com a TreexPay - Gateway de Pagamentos
-  version: 1.0.0
+  description: |
+    API pública para integração com a TreexPay - Gateway de Pagamentos PIX.
+    
+    ## Autenticação
+    Use sua API Key (sk_live_...) no header `X-API-Key` ou `Authorization: Bearer`.
+    
+    ## Fluxo de Pagamento PIX
+    1. Crie um pagamento via `POST /payments`
+    2. A API gera um PIX real automaticamente e retorna `pix_code` e `qr_code`
+    3. O cliente paga via qualquer banco
+    4. A TreexPay recebe confirmação da adquirente
+    5. Seu webhook é notificado com `payment.paid`
+    6. O saldo é creditado automaticamente
+  version: 2.0.0
   contact:
     email: api@treexpay.site
+
 servers:
-  - url: https://treexpay.site/api/v1
-    description: Produção - TreexPay
-  - url: https://sandbox.treexpay.site/api/v1
-    description: Sandbox/Testes - TreexPay
+  - url: https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway
+    description: Produção - TreexPay API Gateway
 
 security:
-  - bearerAuth: []
   - apiKey: []
 
 paths:
-  /oauth/authorize:
-    get:
-      summary: Iniciar fluxo OAuth2 Authorization Code
-      description: Redireciona o merchant para autorização. Exemplo de URL completa https://treexpay.site/api/v1/oauth/authorize?client_id=app_abc123&redirect_uri=https://suaapp.com/callback&response_type=code&scope=payments:read&state=xyz
-      tags: [OAuth]
-      security: []
-      parameters:
-        - name: client_id
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: redirect_uri
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: response_type
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: [code]
-        - name: scope
-          in: query
-          required: true
-          schema:
-            type: string
-            example: "payments:read payments:write balance:read payouts:write"
-        - name: state
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        '302':
-          description: Redireciona para tela de autorização
-
-  /oauth/token:
-    post:
-      summary: Trocar authorization code por access token
-      tags: [OAuth]
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-                - grant_type
-                - code
-                - client_id
-                - client_secret
-                - redirect_uri
-              properties:
-                grant_type:
-                  type: string
-                  enum: [authorization_code, refresh_token]
-                code:
-                  type: string
-                  description: Authorization code recebido
-                client_id:
-                  type: string
-                client_secret:
-                  type: string
-                redirect_uri:
-                  type: string
-                refresh_token:
-                  type: string
-                  description: Usado quando grant_type=refresh_token
-      responses:
-        '200':
-          description: Token gerado com sucesso
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                  token_type:
-                    type: string
-                    example: Bearer
-                  expires_in:
-                    type: integer
-                    example: 3600
-                  refresh_token:
-                    type: string
-                  scope:
-                    type: string
-
-  /payments:
-    post:
-      summary: Criar novo pagamento
-      tags: [Payments]
-      parameters:
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePaymentRequest'
-      responses:
-        '201':
-          description: Pagamento criado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '409':
-          $ref: '#/components/responses/IdempotencyConflict'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-
-  /payments/{id}:
-    get:
-      summary: Consultar pagamento
-      tags: [Payments]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Detalhes do pagamento
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payment'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /webhooks:
-    post:
-      summary: Registrar webhook endpoint
-      tags: [Webhooks]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - url
-                - events
-              properties:
-                url:
-                  type: string
-                  format: uri
-                  example: https://loja.com/webhooks/gateway
-                events:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - payment.created
-                      - payment.processing
-                      - payment.paid
-                      - payment.failed
-                      - payout.created
-                      - payout.completed
-                      - refund.created
-                description:
-                  type: string
-      responses:
-        '201':
-          description: Webhook registrado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  url:
-                    type: string
-                  secret:
-                    type: string
-                    description: Secret para validar assinatura HMAC
-                  events:
-                    type: array
-                    items:
-                      type: string
-                  created_at:
-                    type: string
-                    format: date-time
-
-    get:
-      summary: Listar webhooks registrados
-      tags: [Webhooks]
-      responses:
-        '200':
-          description: Lista de webhooks
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-
-  /webhooks/{id}:
-    delete:
-      summary: Remover webhook
-      tags: [Webhooks]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '204':
-          description: Webhook removido
-
-  /merchants/{id}/balance:
-    get:
-      summary: Consultar saldo do merchant
-      tags: [Merchants]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Saldo atual
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Balance'
-
-  /merchants/{id}/payouts:
-    post:
-      summary: Solicitar payout (saque)
-      tags: [Merchants]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-        - $ref: '#/components/parameters/IdempotencyKey'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePayoutRequest'
-      responses:
-        '201':
-          description: Payout criado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Payout'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/IdempotencyConflict'
-
-    get:
-      summary: Listar payouts
-      tags: [Merchants]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [pending, processing, completed, failed]
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-      responses:
-        '200':
-          description: Lista de payouts
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Payout'
-                  pagination:
-                    $ref: '#/components/schemas/Pagination'
-
-  /api-keys:
-    post:
-      summary: Criar API key
-      tags: [API Keys]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-              properties:
-                name:
-                  type: string
-                  example: "Produção - Servidor 1"
-                scopes:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '201':
-          description: API key criada
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  key:
-                    type: string
-                    description: Chave completa (mostrada apenas uma vez)
-                  name:
-                    type: string
-                  created_at:
-                    type: string
-                    format: date-time
-
-    get:
-      summary: Listar API keys
-      tags: [API Keys]
-      responses:
-        '200':
-          description: Lista de API keys
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-
-  /api-keys/{id}:
-    delete:
-      summary: Revogar API key
-      tags: [API Keys]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '204':
-          description: API key revogada
-
   /health:
     get:
       summary: Health check
@@ -412,16 +42,138 @@ paths:
                   status:
                     type: string
                     example: ok
+                  service:
+                    type: string
+                    example: TreexPay API Gateway
                   version:
                     type: string
+                    example: "2.0.0"
+                  features:
+                    type: array
+                    items:
+                      type: string
+                    example: ["pix"]
                   timestamp:
                     type: string
                     format: date-time
 
-  /sandbox/payments/simulate:
+  /payments:
     post:
-      summary: Simular mudança de status de pagamento (sandbox only)
-      tags: [Sandbox]
+      summary: Criar pagamento PIX
+      description: |
+        Cria um pagamento e gera automaticamente uma cobrança PIX real via adquirente.
+        A resposta inclui o código copia-e-cola (`pix_code`) e o QR Code (`qr_code`).
+        
+        O valor é em reais (ex: 10.00 = R$ 10,00). Máximo: R$ 100.000,00.
+      tags: [Payments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Pagamento criado com PIX gerado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentWithPix'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '502':
+          description: Falha ao gerar PIX na adquirente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to generate PIX payment
+                  payment_id:
+                    type: string
+                  details:
+                    type: string
+
+    get:
+      summary: Listar pagamentos
+      tags: [Payments]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid, canceled, expired, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de pagamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentWithPix'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+  /payments/{id}:
+    get:
+      summary: Consultar pagamento
+      tags: [Payments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes do pagamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentWithPix'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /payments/{id}/status:
+    patch:
+      summary: Atualizar status do pagamento (manual)
+      description: |
+        Permite alterar manualmente o status de um pagamento.
+        Normalmente o status é atualizado automaticamente via webhook da adquirente.
+      tags: [Payments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -429,170 +181,102 @@ paths:
             schema:
               type: object
               required:
-                - payment_id
                 - status
               properties:
-                payment_id:
-                  type: string
                 status:
                   type: string
-                  enum: [processing, paid, failed]
+                  enum: [pending, paid, canceled, expired, failed]
       responses:
         '200':
-          description: Status simulado
-
-  /sandbox/reset:
-    post:
-      summary: Limpar dados do sandbox
-      tags: [Sandbox]
-      responses:
-        '204':
-          description: Dados limpos
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentWithPix'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
     apiKey:
       type: apiKey
       in: header
       name: X-API-Key
-
-  parameters:
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema:
-        type: string
-        format: uuid
-      description: Chave única para garantir idempotência da requisição
+      description: Chave secreta (sk_live_...) gerada no dashboard
 
   schemas:
     CreatePaymentRequest:
       type: object
       required:
         - amount
-        - currency
-        - payment_method
       properties:
         amount:
-          type: integer
-          description: Valor em centavos
-          example: 10000
-        currency:
+          type: number
+          description: Valor em reais (ex 10.50 = R$ 10,50)
+          example: 10.00
+          minimum: 0.01
+          maximum: 100000
+        description:
           type: string
-          example: BRL
-        payment_method:
-          type: object
-          required:
-            - type
-          properties:
-            type:
-              type: string
-              enum: [credit_card, pix, boleto]
-            card:
-              $ref: '#/components/schemas/CardData'
-        customer:
-          $ref: '#/components/schemas/Customer'
+          description: Descrição do pagamento
+          example: "Assinatura mensal"
+        customer_email:
+          type: string
+          format: email
+          example: "cliente@example.com"
+        webhook_url:
+          type: string
+          format: uri
+          description: URL para receber notificação quando este pagamento for confirmado
+          example: "https://seusite.com/webhook/pagamento"
         metadata:
           type: object
           additionalProperties: true
+          description: Dados adicionais (máx 10 campos)
           example:
-            order_id: "ORD-12345"
-            customer_ref: "CUST-789"
+            order_id: "PED-12345"
 
-    CardData:
-      type: object
-      required:
-        - number
-        - holder_name
-        - expiry_month
-        - expiry_year
-        - cvv
-      properties:
-        number:
-          type: string
-          example: "4111111111111111"
-        holder_name:
-          type: string
-          example: "João Silva"
-        expiry_month:
-          type: string
-          example: "12"
-        expiry_year:
-          type: string
-          example: "2025"
-        cvv:
-          type: string
-          example: "123"
-
-    Customer:
-      type: object
-      required:
-        - name
-        - email
-        - document
-      properties:
-        name:
-          type: string
-        email:
-          type: string
-          format: email
-        document:
-          type: string
-          description: CPF ou CNPJ
-        phone:
-          type: string
-
-    Payment:
+    PaymentWithPix:
       type: object
       properties:
         id:
           type: string
+          format: uuid
+          description: ID interno do pagamento
+        external_id:
+          type: string
+          description: ID da transação na adquirente
+        amount:
+          type: number
+          description: Valor em reais
         status:
           type: string
-          enum: [created, processing, paid, failed, refunded]
-        amount:
-          type: integer
-        currency:
+          enum: [pending, paid, canceled, expired, failed]
+        description:
           type: string
-        payment_method:
-          type: object
-          properties:
-            type:
-              type: string
-            last4:
-              type: string
-              description: Últimos 4 dígitos do cartão
-            pix:
-              type: object
-              properties:
-                qr_code:
-                  type: string
-                qr_code_url:
-                  type: string
-                  example: "https://treexpay.site/qr/pay_abc123.png"
-                expiration:
-                  type: string
-                  format: date-time
-            boleto:
-              type: object
-              properties:
-                barcode:
-                  type: string
-                pdf_url:
-                  type: string
-                  example: "https://treexpay.site/boleto/pay_bol123.pdf"
-                expiration:
-                  type: string
-                  format: date-time
-        customer:
-          $ref: '#/components/schemas/Customer'
-        metadata:
-          type: object
+        customer_email:
+          type: string
+        pix_code:
+          type: string
+          description: Código copia-e-cola do PIX (BR Code)
+          example: "00020101021226800014br.gov.bcb.pix..."
+        qr_code:
+          type: string
+          description: Dados do QR Code PIX
+          example: "00020101021226800014br.gov.bcb.pix..."
+        expires_at:
+          type: string
+          format: date-time
+          description: Data de expiração do PIX
+        provider:
+          type: string
+          description: Adquirente utilizada
+          example: novaera
+        webhook_sent:
+          type: boolean
+        paid_at:
+          type: string
+          format: date-time
         created_at:
           type: string
           format: date-time
@@ -600,98 +284,33 @@ components:
           type: string
           format: date-time
 
-    Balance:
+    WebhookPayload:
       type: object
+      description: Payload enviado para seu webhook quando um pagamento é confirmado
       properties:
-        merchant_id:
+        event:
           type: string
-        available:
-          type: integer
-          description: Saldo disponível para saque (centavos)
-        pending:
-          type: integer
-          description: Saldo pendente (centavos)
-        total:
-          type: integer
-          description: Saldo total (centavos)
-        currency:
-          type: string
-          example: BRL
-        last_updated:
-          type: string
-          format: date-time
-
-    CreatePayoutRequest:
-      type: object
-      required:
-        - amount
-        - destination
-      properties:
-        amount:
-          type: integer
-          description: Valor em centavos
-        destination:
+          example: payment.paid
+        payment:
           type: object
-          required:
-            - type
-            - pix_key
           properties:
-            type:
+            id:
               type: string
-              enum: [pix]
-            pix_key:
+              format: uuid
+            amount:
+              type: number
+            status:
               type: string
-            pix_key_type:
+              example: paid
+            paid_at:
               type: string
-              enum: [cpf, cnpj, email, phone, random]
-        metadata:
-          type: object
-
-    Payout:
-      type: object
-      properties:
-        id:
-          type: string
-        merchant_id:
-          type: string
-        amount:
-          type: integer
-        status:
-          type: string
-          enum: [pending, processing, completed, failed]
-        destination:
-          type: object
-        created_at:
-          type: string
-          format: date-time
-        completed_at:
-          type: string
-          format: date-time
-        failure_reason:
-          type: string
-
-    Pagination:
-      type: object
-      properties:
-        limit:
-          type: integer
-        offset:
-          type: integer
-        total:
-          type: integer
+              format: date-time
 
     Error:
       type: object
-      required:
-        - code
-        - message
       properties:
-        code:
+        error:
           type: string
-        message:
-          type: string
-        details:
-          type: object
 
   responses:
     BadRequest:
@@ -701,10 +320,7 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            code: INVALID_REQUEST
-            message: O campo 'amount' é obrigatório
-            details:
-              field: amount
+            error: "amount is required and must be a positive number"
 
     Unauthorized:
       description: Não autenticado
@@ -713,18 +329,16 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            code: UNAUTHORIZED
-            message: Token inválido ou expirado
+            error: "Missing or invalid API key"
 
     Forbidden:
-      description: Sem permissão
+      description: Chave inativa ou inválida
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            code: FORBIDDEN
-            message: Sem permissão para acessar este recurso
+            error: "Invalid or inactive API key"
 
     NotFound:
       description: Recurso não encontrado
@@ -733,35 +347,4 @@ components:
           schema:
             $ref: '#/components/schemas/Error'
           example:
-            code: NOT_FOUND
-            message: Pagamento não encontrado
-
-    IdempotencyConflict:
-      description: Conflito de idempotência
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            code: IDEMPOTENCY_CONFLICT
-            message: Idempotency-Key já utilizada com payload diferente
-
-    RateLimited:
-      description: Limite de requisições excedido
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-          example:
-            code: RATE_LIMITED
-            message: Limite de 60 requisições por minuto excedido
-      headers:
-        X-RateLimit-Limit:
-          schema:
-            type: integer
-        X-RateLimit-Remaining:
-          schema:
-            type: integer
-        X-RateLimit-Reset:
-          schema:
-            type: integer
+            error: "Payment not found"

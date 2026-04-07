@@ -1,293 +1,166 @@
 # Quickstart - Integração TreexPay
 
-Guia rápido para lojistas integrarem a TreexPay e começarem a receber pagamentos.
+Guia rápido para integrar a TreexPay e começar a receber pagamentos PIX reais.
 
-## 1. Criar Conta e Aplicação
+## 1. Criar Conta
 
 1. Acesse [treexpay.site](https://treexpay.site)
 2. Crie sua conta
-3. Complete o KYC (envie documentos)
-4. Crie uma aplicação em **Configurações > Aplicações**
-5. Anote seu `client_id` e `client_secret`
+3. No dashboard, vá em **API** para obter suas chaves
 
-## 2. Escolher Método de Autenticação
+Suas chaves serão geradas automaticamente:
+- `pk_live_...` — Chave pública (identificação)
+- `sk_live_...` — Chave secreta (usada nas requisições)
 
-### Opção A: OAuth2 (Recomendado para Plataformas)
-
-Se você está construindo uma plataforma onde múltiplos lojistas vão se conectar:
-
-```javascript
-// 1. Redirecionar lojista para autorização
-const authUrl = `https://treexpay.site/api/v1/oauth/authorize?client_id=SEU_CLIENT_ID&redirect_uri=https://suaapp.com/callback&response_type=code&scope=payments:read payments:write balance:read payouts:write&state=RANDOM_STATE`;
-
-// 2. Após autorização, receber code e trocar por token
-const response = await fetch('https://treexpay.site/api/v1/oauth/token', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-  body: new URLSearchParams({
-    grant_type: 'authorization_code',
-    code: 'CODE_RECEBIDO',
-    client_id: 'SEU_CLIENT_ID',
-    client_secret: 'SEU_CLIENT_SECRET',
-    redirect_uri: 'https://suaapp.com/callback'
-  })
-});
-
-const { access_token } = await response.json();
-// Salvar access_token para usar nas requisições
-```
-
-### Opção B: API Key (Simples para Server-to-Server)
-
-Se é apenas sua loja conectando:
-
-1. No dashboard, vá em **Configurações > API Keys**
-2. Clique em **Criar Nova Chave**
-3. Dê um nome (ex: "Servidor Produção")
-4. Copie a chave (mostrada apenas uma vez!)
-
-## 3. Criar Primeiro Pagamento
-
-### Com PIX (mais simples):
+## 2. Criar Primeiro Pagamento PIX
 
 ```bash
-curl -X POST https://treexpay.site/api/v1/payments \
-  -H "X-API-Key: sk_live_SUA_API_KEY" \
+curl -X POST https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments \
+  -H "X-API-Key: sk_live_SUA_CHAVE_SECRETA" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" \
   -d '{
-    "amount": 10000,
-    "currency": "BRL",
-    "payment_method": {
-      "type": "pix"
-    },
-    "customer": {
-      "name": "Cliente Teste",
-      "email": "cliente@example.com",
-      "document": "12345678901"
-    },
+    "amount": 10.00,
+    "description": "Pedido #12345",
+    "customer_email": "cliente@example.com",
+    "webhook_url": "https://seusite.com/webhook",
     "metadata": {
       "order_id": "PED-12345"
     }
   }'
 ```
 
-**Resposta:**
+**Resposta (201):**
 ```json
 {
-  "id": "pay_abc123xyz",
-  "status": "created",
-  "amount": 10000,
-  "payment_method": {
-    "type": "pix",
-    "pix": {
-      "qr_code": "00020126580014br.gov.bcb.pix...",
-      "qr_code_url": "https://treexpay.site/qr/pay_abc123xyz.png",
-      "expiration": "2025-01-10T15:30:00Z"
-    }
+  "id": "73a95625-edbe-45c9-9fad-e1d1f277e87c",
+  "external_id": "1055320",
+  "amount": 10.00,
+  "status": "pending",
+  "description": "Pedido #12345",
+  "customer_email": "cliente@example.com",
+  "pix_code": "00020101021226800014br.gov.bcb.pix2558qrcode.mkip.com.br/v1/...",
+  "qr_code": "00020101021226800014br.gov.bcb.pix2558qrcode.mkip.com.br/v1/...",
+  "expires_at": "2026-04-09T19:55:42.616Z",
+  "provider": "novaera",
+  "created_at": "2026-04-07T19:55:40.055742+00:00"
+}
+```
+
+**O que fazer com a resposta:**
+- Exibir o `pix_code` para o cliente copiar e colar no app do banco
+- Gerar um QR Code a partir do `qr_code` para o cliente escanear
+- O PIX expira na data indicada em `expires_at`
+
+## 3. Receber Notificação de Pagamento
+
+Quando o cliente pagar o PIX, a TreexPay envia um POST para seu `webhook_url`:
+
+```json
+{
+  "event": "payment.paid",
+  "payment": {
+    "id": "73a95625-edbe-45c9-9fad-e1d1f277e87c",
+    "amount": 10.00,
+    "status": "paid",
+    "paid_at": "2026-04-07T20:01:30.000Z"
   }
 }
 ```
 
-**Mostrar QR Code para cliente:**
-- Exibir `qr_code_url` como imagem
-- Ou gerar QR Code do `qr_code` no frontend
-
-### Com Cartão de Crédito:
-
-```bash
-curl -X POST https://treexpay.site/api/v1/payments \
-  -H "X-API-Key: sk_live_SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" \
-  -d '{
-    "amount": 10000,
-    "currency": "BRL",
-    "payment_method": {
-      "type": "credit_card",
-      "card": {
-        "number": "4111111111111111",
-        "holder_name": "João Silva",
-        "expiry_month": "12",
-        "expiry_year": "2025",
-        "cvv": "123"
-      }
-    },
-    "customer": {
-      "name": "João Silva",
-      "email": "joao@example.com",
-      "document": "12345678901"
-    }
-  }'
-```
-
-## 4. Receber Notificações (Webhooks)
-
-### Registrar Webhook:
-
-```bash
-curl -X POST https://treexpay.site/api/v1/webhooks \
-  -H "X-API-Key: sk_live_SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://suaapi.com/webhooks/gateway",
-    "events": [
-      "payment.paid",
-      "payment.failed"
-    ]
-  }'
-```
-
-**Resposta:**
-```json
-{
-  "id": "whk_abc123",
-  "url": "https://suaapi.com/webhooks/gateway",
-  "secret": "whsec_xyz789abc",
-  "events": ["payment.paid", "payment.failed"]
-}
-```
-
-**IMPORTANTE:** Guarde o `secret` para validar webhooks!
-
-### Implementar Endpoint de Webhook:
+### Exemplo de webhook handler (Node.js):
 
 ```javascript
-const express = require('express');
+app.post('/webhook', express.json(), (req, res) => {
+  const { event, payment } = req.body;
+  
+  if (event === 'payment.paid') {
+    console.log('Pagamento confirmado:', payment.id);
+    // Liberar produto, enviar email, etc.
+  }
+  
+  res.status(200).json({ received: true });
+});
+```
+
+### Validação HMAC (se usar webhooks do dashboard):
+
+Os webhooks configurados no dashboard incluem o header `X-Treex-Signature` com assinatura HMAC SHA-256:
+
+```javascript
 const crypto = require('crypto');
 
-const app = express();
-
-// IMPORTANTE: Usar express.raw() para ter acesso ao body original
-app.post('/webhooks/gateway', 
-  express.raw({ type: 'application/json' }), 
-  (req, res) => {
-    // 1. Validar assinatura
-    const signature = req.headers['x-signature'];
-    const secret = 'whsec_xyz789abc'; // Do registro de webhook
-    
-    const computed = crypto
-      .createHmac('sha256', secret)
-      .update(req.body) // Body raw (Buffer)
-      .digest('hex');
-    
-    const expected = `sha256=${computed}`;
-    
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
-      return res.status(401).json({ error: 'Assinatura inválida' });
-    }
-    
-    // 2. Parsear evento
-    const event = JSON.parse(req.body);
-    
-    // 3. Processar evento
-    if (event.type === 'payment.paid') {
-      const payment = event.data.object;
-      console.log('Pagamento confirmado:', payment.id);
-      console.log('Pedido:', payment.metadata.order_id);
-      
-      // Liberar produto, enviar email, etc
-      liberarProduto(payment.metadata.order_id);
-    }
-    
-    // 4. Confirmar recebimento
-    res.status(200).json({ received: true });
-  }
-);
-
-app.listen(3000);
-```
-
-## 5. Consultar Saldo
-
-```bash
-curl https://treexpay.site/api/v1/merchants/SEU_MERCHANT_ID/balance \
-  -H "X-API-Key: sk_live_SUA_API_KEY"
-```
-
-**Resposta:**
-```json
-{
-  "available": 150000,
-  "pending": 25000,
-  "total": 175000,
-  "currency": "BRL"
+function validateSignature(body, signature, secret) {
+  const computed = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(body))
+    .digest('hex');
+  return computed === signature;
 }
 ```
 
-- **available**: R$ 1.500,00 (disponível para saque)
-- **pending**: R$ 250,00 (em retenção - cartão)
-- **total**: R$ 1.750,00
-
-## 6. Solicitar Saque (Payout)
+## 4. Consultar Pagamento
 
 ```bash
-curl -X POST https://treexpay.site/api/v1/merchants/SEU_MERCHANT_ID/payouts \
-  -H "X-API-Key: sk_live_SUA_API_KEY" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: $(uuidgen)" \
-  -d '{
-    "amount": 100000,
-    "destination": {
-      "type": "pix",
-      "pix_key": "seuemail@example.com",
-      "pix_key_type": "email"
-    }
-  }'
+curl https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments/73a95625-edbe-45c9-9fad-e1d1f277e87c \
+  -H "X-API-Key: sk_live_SUA_CHAVE_SECRETA"
 ```
 
-**Resposta:**
+## 5. Listar Pagamentos
+
+```bash
+# Todos os pagamentos
+curl "https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments?limit=20&offset=0" \
+  -H "X-API-Key: sk_live_SUA_CHAVE_SECRETA"
+
+# Filtrar por status
+curl "https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments?status=paid" \
+  -H "X-API-Key: sk_live_SUA_CHAVE_SECRETA"
+```
+
+## 6. Health Check (público)
+
+```bash
+curl https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/health
+```
+
 ```json
 {
-  "id": "pyt_abc123",
-  "status": "pending",
-  "amount": 100000,
-  "created_at": "2025-01-10T14:30:00Z"
+  "status": "ok",
+  "service": "TreexPay API Gateway",
+  "version": "2.0.0",
+  "features": ["pix"],
+  "timestamp": "2026-04-07T19:55:30.315Z"
 }
 ```
 
-Você receberá um webhook `payout.completed` quando o saque for processado.
+## Referência Rápida
 
-## Testando no Sandbox
+| Endpoint | Método | Descrição |
+|---|---|---|
+| `/health` | GET | Health check (público) |
+| `/payments` | POST | Criar pagamento PIX |
+| `/payments` | GET | Listar pagamentos |
+| `/payments/:id` | GET | Consultar pagamento |
+| `/payments/:id/status` | PATCH | Atualizar status (manual) |
 
-Para testar sem cobranças reais:
+## Fluxo Completo
 
-1. Use `https://sandbox.treexpay.site/api/v1` ao invés de `https://treexpay.site/api/v1`
-2. Use API keys de sandbox (começam com `sk_test_`)
-3. No sandbox:
-   - PIX é confirmado instantaneamente
-   - Cartões de teste:
-     - `4111111111111111`: sucesso
-     - `4000000000000002`: falha (card_declined)
-
-## Próximos Passos
-
-✅ Implementar tratamento de erros  
-✅ Adicionar logs de auditoria  
-✅ Testar cenários de falha  
-✅ Configurar monitoramento de webhooks  
-✅ Implementar retry para webhooks falhados  
-✅ Adicionar boleto como método de pagamento  
+```
+Seu Sistema                    TreexPay                      Adquirente (NovaEra)
+    │                              │                              │
+    ├── POST /payments ───────────>│                              │
+    │                              ├── Cria cobrança PIX ────────>│
+    │                              │<── pix_code + qr_code ──────┤
+    │<── 201 + dados do PIX ──────┤                              │
+    │                              │                              │
+    │  (cliente paga no banco)     │                              │
+    │                              │<── webhook: pago ────────────┤
+    │                              ├── Credita saldo              │
+    │<── webhook: payment.paid ───┤                              │
+    │                              │                              │
+```
 
 ## Suporte
 
-- **Documentação completa**: [treexpay.site/docs](https://treexpay.site/docs)
 - **Dashboard**: [treexpay.site](https://treexpay.site)
 - **Suporte**: suporte@treexpay.site
-- **Status da API**: [status.treexpay.site](https://status.treexpay.site)
-
-## Checklist de Go-Live
-
-Antes de ir para produção:
-
-- [ ] KYC aprovado
-- [ ] Webhooks configurados e testados
-- [ ] Validação de assinatura implementada
-- [ ] Idempotência implementada
-- [ ] Tratamento de erros completo
-- [ ] Logs implementados
-- [ ] Monitoramento configurado
-- [ ] Testado no sandbox
-- [ ] Chaves de produção geradas
-- [ ] HTTPS configurado
-- [ ] Política de privacidade atualizada
