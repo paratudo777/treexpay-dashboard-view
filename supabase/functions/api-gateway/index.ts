@@ -311,6 +311,7 @@ Deno.serve(async (req) => {
         }, 201)
 
       } catch (pixError) {
+        const pixErrorMessage = pixError instanceof Error ? pixError.message : 'Unknown PIX creation error'
         // Se falhar na adquirente, marcar como failed
         console.error('PIX creation failed:', pixError)
         await admin
@@ -331,7 +332,7 @@ Deno.serve(async (req) => {
         return json({
           error: 'Failed to generate PIX payment',
           payment_id: payment.id,
-          details: pixError.message,
+          details: pixErrorMessage,
         }, 502)
       }
     }
