@@ -57,9 +57,14 @@ export type Database = {
           created_at: string
           customer_email: string | null
           description: string | null
+          expires_at: string | null
+          external_id: string | null
           id: string
           metadata: Json | null
           paid_at: string | null
+          pix_code: string | null
+          provider: string | null
+          qr_code: string | null
           status: string
           updated_at: string
           user_id: string
@@ -72,9 +77,14 @@ export type Database = {
           created_at?: string
           customer_email?: string | null
           description?: string | null
+          expires_at?: string | null
+          external_id?: string | null
           id?: string
           metadata?: Json | null
           paid_at?: string | null
+          pix_code?: string | null
+          provider?: string | null
+          qr_code?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -87,9 +97,14 @@ export type Database = {
           created_at?: string
           customer_email?: string | null
           description?: string | null
+          expires_at?: string | null
+          external_id?: string | null
           id?: string
           metadata?: Json | null
           paid_at?: string | null
+          pix_code?: string | null
+          provider?: string | null
+          qr_code?: string | null
           status?: string
           updated_at?: string
           user_id?: string

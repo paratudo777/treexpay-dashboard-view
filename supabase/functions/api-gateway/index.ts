@@ -18,6 +18,68 @@ const getAdmin = () => {
   return createClient(url, key)
 }
 
+// ── NovaEra PIX Provider ──
+async function createNovaEraPix(amount: number, paymentId: string, webhookUrl?: string) {
+  const baseUrl = Deno.env.get('NOVAERA_BASE_URL')
+  const pk = Deno.env.get('NOVAERA_PK')
+  const sk = Deno.env.get('NOVAERA_SK')
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')
+
+  if (!baseUrl || !pk || !sk) {
+    throw new Error('NovaEra credentials not configured')
+  }
+
+  const credentials = btoa(`${sk}:${pk}`)
+  const externalRef = `api_payment_${paymentId}`
+
+  const response = await fetch(`${baseUrl}/transactions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${credentials}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      paymentMethod: 'pix',
+      amount: Math.round(amount * 100), // centavos
+      externalRef,
+      postbackUrl: `${supabaseUrl}/functions/v1/api-gateway-webhook`,
+      pix: {
+        pixKey: 'treex@tecnologia.com.br',
+        pixKeyType: 'email',
+        expiresInSeconds: 3600,
+      },
+      items: [
+        { title: 'Pagamento via API', quantity: 1, tangible: false, unitPrice: Math.round(amount * 100) }
+      ],
+      customer: {
+        name: 'Cliente API',
+        email: 'noreply@treexpay.site',
+        phone: '5511999999999',
+        document: { type: 'cpf', number: '11144477735' },
+      },
+      metadata: JSON.stringify({ origin: 'TreexPay API Gateway', payment_id: paymentId }),
+      traceable: false,
+      notifications: { email: false, sms: false },
+    }),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    console.error('NovaEra error:', errorBody)
+    throw new Error(`PIX creation failed: ${response.status}`)
+  }
+
+  const data = await response.json()
+  console.log('NovaEra PIX created:', JSON.stringify(data))
+
+  return {
+    external_id: String(data.data?.id || data.data?.externalId || externalRef),
+    pix_code: data.data?.pix?.qrcodeText || data.data?.pix?.qrcode || '',
+    qr_code: data.data?.pix?.qrcode || '',
+    expires_at: data.data?.pix?.expiresAt || data.data?.pix?.expirationDate || new Date(Date.now() + 3600000).toISOString(),
+  }
+}
+
 // ── Autenticação por API Key (sk_live_...) ──
 async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_key_id: string } | Response> {
   const apiKey = req.headers.get('x-api-key') || req.headers.get('authorization')?.replace('Bearer ', '')
@@ -27,8 +89,7 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
 
   const admin = getAdmin()
 
-  // Try matching by secret_key directly (new pk/sk system)
-  const { data, error } = await admin
+  const { data } = await admin
     .from('api_keys')
     .select('id, user_id, status')
     .eq('secret_key', apiKey)
@@ -36,12 +97,11 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
     .maybeSingle()
 
   if (data) {
-    // Update last_used_at (fire and forget)
     admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then()
     return { user_id: data.user_id, api_key_id: data.id }
   }
 
-  // Fallback: try legacy hash-based auth
+  // Fallback: legacy hash-based auth
   if (/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
     const prefix = apiKey.substring(0, 16)
     const { data: legacy } = await admin
@@ -67,7 +127,6 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
 
 // ── Webhook dispatcher with retry ──
 async function dispatchWebhooks(admin: ReturnType<typeof getAdmin>, userId: string, paymentId: string, payment: any) {
-  // 1. Send to payment-level webhook_url
   if (payment.webhook_url && !payment.webhook_sent) {
     sendWithRetry(payment.webhook_url, {
       event: 'payment.paid',
@@ -76,7 +135,6 @@ async function dispatchWebhooks(admin: ReturnType<typeof getAdmin>, userId: stri
     admin.from('api_payments').update({ webhook_sent: true }).eq('id', paymentId).then()
   }
 
-  // 2. Send to user-level webhooks
   const { data: webhooks } = await admin
     .from('user_webhooks')
     .select('url')
@@ -126,7 +184,8 @@ Deno.serve(async (req) => {
       return json({
         status: 'ok',
         service: 'TreexPay API Gateway',
-        version: '1.0.0',
+        version: '2.0.0',
+        features: ['pix'],
         timestamp: new Date().toISOString(),
       })
     }
@@ -136,10 +195,10 @@ Deno.serve(async (req) => {
     if (auth instanceof Response) return auth
     const { user_id, api_key_id } = auth
 
-    // ── POST /payments ──
+    // ── POST /payments — Cria pagamento + PIX real ──
     if (path === '/payments' && req.method === 'POST') {
       const body = await req.json()
-      const { amount, description, customer_email, webhook_url, metadata } = body
+      const { amount, description, customer_email, customer_name, customer_document, webhook_url, metadata } = body
 
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return json({ error: 'amount is required and must be a positive number' }, 400)
@@ -148,6 +207,7 @@ Deno.serve(async (req) => {
         return json({ error: 'amount cannot exceed 100000' }, 400)
       }
 
+      // 1. Criar registro interno (pending)
       const { data: payment, error } = await admin
         .from('api_payments')
         .insert({
@@ -157,6 +217,7 @@ Deno.serve(async (req) => {
           webhook_url: webhook_url || null,
           metadata: metadata || {},
           status: 'pending',
+          provider: 'novaera',
         })
         .select()
         .single()
@@ -166,14 +227,49 @@ Deno.serve(async (req) => {
         return json({ error: 'Failed to create payment' }, 500)
       }
 
-      return json({
-        id: payment.id,
-        amount: payment.amount,
-        status: payment.status,
-        description: payment.description,
-        customer_email: payment.customer_email,
-        created_at: payment.created_at,
-      }, 201)
+      // 2. Gerar PIX real via NovaEra
+      try {
+        const pixData = await createNovaEraPix(amount, payment.id)
+
+        // 3. Atualizar registro com dados do PIX
+        await admin
+          .from('api_payments')
+          .update({
+            external_id: pixData.external_id,
+            pix_code: pixData.pix_code,
+            qr_code: pixData.qr_code,
+            expires_at: pixData.expires_at,
+          })
+          .eq('id', payment.id)
+
+        return json({
+          id: payment.id,
+          external_id: pixData.external_id,
+          amount: payment.amount,
+          status: 'pending',
+          description: payment.description,
+          customer_email: payment.customer_email,
+          pix_code: pixData.pix_code,
+          qr_code: pixData.qr_code,
+          expires_at: pixData.expires_at,
+          provider: 'novaera',
+          created_at: payment.created_at,
+        }, 201)
+
+      } catch (pixError) {
+        // Se falhar na adquirente, marcar como failed
+        console.error('PIX creation failed:', pixError)
+        await admin
+          .from('api_payments')
+          .update({ status: 'failed' })
+          .eq('id', payment.id)
+
+        return json({
+          error: 'Failed to generate PIX payment',
+          payment_id: payment.id,
+          details: pixError.message,
+        }, 502)
+      }
     }
 
     // ── GET /payments ──
@@ -184,7 +280,7 @@ Deno.serve(async (req) => {
 
       let query = admin
         .from('api_payments')
-        .select('id, amount, status, description, customer_email, created_at, paid_at', { count: 'exact' })
+        .select('id, external_id, amount, status, description, customer_email, pix_code, qr_code, expires_at, provider, created_at, paid_at', { count: 'exact' })
         .eq('api_key_id', api_key_id)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)
@@ -202,7 +298,7 @@ Deno.serve(async (req) => {
     if (paymentMatch && req.method === 'GET') {
       const { data, error } = await admin
         .from('api_payments')
-        .select('id, amount, status, description, customer_email, metadata, webhook_sent, created_at, updated_at, paid_at')
+        .select('id, external_id, amount, status, description, customer_email, pix_code, qr_code, expires_at, provider, metadata, webhook_sent, created_at, updated_at, paid_at')
         .eq('id', paymentMatch[1])
         .eq('api_key_id', api_key_id)
         .single()
@@ -211,14 +307,14 @@ Deno.serve(async (req) => {
       return json(data)
     }
 
-    // ── PATCH /payments/:id/status ──
+    // ── PATCH /payments/:id/status (manual override, mantido) ──
     const statusMatch = path.match(/^\/payments\/([a-f0-9-]{36})\/status$/)
     if (statusMatch && (req.method === 'PATCH' || req.method === 'PUT')) {
       const paymentId = statusMatch[1]
       const body = await req.json()
       const { status: newStatus } = body
 
-      const validStatuses = ['pending', 'paid', 'canceled', 'expired']
+      const validStatuses = ['pending', 'paid', 'canceled', 'expired', 'failed']
       if (!newStatus || !validStatuses.includes(newStatus)) {
         return json({ error: `status must be one of: ${validStatuses.join(', ')}` }, 400)
       }
@@ -241,12 +337,11 @@ Deno.serve(async (req) => {
         .from('api_payments')
         .update(updateData)
         .eq('id', paymentId)
-        .select('id, amount, status, description, customer_email, paid_at, webhook_sent')
+        .select('id, external_id, amount, status, description, customer_email, pix_code, paid_at, webhook_sent')
         .single()
 
       if (error) return json({ error: 'Failed to update payment' }, 500)
 
-      // Dispatch webhooks & credit balance when paid
       if (newStatus === 'paid' && existing.status !== 'paid') {
         dispatchWebhooks(admin, user_id, paymentId, { ...updated, webhook_url: existing.webhook_url, webhook_sent: existing.webhook_sent })
         admin.rpc('incrementar_saldo_usuario', { p_user_id: user_id, p_amount: updated.amount }).then()
