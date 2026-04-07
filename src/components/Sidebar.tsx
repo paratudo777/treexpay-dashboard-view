@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import treexPayLogo from '@/assets/treexpay-logo.png';
 import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart, Code } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -53,7 +54,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <div className="p-4 flex items-center justify-center h-16 border-b border-sidebar-border">
         <img
           alt="TreexPay"
-          src="/lovable-uploads/68727f7e-be18-4989-bf6e-2bab257119ad.png"
+          src={treexPayLogo}
           className="h-10 w-10 mr-2 object-contain ml-[-95px]"
         />
         <div className="text-primary font-bold text-2xl tracking-tight">Nova Central</div>
