@@ -19,10 +19,10 @@ export function Header() {
   const { balance, loading } = useUserBalance();
   
   return (
-    <header className="h-16 border-b border-border flex items-center justify-between px-4">
+    <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-card/50 backdrop-blur-md">
       <div className="flex items-center space-x-4">
         {profile?.profile !== 'admin' && (
-          <span className="text-sm text-treexpay-medium font-semibold">
+          <span className="text-sm text-primary font-semibold">
             Saldo: {loading ? 'Carregando...' : `R$ ${balance.toFixed(2)}`}
           </span>
         )}
@@ -32,7 +32,7 @@ export function Header() {
         <Button 
           variant="ghost" 
           size="icon"
-          className="relative text-treexpay-medium hover:text-treexpay-dark"
+          className="relative text-muted-foreground hover:text-primary"
         >
           <Bell className="h-5 w-5" />
           <span className="sr-only">Notificações</span>
@@ -43,13 +43,13 @@ export function Header() {
             <Button 
               variant="ghost" 
               size="icon"
-              className="text-treexpay-medium hover:text-treexpay-dark"
+              className="text-muted-foreground hover:text-primary"
             >
               <User className="h-5 w-5" />
               <span className="sr-only">Perfil</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="glass-card">
             <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate("/perfil")}>

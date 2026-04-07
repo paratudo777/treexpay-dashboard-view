@@ -1,6 +1,5 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 
 interface StatCardProps {
   title: string;
@@ -11,16 +10,15 @@ interface StatCardProps {
 
 export const StatCard = ({ title, value, borderColor, icon }: StatCardProps) => {
   return (
-    <Card className={cn(
-      "border-l-4 shadow-md",
-      `border-l-[${borderColor}]`
-    )}>
+    <Card className="glass-card border-l-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 animate-fade-in"
+      style={{ borderLeftColor: borderColor }}
+    >
       <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        {icon && <div className="text-muted-foreground">{icon}</div>}
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</CardTitle>
+        {icon && <div className="text-primary opacity-70">{icon}</div>}
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-2xl font-bold text-foreground">{value}</p>
       </CardContent>
     </Card>
   );

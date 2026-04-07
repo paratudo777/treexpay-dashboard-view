@@ -16,18 +16,11 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  console.log('Login: Estado de auth:', { isAuthenticated, isAdmin, loading });
-
-  // Redirecionar apenas se realmente estiver autenticado E não estiver no loading inicial
   useEffect(() => {
-    // Só redirecionar se não estiver no loading inicial E estiver autenticado
     if (!loading && isAuthenticated) {
-      console.log('Login: Usuário autenticado confirmado, redirecionando...');
       if (isAdmin) {
-        console.log('Login: Redirecionando admin para /admin');
         navigate('/admin');
       } else {
-        console.log('Login: Redirecionando usuário para /dashboard');
         navigate('/dashboard');
       }
     }
@@ -46,11 +39,8 @@ const Login = () => {
     }
 
     setIsLoggingIn(true);
-    console.log('Login: Tentando fazer login com:', email);
 
     const result = await login(email, password);
-    
-    console.log('Login: Resultado do login:', result);
     
     if (result.success) {
       toast({
@@ -58,7 +48,6 @@ const Login = () => {
         description: "Redirecionando...",
       });
     } else {
-      console.error('Login: Falha no login:', result.error);
       toast({
         title: "Erro no login",
         description: result.error || "Verifique suas credenciais.",
@@ -68,43 +57,44 @@ const Login = () => {
     }
   };
 
-  // Mostrar loading apenas durante o loading inicial do AuthContext
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center dark">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-sm text-muted-foreground">Verificando autenticação...</p>
         </div>
       </div>
     );
   }
 
-  // Se usuário está autenticado mas ainda não redirecionou, mostrar loading de redirecionamento
   if (isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center dark">
         <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           <p className="text-sm text-muted-foreground">Redirecionando...</p>
         </div>
       </div>
     );
   }
 
-  // Mostrar formulário apenas se não estiver autenticado
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark">
-      <div className="w-full max-w-md p-4">
-        <Card className="bg-card border-border shadow-lg">
+    <div className="min-h-screen flex items-center justify-center bg-background dark relative overflow-hidden">
+      {/* Background glow effects */}
+      <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-treexpay-purple-glow/15 rounded-full blur-3xl" />
+      
+      <div className="w-full max-w-md p-4 relative z-10 animate-fade-in">
+        <Card className="glass-card shadow-2xl">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold text-treexpay-medium">TreexPay</CardTitle>
-            <CardDescription>Entre com suas credenciais para acessar a plataforma</CardDescription>
+            <CardTitle className="text-3xl font-bold text-primary tracking-tight">TreexPay</CardTitle>
+            <CardDescription className="text-muted-foreground">Entre com suas credenciais para acessar a plataforma</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
+                <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
@@ -113,11 +103,11 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isLoggingIn}
-                  className="bg-input"
+                  className="bg-muted/50 border-border focus:border-primary focus:ring-primary/20 transition-all"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider">Senha</Label>
                 <Input
                   id="password"
                   type="password"
@@ -126,12 +116,13 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isLoggingIn}
-                  className="bg-input"
+                  className="bg-muted/50 border-border focus:border-primary focus:ring-primary/20 transition-all"
                 />
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-treexpay-dark hover:bg-treexpay-medium text-white"
+                className="w-full"
+                size="lg"
                 disabled={isLoggingIn}
               >
                 {isLoggingIn ? 'Entrando...' : 'Entrar'}
@@ -139,7 +130,7 @@ const Login = () => {
             </form>
           </CardContent>
           <CardFooter className="flex flex-col">
-            <p className="text-sm text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground text-center">
               © 2025 TreexPay. Todos os direitos reservados.
             </p>
           </CardFooter>

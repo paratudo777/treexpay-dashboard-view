@@ -31,15 +31,15 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         {/* Header with balance and period selector */}
         <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-white">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Dashboard
             </h1>
-            <p className="text-lg text-gray-200">
-              Saldo Total: <span className="text-treexpay-medium font-semibold">
+            <p className="text-lg text-muted-foreground">
+              Saldo Total: <span className="text-primary font-semibold">
                 {balanceLoading ? 'Carregando...' : formatCurrency(balance)}
               </span>
             </p>
@@ -48,29 +48,29 @@ const Dashboard = () => {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard 
             title="Vendas Realizadas" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalDeposits)} 
-            borderColor="#2a9d8f"
+            borderColor="hsl(263 70% 58%)"
             icon={<ArrowDownCircle className="h-4 w-4" />}
           />
           <StatCard 
             title="Total de Vendas" 
             value={metricsLoading ? 'Carregando...' : metrics.depositCount.toString()} 
-            borderColor="#2a9d8f"
+            borderColor="hsl(280 80% 65%)"
             icon={<CreditCard className="h-4 w-4" />}
           />
           <StatCard 
             title="Saques Realizados" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.totalWithdrawals)} 
-            borderColor="#e74c3c"
+            borderColor="hsl(0 84% 60%)"
             icon={<ArrowUpCircle className="h-4 w-4" />}
           />
           <StatCard 
             title="Ticket Médio" 
             value={metricsLoading ? 'Carregando...' : formatCurrency(metrics.averageTicket)} 
-            borderColor="#117a8b"
+            borderColor="hsl(263 70% 45%)"
             icon={<DollarSign className="h-4 w-4" />}
           />
         </div>
