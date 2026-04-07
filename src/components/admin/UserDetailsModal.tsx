@@ -158,7 +158,7 @@ export const UserDetailsModal = ({ user, isOpen, onClose }: UserDetailsModalProp
                     variant={statusFilter === option.value ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter(option.value)}
-                    className={statusFilter === option.value ? 'bg-treexpay-dark' : ''}
+                    className={statusFilter === option.value ? 'bg-primary' : ''}
                   >
                     {option.label}
                   </Button>

@@ -194,7 +194,7 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
 
           <Button 
             type="submit" 
-            className="w-full bg-treexpay-medium hover:bg-treexpay-dark"
+            className="w-full gradient-primary hover:brightness-110"
             disabled={loading || isAmountExceeded || !amount || !pixType || !pixKey}
           >
             {loading ? 'Processando...' : 'Solicitar Saque'}

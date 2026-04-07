@@ -46,7 +46,7 @@ export const WithdrawalRow = ({ withdrawal, onApprove, onReject }: WithdrawalRow
     <TableRow>
       <TableCell className="font-medium">{withdrawal.name}</TableCell>
       <TableCell>{withdrawal.email}</TableCell>
-      <TableCell className="font-semibold text-treexpay-medium">
+      <TableCell className="font-semibold text-primary">
         {formatCurrency(withdrawal.amount)}
       </TableCell>
       <TableCell>{formatPixKeyType(withdrawal.pixKeyType)}</TableCell>

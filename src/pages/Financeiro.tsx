@@ -23,7 +23,7 @@ export default function Financeiro() {
   return (
     <DashboardLayout>
       <div className="container mx-auto max-w-4xl">
-        <h1 className="text-2xl font-bold text-treexpay-medium mb-6">Financeiro</h1>
+        <h1 className="text-2xl font-bold text-primary mb-6">Financeiro</h1>
         
         <div className="grid gap-6">
           <Card>
@@ -32,7 +32,7 @@ export default function Financeiro() {
               <CardDescription>Valor disponível em sua conta</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-treexpay-medium">
+              <p className="text-3xl font-bold text-primary">
                 {balanceLoading ? 'Carregando...' : formatCurrency(balance)}
               </p>
             </CardContent>

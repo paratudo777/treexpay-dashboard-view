@@ -63,7 +63,7 @@ export const AdminWithdrawalsTable = ({
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
         <p className="text-muted-foreground">Carregando saques...</p>
       </div>
     );
@@ -99,7 +99,7 @@ export const AdminWithdrawalsTable = ({
                 {withdrawal.user_name || 'Nome não encontrado'}
               </TableCell>
               <TableCell>{withdrawal.user_email || 'Email não encontrado'}</TableCell>
-              <TableCell className="font-semibold text-treexpay-medium">
+              <TableCell className="font-semibold text-primary">
                 {formatCurrency(withdrawal.amount)}
               </TableCell>
               <TableCell>{formatPixKeyType(withdrawal.pix_key_type)}</TableCell>

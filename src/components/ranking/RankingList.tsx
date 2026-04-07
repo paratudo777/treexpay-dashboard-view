@@ -69,7 +69,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                 className={`
                   relative rounded-lg p-3 md:p-4 flex items-center justify-between gap-3
                   ${user.is_current_user 
-                    ? 'ring-2 ring-treexpay-medium bg-treexpay-light/10' 
+                    ? 'ring-2 ring-primary bg-primary/10' 
                     : 'bg-muted/30'
                   }
                 `}
@@ -88,7 +88,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                         {user.apelido}
                       </span>
                       {user.is_current_user && (
-                        <Badge variant="default" className="text-xs bg-treexpay-medium flex-shrink-0">
+                        <Badge variant="default" className="text-xs bg-primary flex-shrink-0">
                           você
                         </Badge>
                       )}
@@ -102,7 +102,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                 </div>
 
                 <div className="text-right flex-shrink-0">
-                  <div className="text-lg md:text-2xl font-bold text-treexpay-medium break-all">
+                  <div className="text-lg md:text-2xl font-bold text-primary break-all">
                     {formatCurrency(user.volume_total_mensal)}
                   </div>
                   <div className="text-xs text-muted-foreground whitespace-nowrap">

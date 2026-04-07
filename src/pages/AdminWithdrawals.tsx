@@ -32,7 +32,7 @@ export default function AdminWithdrawals() {
       <DashboardLayout>
         <div className="container mx-auto max-w-7xl">
           <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         </div>
       </DashboardLayout>

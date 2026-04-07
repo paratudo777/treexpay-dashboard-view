@@ -117,7 +117,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
   return (
     <div className="w-full sm:w-auto space-y-2">
       <Select value={activePeriod} onValueChange={handlePeriodChange}>
-        <SelectTrigger className="w-full sm:w-[220px] bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium min-h-[40px]">
+        <SelectTrigger className="w-full sm:w-[220px] bg-primary text-white border-primary hover:bg-primary min-h-[40px]">
           <SelectValue placeholder={getCurrentLabel()} />
         </SelectTrigger>
         <SelectContent className="bg-gray-800 border-gray-700">
@@ -139,7 +139,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
           <Button
             variant="outline"
             className={cn(
-              "w-full sm:w-[220px] justify-start text-left font-normal bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium whitespace-normal h-auto min-h-[40px]",
+              "w-full sm:w-[220px] justify-start text-left font-normal bg-primary text-white border-primary hover:bg-primary whitespace-normal h-auto min-h-[40px]",
               !selectedDate.from && "text-muted-foreground",
               activePeriod !== 'custom' && "hidden"
             )}
