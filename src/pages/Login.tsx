@@ -80,10 +80,15 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark relative overflow-hidden">
-      {/* Background glow effects */}
-      <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-treexpay-purple-glow/15 rounded-full blur-3xl" />
+    <div className="min-h-screen flex items-center justify-center dark relative overflow-hidden" style={{ background: 'hsl(260 25% 4%)' }}>
+      {/* Animated glowing orbs - login only */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="login-orb login-orb-1" />
+        <div className="login-orb login-orb-2" />
+        <div className="login-orb login-orb-3" />
+        <div className="login-orb login-orb-4" />
+        <div className="login-orb login-orb-5" />
+      </div>
       
       <div className="w-full max-w-md p-4 relative z-10 animate-fade-in">
         <Card className="glass-card shadow-2xl">
