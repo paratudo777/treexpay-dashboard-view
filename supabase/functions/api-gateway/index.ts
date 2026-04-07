@@ -82,8 +82,17 @@ async function createNovaEraPix(amount: number, paymentId: string, webhookUrl?: 
 
 // ── Autenticação por API Key (sk_live_...) ──
 async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_key_id: string } | Response> {
-  const apiKey = req.headers.get('x-api-key') || req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey || apiKey.length < 16) {
+  // 1. Ler apenas x-api-key; fallback para Authorization SOMENTE se for sk_live_
+  let apiKey = req.headers.get('x-api-key')?.trim() || ''
+  if (!apiKey) {
+    const authHeader = req.headers.get('authorization')?.replace('Bearer ', '').trim() || ''
+    // Aceitar Authorization SOMENTE se for uma sk_live_ (não JWT/anon key)
+    if (authHeader.startsWith('sk_live_') || authHeader.startsWith('pk_live_')) {
+      apiKey = authHeader
+    }
+  }
+
+  if (!apiKey || apiKey.length < 16 || (!apiKey.startsWith('sk_live_') && !apiKey.startsWith('pk_live_') && !/^[a-zA-Z0-9_-]{16,}$/.test(apiKey))) {
     return json({ error: 'Missing or invalid API key' }, 401)
   }
 
@@ -101,8 +110,8 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
     return { user_id: data.user_id, api_key_id: data.id }
   }
 
-  // Fallback: legacy hash-based auth
-  if (/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
+  // Fallback: legacy hash-based auth (somente para chaves com formato válido, não JWTs)
+  if (/^[a-zA-Z0-9_-]+$/.test(apiKey) && apiKey.length < 200) {
     const prefix = apiKey.substring(0, 16)
     const { data: legacy } = await admin
       .from('api_keys')
