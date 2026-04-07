@@ -99,15 +99,52 @@ Deno.serve(async (req) => {
     console.log('✅ Payment marked as paid:', paymentId)
 
     // Credit user balance
+    // Apply user fee settings
+    let netAmount = payment.amount
+    const { data: userSettings } = await admin
+      .from('settings')
+      .select('deposit_fee')
+      .eq('user_id', payment.user_id)
+      .maybeSingle()
+
+    const feePercent = userSettings?.deposit_fee ?? 11.99
+    const providerFee = 1.50
+    const percentageFee = (payment.amount * feePercent) / 100
+    const totalFees = percentageFee + providerFee
+    netAmount = payment.amount - totalFees
+    if (netAmount < 0) netAmount = 0
+
+    console.log('💰 Fee calculation:', { amount: payment.amount, feePercent, providerFee, totalFees, netAmount })
+
     const { error: balanceError } = await admin.rpc('incrementar_saldo_usuario', {
       p_user_id: payment.user_id,
-      p_amount: payment.amount,
+      p_amount: netAmount,
     })
 
     if (balanceError) {
       console.error('❌ Failed to credit balance:', balanceError)
     } else {
-      console.log('💰 Balance credited:', payment.amount, 'to user:', payment.user_id)
+      console.log('💰 Balance credited:', netAmount, 'to user:', payment.user_id)
+    }
+
+    // Create visible transaction record for the dashboard
+    const txCode = 'API' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
+    const { error: txError } = await admin
+      .from('transactions')
+      .insert({
+        code: txCode,
+        user_id: payment.user_id,
+        type: 'deposit',
+        description: `Pagamento API - R$ ${payment.amount.toFixed(2)} (Líquido: R$ ${netAmount.toFixed(2)})`,
+        amount: netAmount,
+        status: 'approved',
+        transaction_date: paidAt,
+      })
+
+    if (txError) {
+      console.error('❌ Failed to create transaction record:', txError)
+    } else {
+      console.log('✅ Transaction record created:', txCode)
     }
 
     // Dispatch webhooks to client
