@@ -54,20 +54,8 @@ export default function ApiSettings() {
       if (data) {
         setApiKeys(data);
       } else {
-        try {
-          console.log('ApiSettings: nenhuma chave ativa, tentando gerar');
-          await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
-          const { data: newData, error: newError } = await supabase
-            .from('api_keys')
-            .select('*')
-            .eq('user_id', user!.id)
-            .eq('status', 'active')
-            .maybeSingle();
-          console.log('ApiSettings: resultado após gerar chave', { newData, newError });
-          if (newData) setApiKeys(newData);
-        } catch (rpcErr) {
-          console.error('ApiSettings: erro ao gerar chaves via RPC', rpcErr);
-        }
+        console.log('ApiSettings: nenhuma chave ativa encontrada');
+        // Don't auto-generate, let user click the button
       }
     } catch (err) {
       console.error('ApiSettings: erro em loadApiKeys', err);
@@ -226,7 +214,23 @@ export default function ApiSettings() {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground mb-4">Nenhuma chave encontrada.</p>
-                    <Button onClick={loadApiKeys}><Plus className="h-4 w-4 mr-2" />Gerar Chaves</Button>
+                    <Button onClick={async () => {
+                      setLoading(true);
+                      try {
+                        const { error: rpcError } = await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
+                        if (rpcError) {
+                          console.error('Erro RPC:', rpcError);
+                          toast({ title: 'Erro ao gerar chaves', description: rpcError.message, variant: 'destructive' });
+                        } else {
+                          toast({ title: 'Chaves geradas com sucesso!' });
+                          await loadApiKeys();
+                        }
+                      } catch (err: any) {
+                        console.error('Erro ao gerar chaves:', err);
+                        toast({ title: 'Erro ao gerar chaves', description: err.message, variant: 'destructive' });
+                      }
+                      setLoading(false);
+                    }}><Plus className="h-4 w-4 mr-2" />Gerar Chaves</Button>
                   </div>
                 )}
               </CardContent>
