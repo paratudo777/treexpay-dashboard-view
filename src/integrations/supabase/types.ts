@@ -44,6 +44,62 @@ export type Database = {
         }
         Relationships: []
       }
+      api_payments: {
+        Row: {
+          amount: number
+          api_key_id: string
+          created_at: string
+          customer_email: string | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          webhook_sent: boolean
+          webhook_url: string | null
+        }
+        Insert: {
+          amount: number
+          api_key_id: string
+          created_at?: string
+          customer_email?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          webhook_sent?: boolean
+          webhook_url?: string | null
+        }
+        Update: {
+          amount?: number
+          api_key_id?: string
+          created_at?: string
+          customer_email?: string | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          webhook_sent?: boolean
+          webhook_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_payments_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checkout_payments: {
         Row: {
           amount: number
