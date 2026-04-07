@@ -12,6 +12,10 @@ const json = (data: unknown, status = 200) =>
     status,
   })
 
+const unauthorized = () => json({ success: false, message: 'Unauthorized' }, 401)
+
+const buildApiTransactionCode = (paymentId: string) => `API-${paymentId}`
+
 const getAdmin = () => {
   const url = Deno.env.get('SUPABASE_URL')!
   const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -80,20 +84,20 @@ async function createNovaEraPix(amount: number, paymentId: string, webhookUrl?: 
   }
 }
 
-// ── Autenticação por API Key (sk_live_...) ──
+// ── Autenticação por API Key (apenas secret key em x-api-key) ──
 async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_key_id: string } | Response> {
-  // 1. Ler apenas x-api-key; fallback para Authorization SOMENTE se for sk_live_
-  let apiKey = req.headers.get('x-api-key')?.trim() || ''
-  if (!apiKey) {
-    const authHeader = req.headers.get('authorization')?.replace('Bearer ', '').trim() || ''
-    // Aceitar Authorization SOMENTE se for uma sk_live_ (não JWT/anon key)
-    if (authHeader.startsWith('sk_live_') || authHeader.startsWith('pk_live_')) {
-      apiKey = authHeader
-    }
-  }
+  const rawApiKey = req.headers.get('x-api-key')
+  const apiKey = rawApiKey?.trim() || ''
 
-  if (!apiKey || apiKey.length < 16 || (!apiKey.startsWith('sk_live_') && !apiKey.startsWith('pk_live_') && !/^[a-zA-Z0-9_-]{16,}$/.test(apiKey))) {
-    return json({ error: 'Missing or invalid API key' }, 401)
+  console.log('[api-gateway] auth attempt', JSON.stringify({
+    has_x_api_key: rawApiKey !== null,
+    has_authorization: req.headers.has('authorization'),
+    api_key_prefix: apiKey ? apiKey.slice(0, 12) : null,
+  }))
+
+  if (!apiKey || !apiKey.startsWith('sk_live_') || apiKey.length < 24) {
+    console.warn('[api-gateway] unauthorized request blocked before processing')
+    return unauthorized()
   }
 
   const admin = getAdmin()
@@ -106,12 +110,13 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
     .maybeSingle()
 
   if (data) {
+    console.log('[api-gateway] auth success', JSON.stringify({ api_key_id: data.id, user_id: data.user_id }))
     admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', data.id).then()
     return { user_id: data.user_id, api_key_id: data.id }
   }
 
-  // Fallback: legacy hash-based auth (somente para chaves com formato válido, não JWTs)
-  if (/^[a-zA-Z0-9_-]+$/.test(apiKey) && apiKey.length < 200) {
+  // Fallback: legacy hash-based auth apenas para secret keys antigas válidas
+  if (/^sk_live_[a-zA-Z0-9_-]+$/.test(apiKey) && apiKey.length < 200) {
     const prefix = apiKey.substring(0, 16)
     const { data: legacy } = await admin
       .from('api_keys')
@@ -125,13 +130,15 @@ async function authenticateApiKey(req: Request): Promise<{ user_id: string; api_
       const hash = await crypto.subtle.digest('SHA-256', encoder.encode(apiKey))
       const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('')
       if (hex === legacy.key_hash) {
+        console.log('[api-gateway] legacy auth success', JSON.stringify({ api_key_id: legacy.id, user_id: legacy.user_id }))
         admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', legacy.id).then()
         return { user_id: legacy.user_id, api_key_id: legacy.id }
       }
     }
   }
 
-  return json({ error: 'Invalid or inactive API key' }, 403)
+  console.warn('[api-gateway] unauthorized request with invalid or inactive key')
+  return unauthorized()
 }
 
 // ── Webhook dispatcher with retry ──
@@ -209,6 +216,8 @@ Deno.serve(async (req) => {
       const body = await req.json()
       const { amount, description, customer_email, customer_name, customer_document, webhook_url, metadata } = body
 
+      console.log('[api-gateway] creating payment', JSON.stringify({ user_id, api_key_id, amount, has_webhook_url: !!webhook_url }))
+
       if (!amount || typeof amount !== 'number' || amount <= 0) {
         return json({ error: 'amount is required and must be a positive number' }, 400)
       }
@@ -236,6 +245,31 @@ Deno.serve(async (req) => {
         return json({ error: 'Failed to create payment' }, 500)
       }
 
+      console.log('[api-gateway] api_payment inserted', JSON.stringify({ payment_id: payment.id, user_id, api_key_id }))
+
+      const transactionCode = buildApiTransactionCode(payment.id)
+      const { error: transactionInsertError } = await admin
+        .from('transactions')
+        .insert({
+          code: transactionCode,
+          user_id,
+          type: 'deposit',
+          description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (Aguardando pagamento)`,
+          amount,
+          status: 'pending',
+          transaction_date: payment.created_at,
+        })
+
+      if (transactionInsertError) {
+        console.error('[api-gateway] transaction mirror insert failed:', transactionInsertError)
+        await admin
+          .from('api_payments')
+          .update({ status: 'failed' })
+          .eq('id', payment.id)
+
+        return json({ error: 'Failed to create payment transaction mirror' }, 500)
+      }
+
       // 2. Gerar PIX real via NovaEra
       try {
         const pixData = await createNovaEraPix(amount, payment.id)
@@ -250,6 +284,17 @@ Deno.serve(async (req) => {
             expires_at: pixData.expires_at,
           })
           .eq('id', payment.id)
+
+        await admin
+          .from('transactions')
+          .update({
+            description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (PIX gerado)`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('code', transactionCode)
+          .eq('user_id', user_id)
+
+        console.log('[api-gateway] payment fully persisted', JSON.stringify({ payment_id: payment.id, api_key_id, external_id: pixData.external_id }))
 
         return json({
           id: payment.id,
@@ -272,6 +317,16 @@ Deno.serve(async (req) => {
           .from('api_payments')
           .update({ status: 'failed' })
           .eq('id', payment.id)
+
+        await admin
+          .from('transactions')
+          .update({
+            status: 'denied',
+            description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (Falha ao gerar PIX)`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('code', transactionCode)
+          .eq('user_id', user_id)
 
         return json({
           error: 'Failed to generate PIX payment',

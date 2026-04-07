@@ -11,6 +11,8 @@ const json = (data: unknown, status = 200) =>
     status,
   })
 
+const buildApiTransactionCode = (paymentId: string) => `API-${paymentId}`
+
 // Prevent duplicate processing in same instance
 const processedRefs = new Set<string>()
 
@@ -127,9 +129,25 @@ Deno.serve(async (req) => {
       console.log('💰 Balance credited:', netAmount, 'to user:', payment.user_id)
     }
 
-    // Create visible transaction record for the dashboard
-    const txCode = 'API' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + Math.floor(Math.random() * 999999).toString().padStart(6, '0')
-    const { error: txError } = await admin
+    // Update visible transaction record for the dashboard
+    const txCode = buildApiTransactionCode(paymentId)
+    const { data: updatedTransactions, error: txError } = await admin
+      .from('transactions')
+      .update({
+        amount: netAmount,
+        status: 'approved',
+        description: `Pagamento API - R$ ${payment.amount.toFixed(2)} (Líquido: R$ ${netAmount.toFixed(2)})`,
+        transaction_date: paidAt,
+        updated_at: paidAt,
+      })
+      .eq('code', txCode)
+      .eq('user_id', payment.user_id)
+      .select('id')
+
+    if (txError) {
+      console.error('❌ Failed to update transaction record:', txError)
+    } else if (!updatedTransactions || updatedTransactions.length === 0) {
+      const { error: fallbackTxError } = await admin
       .from('transactions')
       .insert({
         code: txCode,
@@ -141,10 +159,13 @@ Deno.serve(async (req) => {
         transaction_date: paidAt,
       })
 
-    if (txError) {
-      console.error('❌ Failed to create transaction record:', txError)
+      if (fallbackTxError) {
+        console.error('❌ Failed to create fallback transaction record:', fallbackTxError)
+      } else {
+        console.log('✅ Fallback transaction record created:', txCode)
+      }
     } else {
-      console.log('✅ Transaction record created:', txCode)
+      console.log('✅ Transaction record updated:', txCode)
     }
 
     // Dispatch webhooks to client
