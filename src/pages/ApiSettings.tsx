@@ -206,8 +206,8 @@ export default function ApiSettings() {
                     </div>
 
                     <div className="flex items-center justify-between pt-4 border-t">
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse" />Ativa
+                      <Badge variant="outline" className="text-primary border-primary">
+                        <div className="w-2 h-2 rounded-full bg-primary mr-2 animate-pulse" />Ativa
                       </Badge>
                       <Button variant="destructive" size="sm" onClick={regenerateKeys} disabled={regenerating}>
                         <RefreshCw className={`h-4 w-4 mr-2 ${regenerating ? 'animate-spin' : ''}`} />
