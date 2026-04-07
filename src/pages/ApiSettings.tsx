@@ -34,27 +34,33 @@ export default function ApiSettings() {
 
   const loadApiKeys = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('api_keys')
-      .select('*')
-      .eq('user_id', user!.id)
-      .eq('status', 'active')
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-    if (!error && data) {
-      setApiKeys(data);
-    } else if (!data) {
-      // Generate keys if none exist
-      const { error: rpcError } = await supabase.rpc('generate_api_keys_for_user', { p_user_id: user!.id });
-      if (!rpcError) {
-        const { data: newData } = await supabase
-          .from('api_keys')
-          .select('*')
-          .eq('user_id', user!.id)
-          .eq('status', 'active')
-          .maybeSingle();
-        setApiKeys(newData);
+      if (data) {
+        setApiKeys(data);
+      } else {
+        // Try to generate keys if none exist
+        try {
+          await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
+          const { data: newData } = await supabase
+            .from('api_keys')
+            .select('*')
+            .eq('user_id', user!.id)
+            .eq('status', 'active')
+            .maybeSingle();
+          if (newData) setApiKeys(newData);
+        } catch (rpcErr) {
+          console.error('RPC generate keys error:', rpcErr);
+        }
       }
+    } catch (err) {
+      console.error('loadApiKeys error:', err);
     }
     setLoading(false);
   };
@@ -77,41 +83,30 @@ export default function ApiSettings() {
     if (!confirm('Tem certeza? As chaves atuais serão invalidadas.')) return;
     setRegenerating(true);
     
-    // Deactivate current key
-    if (apiKeys) {
-      await supabase.from('api_keys').update({ status: 'revoked' }).eq('id', apiKeys.id);
-    }
-
-    // Generate new
-    await supabase.rpc('generate_api_keys_for_user', { p_user_id: user!.id });
-    
-    // Reload but the function checks IF EXISTS, so we need to handle this differently
-    // Actually, since we revoked the old one, generate should work
-    const { data } = await supabase
-      .from('api_keys')
-      .select('*')
-      .eq('user_id', user!.id)
-      .eq('status', 'active')
-      .maybeSingle();
-    
-    if (!data) {
-      // Force generate by calling directly
-      const { error: rpcError } = await supabase.rpc('generate_api_keys_for_user', { p_user_id: user!.id });
-      if (!rpcError) {
-        const { data: newData } = await supabase
-          .from('api_keys')
-          .select('*')
-          .eq('user_id', user!.id)
-          .eq('status', 'active')
-          .maybeSingle();
-        setApiKeys(newData);
+    try {
+      // Deactivate current key
+      if (apiKeys) {
+        await supabase.from('api_keys').update({ status: 'revoked' }).eq('id', apiKeys.id);
       }
-    } else {
+
+      // Generate new keys
+      await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
+      
+      const { data } = await supabase
+        .from('api_keys')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      
       setApiKeys(data);
+      toast({ title: 'Chaves regeneradas!', description: 'Atualize suas integrações com as novas chaves.' });
+    } catch (err) {
+      console.error('regenerateKeys error:', err);
+      toast({ title: 'Erro ao regenerar chaves', variant: 'destructive' });
     }
     
     setRegenerating(false);
-    toast({ title: 'Chaves regeneradas!', description: 'Atualize suas integrações com as novas chaves.' });
   };
 
   const addWebhook = async () => {
