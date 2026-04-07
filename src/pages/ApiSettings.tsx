@@ -54,20 +54,8 @@ export default function ApiSettings() {
       if (data) {
         setApiKeys(data);
       } else {
-        try {
-          console.log('ApiSettings: nenhuma chave ativa, tentando gerar');
-          await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
-          const { data: newData, error: newError } = await supabase
-            .from('api_keys')
-            .select('*')
-            .eq('user_id', user!.id)
-            .eq('status', 'active')
-            .maybeSingle();
-          console.log('ApiSettings: resultado após gerar chave', { newData, newError });
-          if (newData) setApiKeys(newData);
-        } catch (rpcErr) {
-          console.error('ApiSettings: erro ao gerar chaves via RPC', rpcErr);
-        }
+        console.log('ApiSettings: nenhuma chave ativa encontrada');
+        // Don't auto-generate, let user click the button
       }
     } catch (err) {
       console.error('ApiSettings: erro em loadApiKeys', err);
