@@ -4,6 +4,7 @@ import { Header } from './Header';
 import { useState, useEffect, useRef } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import treexPayLogo from '@/assets/treexpay-logo.png';
 import { Menu } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -76,7 +77,7 @@ export function DashboardLayout({
             </button>
             <div className="ml-4 flex items-center">
               <img 
-                src="/lovable-uploads/0d410959-7adc-4358-8d98-ee41985c8c82.png" 
+                src={treexPayLogo}
                 alt="TreexPay" 
                 className="h-8 w-8 mr-2"
               />

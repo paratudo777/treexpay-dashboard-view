@@ -26,6 +26,7 @@ const RouterFallback = () => {
       '/checkouts',
       '/financeiro',
       '/ranking',
+      '/api',
       '/perfil',
       '/admin',
       '/admin/saques'
@@ -36,6 +37,12 @@ const RouterFallback = () => {
     
     // Verificar se a rota é válida
     const isValidRoute = validRoutes.includes(currentPath) || isCheckoutRoute;
+
+    console.log('RouterFallback: status da rota', {
+      currentPath,
+      isValidRoute,
+      isCheckoutRoute,
+    });
     
     // Se a rota não é válida, redirecionar após um delay
     if (!isValidRoute && currentPath !== '/') {
@@ -48,6 +55,8 @@ const RouterFallback = () => {
           console.error('RouterFallback: Erro na navegação:', error);
         }
       }, 100);
+    } else {
+      console.log('RouterFallback: rota permitida, sem redirect:', currentPath);
     }
 
     return () => {

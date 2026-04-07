@@ -26,6 +26,12 @@ export default function ApiSettings() {
   const BASE_URL = `https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway`;
 
   useEffect(() => {
+    console.log('ApiSettings: página carregada', {
+      route: window.location.pathname,
+      hasUser: !!user,
+      userId: user?.id,
+    });
+
     if (user) {
       loadApiKeys();
       loadWebhooks();
@@ -33,6 +39,7 @@ export default function ApiSettings() {
   }, [user]);
 
   const loadApiKeys = async () => {
+    console.log('ApiSettings: iniciando loadApiKeys');
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -42,35 +49,41 @@ export default function ApiSettings() {
         .eq('status', 'active')
         .maybeSingle();
 
+      console.log('ApiSettings: resultado api_keys', { data, error });
+
       if (data) {
         setApiKeys(data);
       } else {
-        // Try to generate keys if none exist
         try {
+          console.log('ApiSettings: nenhuma chave ativa, tentando gerar');
           await supabase.rpc('generate_api_keys_for_user' as any, { p_user_id: user!.id });
-          const { data: newData } = await supabase
+          const { data: newData, error: newError } = await supabase
             .from('api_keys')
             .select('*')
             .eq('user_id', user!.id)
             .eq('status', 'active')
             .maybeSingle();
+          console.log('ApiSettings: resultado após gerar chave', { newData, newError });
           if (newData) setApiKeys(newData);
         } catch (rpcErr) {
-          console.error('RPC generate keys error:', rpcErr);
+          console.error('ApiSettings: erro ao gerar chaves via RPC', rpcErr);
         }
       }
     } catch (err) {
-      console.error('loadApiKeys error:', err);
+      console.error('ApiSettings: erro em loadApiKeys', err);
     }
     setLoading(false);
   };
 
   const loadWebhooks = async () => {
-    const { data } = await supabase
+    console.log('ApiSettings: iniciando loadWebhooks');
+    const { data, error } = await supabase
       .from('user_webhooks')
       .select('*')
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false });
+
+    console.log('ApiSettings: resultado webhooks', { data, error });
     setWebhooks(data || []);
   };
 
