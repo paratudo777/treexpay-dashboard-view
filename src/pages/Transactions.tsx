@@ -163,7 +163,7 @@ export default function Transactions() {
       <DashboardLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-treexpay-medium mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-muted-foreground">Carregando transações...</p>
           </div>
         </div>
@@ -175,12 +175,12 @@ export default function Transactions() {
     <DashboardLayout>
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-treexpay-medium">Transações</h1>
+          <h1 className="text-2xl font-bold text-primary">Transações</h1>
           
           {/* Filter dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 bg-treexpay-dark text-white border-treexpay-dark hover:bg-treexpay-medium">
+              <Button variant="outline" className="flex items-center gap-2 bg-primary text-white border-primary hover:bg-primary">
                 <Filter className="h-4 w-4" />
                 <span>{getFilterLabel(statusFilter)}</span>
               </Button>

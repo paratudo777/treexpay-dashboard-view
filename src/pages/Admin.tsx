@@ -494,7 +494,7 @@ export default function Admin() {
             
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-treexpay-dark hover:bg-treexpay-medium">
+                <Button className="gradient-primary hover:brightness-110">
                   <Plus className="mr-2 h-4 w-4" />
                   Criar Usuário
                 </Button>

@@ -78,7 +78,7 @@ export const WithdrawalManagementTable = ({
             <TableRow key={request.id}>
               <TableCell className="font-medium">{request.userName}</TableCell>
               <TableCell>{request.userEmail}</TableCell>
-              <TableCell className="font-semibold text-treexpay-medium">
+              <TableCell className="font-semibold text-primary">
                 {formatCurrency(request.amount)}
               </TableCell>
               <TableCell className="max-w-[200px]">

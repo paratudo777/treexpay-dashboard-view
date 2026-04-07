@@ -88,7 +88,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                         {user.apelido}
                       </span>
                       {user.is_current_user && (
-                        <Badge variant="default" className="text-xs bg-treexpay-medium flex-shrink-0">
+                        <Badge variant="default" className="text-xs bg-primary flex-shrink-0">
                           você
                         </Badge>
                       )}
@@ -102,7 +102,7 @@ export function RankingList({ ranking, loading }: RankingListProps) {
                 </div>
 
                 <div className="text-right flex-shrink-0">
-                  <div className="text-lg md:text-2xl font-bold text-treexpay-medium break-all">
+                  <div className="text-lg md:text-2xl font-bold text-primary break-all">
                     {formatCurrency(user.volume_total_mensal)}
                   </div>
                   <div className="text-xs text-muted-foreground whitespace-nowrap">

@@ -218,13 +218,13 @@ export default function Perfil() {
   return (
     <DashboardLayout>
       <div className="container mx-auto max-w-4xl">
-        <h1 className="text-2xl font-bold text-treexpay-medium mb-6">Perfil</h1>
+        <h1 className="text-2xl font-bold text-primary mb-6">Perfil</h1>
         
         {/* Documentation API Button */}
         <div className="mb-6">
           <Button 
             onClick={openDocumentation}
-            className="flex items-center gap-2 bg-treexpay-dark hover:bg-treexpay-medium"
+            className="flex items-center gap-2 gradient-primary hover:brightness-110"
           >
             <Book className="h-4 w-4" />
             <span>Documentação da API</span>
@@ -271,7 +271,7 @@ export default function Perfil() {
                     </div>
                     <div className="flex flex-col space-y-1">
                       <span className="text-sm text-muted-foreground">Saldo Atual</span>
-                      <span className="text-xl font-bold text-treexpay-medium">
+                      <span className="text-xl font-bold text-primary">
                         {userProfile ? formatCurrency(userProfile.balance) : "Carregando..."}
                       </span>
                     </div>
@@ -349,7 +349,7 @@ export default function Perfil() {
                         <span className="font-medium">Taxa de Depósito</span>
                         <p className="text-sm text-muted-foreground">Taxa percentual + taxa fixa por transação</p>
                       </div>
-                      <span className="text-treexpay-medium font-medium">
+                      <span className="text-primary font-medium">
                         {formatTaxDisplay('deposit', userSettings.deposit_fee)}
                       </span>
                     </div>
@@ -358,7 +358,7 @@ export default function Perfil() {
                         <span className="font-medium">Taxa de Saque</span>
                         <p className="text-sm text-muted-foreground">Valor fixo por solicitação de saque</p>
                       </div>
-                      <span className="text-treexpay-medium font-medium">
+                      <span className="text-primary font-medium">
                         {formatTaxDisplay('withdrawal', userSettings.withdrawal_fee)}
                       </span>
                     </div>
@@ -370,14 +370,14 @@ export default function Perfil() {
                         <span className="font-medium">Taxa de Depósito</span>
                         <p className="text-sm text-muted-foreground">Taxa percentual + taxa fixa por transação</p>
                       </div>
-                      <span className="text-treexpay-medium font-medium">0.00% + R$ 1,50</span>
+                      <span className="text-primary font-medium">0.00% + R$ 1,50</span>
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-border">
                       <div>
                         <span className="font-medium">Taxa de Saque</span>
                         <p className="text-sm text-muted-foreground">Valor fixo por solicitação de saque</p>
                       </div>
-                      <span className="text-treexpay-medium font-medium">R$ 0.00</span>
+                      <span className="text-primary font-medium">R$ 0.00</span>
                     </div>
                   </div>
                 )}
