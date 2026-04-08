@@ -3,7 +3,17 @@
   RewriteEngine On
   RewriteBase /
   
-  # API Proxy - Rewrite /api/v1/* to Supabase Edge Functions
+  # API Gateway - force payment endpoints through the secure gateway function
+  RewriteCond %{REQUEST_URI} ^/api/v1/health/?$
+  RewriteRule ^api/v1/health/?$ https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/health [P,L]
+
+  RewriteCond %{REQUEST_URI} ^/api/v1/payments/?$
+  RewriteRule ^api/v1/payments/?$ https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments [P,L]
+
+  RewriteCond %{REQUEST_URI} ^/api/v1/payments/(.*)$
+  RewriteRule ^api/v1/payments/(.*)$ https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments/$1 [P,L]
+
+  # Legacy API routes keep their existing direct mapping
   RewriteCond %{REQUEST_URI} ^/api/v1/(.*)$
   RewriteRule ^api/v1/(.*)$ https://fhwfonispezljglrclia.supabase.co/functions/v1/$1 [P,L]
   

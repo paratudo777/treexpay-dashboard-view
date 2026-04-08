@@ -1,5 +1,10 @@
 
-# API Proxy - Forward /api/v1/* to Supabase Edge Functions
+# API Proxy - Route payment gateway endpoints to the secure gateway function
+/api/v1/health  https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/health  200!
+/api/v1/payments  https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments  200!
+/api/v1/payments/*  https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway/payments/:splat  200!
+
+# Legacy API routes keep their existing direct mapping
 /api/v1/*  https://fhwfonispezljglrclia.supabase.co/functions/v1/:splat  200!
 
 # Ensure static assets are served correctly
