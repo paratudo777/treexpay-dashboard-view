@@ -96,44 +96,6 @@ export default function ApiSettings() {
     setRegenerating(false);
   };
 
-  const addWebhook = async () => {
-    if (!newWebhookUrl.trim()) return;
-    try {
-      new URL(newWebhookUrl);
-    } catch {
-      toast({ title: 'URL inválida', variant: 'destructive' });
-      return;
-    }
-
-    setSavingWebhook(true);
-    const secret = 'whsec_' + crypto.randomUUID().replace(/-/g, '');
-    const { error } = await supabase.from('user_webhooks').insert({
-      user_id: user!.id,
-      url: newWebhookUrl.trim(),
-      secret,
-      is_active: true,
-    });
-
-    if (!error) {
-      setNewWebhookUrl('');
-      loadWebhooks();
-      toast({ title: 'Webhook adicionado!' });
-    }
-    setSavingWebhook(false);
-  };
-
-  const toggleWebhook = async (id: string, active: boolean) => {
-    await supabase.from('user_webhooks').update({ is_active: active }).eq('id', id);
-    loadWebhooks();
-  };
-
-  const deleteWebhook = async (id: string) => {
-    if (!confirm('Remover este webhook?')) return;
-    await supabase.from('user_webhooks').delete().eq('id', id);
-    loadWebhooks();
-    toast({ title: 'Webhook removido' });
-  };
-
   const maskKey = (key: string) => key ? key.substring(0, 12) + '•'.repeat(20) + key.slice(-4) : '';
 
   return (
