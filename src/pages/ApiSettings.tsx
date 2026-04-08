@@ -20,7 +20,7 @@ export default function ApiSettings() {
   const [showSk, setShowSk] = useState(false);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
-  const [webhooks, setWebhooks] = useState<any[]>([]);
+  
 
   const BASE_URL = `https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway`;
 
