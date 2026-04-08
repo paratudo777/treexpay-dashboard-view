@@ -21,8 +21,6 @@ export default function ApiSettings() {
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
   const [webhooks, setWebhooks] = useState<any[]>([]);
-  const [newWebhookUrl, setNewWebhookUrl] = useState('');
-  const [savingWebhook, setSavingWebhook] = useState(false);
 
   const BASE_URL = `https://fhwfonispezljglrclia.supabase.co/functions/v1/api-gateway`;
 
@@ -35,7 +33,6 @@ export default function ApiSettings() {
 
     if (user) {
       loadApiKeys();
-      loadWebhooks();
     }
   }, [user]);
 
@@ -62,18 +59,6 @@ export default function ApiSettings() {
       console.error('ApiSettings: erro em loadApiKeys', err);
     }
     setLoading(false);
-  };
-
-  const loadWebhooks = async () => {
-    console.log('ApiSettings: iniciando loadWebhooks');
-    const { data, error } = await supabase
-      .from('user_webhooks')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: false });
-
-    console.log('ApiSettings: resultado webhooks', { data, error });
-    setWebhooks(data || []);
   };
 
   const copyToClipboard = (text: string, label: string) => {
