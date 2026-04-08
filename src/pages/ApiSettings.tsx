@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Copy, Eye, EyeOff, RefreshCw, Plus, Trash2, Key, Webhook, BookOpen, Zap, Shield, Code } from 'lucide-react';
+import { WebhookManager } from '@/components/webhooks/WebhookManager';
 
 export default function ApiSettings() {
   const { user } = useAuth();
@@ -251,67 +252,7 @@ export default function ApiSettings() {
 
           {/* ── WEBHOOKS TAB ── */}
           <TabsContent value="webhooks" className="space-y-4 mt-4">
-            <Card className="border-primary/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Webhook className="h-5 w-5 text-primary" />Configurar Webhook</CardTitle>
-                <CardDescription>Receba notificações automáticas quando pagamentos forem aprovados.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://seusite.com/webhook/treexpay"
-                    value={newWebhookUrl}
-                    onChange={(e) => setNewWebhookUrl(e.target.value)}
-                  />
-                  <Button onClick={addWebhook} disabled={savingWebhook}>
-                    <Plus className="h-4 w-4 mr-2" />Adicionar
-                  </Button>
-                </div>
-
-                {webhooks.length > 0 ? (
-                  <div className="space-y-3">
-                    {webhooks.map(wh => (
-                      <div key={wh.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                        <div className="flex-1 min-w-0">
-                          <code className="text-sm font-mono break-all">{wh.url}</code>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant={wh.is_active ? 'default' : 'secondary'} className="text-xs">
-                              {wh.is_active ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-3">
-                          <Switch checked={wh.is_active} onCheckedChange={(v) => toggleWebhook(wh.id, v)} />
-                          <Button size="icon" variant="ghost" onClick={() => deleteWebhook(wh.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">Nenhum webhook configurado.</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader><CardTitle className="text-base">Payload do Webhook</CardTitle></CardHeader>
-              <CardContent>
-                <pre className="bg-muted p-4 rounded-lg text-sm font-mono overflow-x-auto">{`POST https://seusite.com/webhook/treexpay
-Content-Type: application/json
-
-{
-  "event": "payment.paid",
-  "payment": {
-    "id": "uuid-do-pagamento",
-    "amount": 150.00,
-    "status": "paid",
-    "paid_at": "2026-04-07T18:00:00Z"
-  }
-}`}</pre>
-              </CardContent>
-            </Card>
+            <WebhookManager />
           </TabsContent>
 
           {/* ── DOCS TAB ── */}
