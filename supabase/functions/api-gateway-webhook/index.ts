@@ -194,37 +194,25 @@ Deno.serve(async (req) => {
       admin.from('api_payments').update({ webhook_sent: true }).eq('id', paymentId).then()
     }
 
-    // 2. User-level webhooks
-    const { data: userWebhooks } = await admin
-      .from('user_webhooks')
-      .select('url, secret')
-      .eq('user_id', payment.user_id)
-      .eq('is_active', true)
-
-    if (userWebhooks) {
-      const payload = {
-        event: 'payment.paid',
-        payment: { id: paymentId, amount: payment.amount, status: 'paid', paid_at: paidAt },
-      }
-      for (const wh of userWebhooks) {
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-        const payloadStr = JSON.stringify(payload)
-
-        if (wh.secret) {
-          try {
-            const encoder = new TextEncoder()
-            const key = await crypto.subtle.importKey('raw', encoder.encode(wh.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
-            const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payloadStr))
-            headers['X-Treex-Signature'] = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
-          } catch (_) { /* ignore signing errors */ }
-        }
-
-        fetch(wh.url, { method: 'POST', headers, body: payloadStr }).then(res => {
-          console.log(`✅ User webhook sent to ${wh.url}: ${res.status}`)
-        }).catch(err => {
-          console.error(`❌ User webhook failed:`, err.message)
-        })
-      }
+    // 2. Dispatch via new webhooks system (with events filter, retry, logs)
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/dispatch-webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          user_id: payment.user_id,
+          event: 'payment.paid',
+          payload: {
+            payment: { id: paymentId, amount: payment.amount, status: 'paid', paid_at: paidAt },
+          },
+        }),
+      })
+      console.log('✅ Dispatch-webhook called for payment.paid')
+    } catch (dispatchErr: any) {
+      console.error('❌ dispatch-webhook call failed:', dispatchErr.message)
     }
 
     return json({
