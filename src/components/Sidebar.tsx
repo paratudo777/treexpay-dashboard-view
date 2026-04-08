@@ -57,7 +57,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
           src={treexPayLogo}
           className="h-10 w-10 mr-2 object-contain ml-[-95px]"
         />
-        <div className="text-primary font-bold text-2xl tracking-tight">Nova Central</div>
+        <div className="text-primary font-bold text-2xl tracking-tight">TreexPay</div>
       </div>
 
       {/* Navigation */}
