@@ -72,15 +72,16 @@ const Login = () => {
       {/* Top Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.8)' }}>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-primary tracking-tight">TreexPay</h1>
-        </div>
-        <div className="flex items-center gap-3">
           <Button variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => setShowLoginModal(true)}>
             Entrar
           </Button>
           <Button className="rounded-xl" onClick={handleCreateAccount}>
             Criar conta
           </Button>
+        </div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-primary tracking-tight">TreexPay</h1>
+          <img src={treexpayLogo} alt="TreexPay" className="h-8 w-auto" />
         </div>
       </nav>
 
