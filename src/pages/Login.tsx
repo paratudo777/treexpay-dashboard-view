@@ -73,10 +73,10 @@ const Login = () => {
       {/* Top Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.8)' }}>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" className="text-muted-foreground hover:text-foreground" onClick={() => setShowLoginModal(true)}>
+          <Button variant="ghost" className="text-[hsl(var(--accent-cta))] hover:text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
             Entrar
           </Button>
-          <Button className="rounded-xl" onClick={handleCreateAccount}>
+          <Button className="rounded-xl bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={handleCreateAccount}>
             Criar conta
           </Button>
         </div>
@@ -102,10 +102,10 @@ const Login = () => {
             Integração em minutos, suporte direto com desenvolvedores.
           </p>
           <div className="flex items-center justify-center gap-4 mb-16">
-            <Button size="lg" className="rounded-xl text-base px-8 gap-2" onClick={() => setShowLoginModal(true)}>
+            <Button size="lg" className="rounded-xl text-base px-8 gap-2 bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={() => setShowLoginModal(true)}>
               Acessar Dashboard <ArrowRight className="w-4 h-4" />
             </Button>
-            <Button size="lg" variant="outline" className="rounded-xl text-base px-8" onClick={handleCreateAccount}>
+            <Button size="lg" variant="outline" className="rounded-xl text-base px-8 border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={handleCreateAccount}>
               Criar conta
             </Button>
           </div>
@@ -236,10 +236,10 @@ const Login = () => {
             Crie sua conta agora e comece a receber pagamentos PIX em poucos minutos.
           </p>
           <div className="flex items-center justify-center gap-4">
-            <Button size="lg" className="rounded-xl text-base px-8 gap-2" onClick={handleCreateAccount}>
+            <Button size="lg" className="rounded-xl text-base px-8 gap-2 bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={handleCreateAccount}>
               Criar conta grátis <ArrowRight className="w-4 h-4" />
             </Button>
-            <Button size="lg" variant="outline" className="rounded-xl text-base px-8" onClick={() => setShowLoginModal(true)}>
+            <Button size="lg" variant="outline" className="rounded-xl text-base px-8 border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
               Já tenho conta
             </Button>
           </div>
@@ -293,7 +293,7 @@ const Login = () => {
                 className="bg-muted/50 border-border/60 focus:border-primary focus:ring-primary/20 transition-all h-11 rounded-xl"
               />
             </div>
-            <Button type="submit" className="w-full rounded-xl" size="lg" disabled={isLoggingIn}>
+            <Button type="submit" className="w-full rounded-xl bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" size="lg" disabled={isLoggingIn}>
               {isLoggingIn ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>
