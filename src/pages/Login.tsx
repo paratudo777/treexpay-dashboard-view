@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Zap, Code2, HeadphonesIcon, QrCode, Shield, BarChart3, Globe, CreditCard, ArrowRight, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import dashboardPreview from '@/assets/dashboard-preview.png';
+import treexpayLogo from '@/assets/treexpay-logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
