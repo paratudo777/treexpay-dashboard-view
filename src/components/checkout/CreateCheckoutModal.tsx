@@ -62,7 +62,13 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
       description: description.trim(),
       amount: parseFloat(amount),
       image_url: imageUrl.trim(),
-      notification_email: notificationEmail.trim()
+      notification_email: notificationEmail.trim(),
+      template,
+      color_theme: colorTheme,
+      button_text: buttonText,
+      security_message: securityMessage,
+      enable_pix: enablePix,
+      enable_card: enableCard,
     });
     if (success) onClose();
     setIsLoading(false);
