@@ -1,27 +1,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createPixWithProvider, createPixWithFallback } from '../_shared/payment-providers/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-interface NovaEraPixResponse {
-  success: boolean;
-  message: string;
-  status: number;
-  data: {
-    id: number;
-    status: string;
-    amount: number;
-    pix: {
-      qrcode: string;
-      qrcodeText: string;
-      expiresAt: string;
-      expirationDate: string;
-    };
-    externalId: string;
-  };
 }
 
 function isValidCpf(cpf: string): boolean {
@@ -47,14 +30,11 @@ Deno.serve(async (req) => {
   try {
     const { amount, userId, userName, userEmail, userPhone, userCpf } = await req.json();
 
-    const NOVAERA_BASE_URL = Deno.env.get('NOVAERA_BASE_URL');
-    const NOVAERA_PK = Deno.env.get('NOVAERA_PK');
-    const NOVAERA_SK = Deno.env.get('NOVAERA_SK');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!NOVAERA_BASE_URL || !NOVAERA_PK || !NOVAERA_SK) {
-      throw new Error('NovaEra API credentials not configured');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Supabase credentials not configured');
     }
 
     if (!amount || amount <= 0 || amount > 50000) {
@@ -72,10 +52,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
-    const authHeader = `Basic ${credentials}`;
+    // Resolve which provider to use for this user
+    const { data: providerData } = await supabase.rpc('resolve_user_provider', { p_user_id: userId });
+    const providerName = providerData || 'novaera';
+    console.log(`[deposit] Resolved provider for user ${userId}: ${providerName}`);
 
-    // Criar depósito no banco - o trigger automaticamente criará a transação
+    // Create deposit record — trigger will create the pending transaction
     const { data: depositData, error: depositError } = await supabase
       .from('deposits')
       .insert({
@@ -90,106 +72,80 @@ Deno.serve(async (req) => {
 
     if (depositError) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: depositError,
-          message: 'Deposit creation failed'
-        }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500
-        }
+        JSON.stringify({ success: false, error: depositError, message: 'Deposit creation failed' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    const externalRef = `deposit_${depositData.id}`;
+    // Determine webhook URL based on provider
+    const webhookUrl = providerName === 'bestfy'
+      ? `${SUPABASE_URL}/functions/v1/bestfy-webhook`
+      : `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`;
 
-    // Usar email genérico para evitar envio de notificações para o usuário real
-    // Garantir que as notificações estejam desabilitadas
-    const pixResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        "paymentMethod": "pix",
-        "amount": amount * 100,
-        "externalRef": externalRef,
-        "postbackUrl": `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`,
-        "pix": {
-          "pixKey": "treex@tecnologia.com.br",
-          "pixKeyType": "email",
-          "expiresInSeconds": 3600
+    // Use the provider registry to create the PIX
+    let pixResult;
+    try {
+      pixResult = await createPixWithProvider(providerName, {
+        amount: Number(amount),
+        paymentId: depositData.id,
+        webhookUrl,
+        description: 'Depósito TreexPay',
+        customer: {
+          name: userName,
+          email: userEmail || 'noreply@treexpay.site',
+          phone: userPhone || '5511999999999',
+          document: cpfToValidate,
         },
-        "items": [
-          { 
-            "title": "Depósito TreexPay", 
-            "quantity": 1, 
-            "tangible": false, 
-            "unitPrice": amount * 100 
-          }
-        ],
-        "customer": {
-          "name": userName,
-          "email": "noreply@treexpay.site", // Email genérico para evitar notificações
-          "phone": userPhone || "5511999999999",
-          "document": { 
-            "type": "cpf", 
-            "number": cpfToValidate
-          }
+        metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
+      });
+    } catch (providerError) {
+      console.error(`[deposit] Provider ${providerName} failed, trying fallback...`);
+      // Fallback to any available provider
+      pixResult = await createPixWithFallback({
+        amount: Number(amount),
+        paymentId: depositData.id,
+        webhookUrl: `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`,
+        description: 'Depósito TreexPay',
+        customer: {
+          name: userName,
+          email: userEmail || 'noreply@treexpay.site',
+          phone: userPhone || '5511999999999',
+          document: cpfToValidate,
         },
-        "metadata": "{\"origin\":\"TreexPay Deposit\"}",
-        "traceable": false,
-        // IMPORTANTE: Desabilitar notificações automáticas
-        "notifications": {
-          "email": false,
-          "sms": false
-        }
-      }),
-    });
-
-    if (!pixResponse.ok) {
-      const errorBody = await pixResponse.text();
-      throw new Error(`PIX creation failed: ${pixResponse.status} - ${errorBody}`);
+        metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
+      });
     }
 
-    const pixData: NovaEraPixResponse = await pixResponse.json();
+    // Store QR code (and bestfy transactionId for webhook matching)
+    const qrCodeValue = providerName === 'bestfy'
+      ? `${pixResult.qr_code}|bestfy:${pixResult.external_id}`
+      : pixResult.qr_code;
 
-    // Atualizar depósito com QR code
-    const { error: updateError } = await supabase
+    await supabase
       .from('deposits')
-      .update({
-        qr_code: pixData.data.pix.qrcode
-      })
+      .update({ qr_code: qrCodeValue })
       .eq('id', depositData.id);
-
-    if (updateError) {
-      // Silent error for QR code update
-    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        deposit: { ...depositData, qr_code: pixData.data.pix.qrcode },
-        novaera: pixData
+        deposit: { ...depositData, qr_code: pixResult.qr_code },
+        provider: pixResult.provider,
+        pix: {
+          qrCode: pixResult.qr_code,
+          qrCodeText: pixResult.pix_code,
+          expiresAt: pixResult.expires_at,
+        },
+        // Legacy compatibility for novaera format
+        novaera: pixResult.provider === 'novaera' ? pixResult.raw : undefined,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
