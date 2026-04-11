@@ -226,7 +226,27 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json()
-      const { amount, description, customer_email, customer_name, customer_document, webhook_url, metadata } = body
+      const {
+        amount,
+        description,
+        customer_email,
+        customer_name,
+        customer_document,
+        webhook_url,
+        webhookUrl,
+        metadata,
+        paymentMethod,
+        customer,
+      } = body
+
+      const resolvedPaymentMethod = typeof paymentMethod === 'string'
+        ? paymentMethod.toLowerCase()
+        : 'pix'
+
+      const resolvedCustomerName = customer?.name || customer_name || undefined
+      const resolvedCustomerEmail = customer?.email || customer_email || undefined
+      const resolvedCustomerDocument = customer?.document || customer_document || undefined
+      const resolvedWebhookUrl = webhook_url || webhookUrl || null
 
       // Validation
       if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -235,6 +255,9 @@ Deno.serve(async (req) => {
       if (amount > 100000) {
         return json({ error: 'amount cannot exceed 100000' }, 400)
       }
+      if (resolvedPaymentMethod !== 'pix') {
+        return json({ error: 'Only pix is currently supported on this endpoint' }, 400)
+      }
 
       // 1. Create internal record (pending)
       const { data: payment, error } = await admin
@@ -242,8 +265,8 @@ Deno.serve(async (req) => {
         .insert({
           api_key_id, user_id, amount,
           description: description || null,
-          customer_email: customer_email || null,
-          webhook_url: webhook_url || null,
+          customer_email: resolvedCustomerEmail || null,
+          webhook_url: resolvedWebhookUrl,
           metadata: metadata || {},
           status: 'pending',
           provider: 'pending', // will be updated with actual provider
@@ -294,8 +317,8 @@ Deno.serve(async (req) => {
           description: description || undefined,
           customer: {
             name: customer_name || undefined,
-            email: customer_email || undefined,
-            document: customer_document || undefined,
+            email: resolvedCustomerEmail,
+            document: resolvedCustomerDocument,
           },
           metadata: metadata || undefined,
         })
