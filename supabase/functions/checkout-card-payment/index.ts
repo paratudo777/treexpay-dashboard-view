@@ -28,7 +28,14 @@ Deno.serve(async (req) => {
       throw new Error('Invalid JSON in request body');
     }
 
-    const { checkoutSlug, customerName, customerEmail, cardData } = body;
+    const { checkoutSlug, customerName, customerEmail, cardData, customerPhone } = body;
+
+    // Capture client context for anti-fraud
+    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('x-real-ip')
+      || req.headers.get('cf-connecting-ip')
+      || undefined;
+    const userAgent = req.headers.get('user-agent') || undefined;
 
     // cardData expected: { number, cvv, expiry (MM/AA), name, cpf, installments? }
     if (!checkoutSlug || !customerName) {
@@ -38,7 +45,7 @@ Deno.serve(async (req) => {
       throw new Error('Missing required card fields: number, cvv, expiry, name, cpf');
     }
 
-    console.log('💳 Processando pagamento real com cartão via Bestfy...');
+    console.log('💳 Processando pagamento com cartão via Bestfy... IP:', clientIp || 'unknown');
 
     // Fetch checkout via public view
     const { data: publicCheckout, error: publicCheckoutError } = await supabase
@@ -88,8 +95,9 @@ Deno.serve(async (req) => {
       customer: {
         name: cardData.name,
         email: customerEmail || 'noreply@treexpay.site',
-        phone: '5511999999999',
+        phone: customerPhone || '5511999999999',
         document: cardData.cpf.replace(/\D/g, ''),
+        ip: clientIp,
       },
       card: {
         number: cardData.number.replace(/\s/g, ''),
@@ -102,7 +110,9 @@ Deno.serve(async (req) => {
       },
       description: publicCheckout.title,
       webhookUrl: `${SUPABASE_URL}/functions/v1/bestfy-webhook`,
-      metadata: { origin: 'TreexPay Checkout Card', checkout_id: publicCheckout.id },
+      metadata: { origin: 'TreexPay Checkout Card', checkout_id: publicCheckout.id, source: 'checkout_web' },
+      clientIp,
+      userAgent,
     });
 
     console.log('💳 Bestfy card response:', JSON.stringify(result));
