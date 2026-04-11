@@ -29,6 +29,9 @@ const RouterFallback = () => {
       '/api',
       '/perfil',
       '/admin',
+      '/admin/usuarios',
+      '/admin/transacoes',
+      '/admin/criar-usuario',
       '/admin/saques'
     ];
 
