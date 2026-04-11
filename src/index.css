@@ -118,11 +118,11 @@
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px hsl(263 70% 58% / 0.3), 0 0 40px hsl(263 70% 58% / 0.1);
+    box-shadow: 0 0 20px hsl(263 80% 65% / 0.3), 0 0 40px hsl(263 80% 65% / 0.1);
   }
 
   .glow-primary-sm {
-    box-shadow: 0 0 10px hsl(263 70% 58% / 0.2);
+    box-shadow: 0 0 10px hsl(263 80% 65% / 0.2);
   }
 
   /* Login animated orbs */
