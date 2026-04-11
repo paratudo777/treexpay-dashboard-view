@@ -191,11 +191,17 @@ export type Database = {
         Row: {
           active: boolean
           amount: number
+          button_text: string
+          color_theme: string
           created_at: string
           description: string | null
+          enable_card: boolean
+          enable_pix: boolean
           id: string
           image_url: string | null
           notification_email: string | null
+          security_message: string
+          template: string
           title: string
           updated_at: string
           url_slug: string
@@ -204,11 +210,17 @@ export type Database = {
         Insert: {
           active?: boolean
           amount: number
+          button_text?: string
+          color_theme?: string
           created_at?: string
           description?: string | null
+          enable_card?: boolean
+          enable_pix?: boolean
           id?: string
           image_url?: string | null
           notification_email?: string | null
+          security_message?: string
+          template?: string
           title: string
           updated_at?: string
           url_slug: string
@@ -217,11 +229,17 @@ export type Database = {
         Update: {
           active?: boolean
           amount?: number
+          button_text?: string
+          color_theme?: string
           created_at?: string
           description?: string | null
+          enable_card?: boolean
+          enable_pix?: boolean
           id?: string
           image_url?: string | null
           notification_email?: string | null
+          security_message?: string
+          template?: string
           title?: string
           updated_at?: string
           url_slug?: string
@@ -687,30 +705,48 @@ export type Database = {
         Row: {
           active: boolean | null
           amount: number | null
+          button_text: string | null
+          color_theme: string | null
           created_at: string | null
           description: string | null
+          enable_card: boolean | null
+          enable_pix: boolean | null
           id: string | null
           image_url: string | null
+          security_message: string | null
+          template: string | null
           title: string | null
           url_slug: string | null
         }
         Insert: {
           active?: boolean | null
           amount?: number | null
+          button_text?: string | null
+          color_theme?: string | null
           created_at?: string | null
           description?: string | null
+          enable_card?: boolean | null
+          enable_pix?: boolean | null
           id?: string | null
           image_url?: string | null
+          security_message?: string | null
+          template?: string | null
           title?: string | null
           url_slug?: string | null
         }
         Update: {
           active?: boolean | null
           amount?: number | null
+          button_text?: string | null
+          color_theme?: string | null
           created_at?: string | null
           description?: string | null
+          enable_card?: boolean | null
+          enable_pix?: boolean | null
           id?: string | null
           image_url?: string | null
+          security_message?: string | null
+          template?: string | null
           title?: string | null
           url_slug?: string | null
         }
