@@ -260,8 +260,16 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
                 <Input
                   id="pixKey"
                   type="text"
+                  inputMode={['cpf', 'cnpj', 'phone'].includes(pixType) ? 'numeric' : 'text'}
                   value={pixKey}
-                  onChange={(e) => setPixKey(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (['cpf', 'cnpj', 'phone'].includes(pixType)) {
+                      setPixKey(val.replace(/\D/g, ''));
+                    } else {
+                      setPixKey(val);
+                    }
+                  }}
                   placeholder={
                     pixType === 'cpf' ? '000.000.000-00' :
                     pixType === 'cnpj' ? '00.000.000/0000-00' :

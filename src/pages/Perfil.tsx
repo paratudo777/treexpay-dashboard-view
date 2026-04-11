@@ -472,9 +472,10 @@ export default function Perfil() {
                       <Input 
                         id="twoFACode"
                         type="text"
+                        inputMode="numeric"
                         maxLength={6}
                         value={twoFACode}
-                        onChange={(e) => setTwoFACode(e.target.value)}
+                        onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, ''))}
                         placeholder="Digite o código de 6 dígitos"
                         className="w-full"
                       />
