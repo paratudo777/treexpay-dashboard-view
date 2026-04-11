@@ -149,14 +149,14 @@ export default function Perfil() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto max-w-4xl space-y-6">
+      <div className="container mx-auto max-w-4xl space-y-4 sm:space-y-6 px-1 sm:px-4">
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl gradient-primary">
             <User className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Meu Perfil</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Meu Perfil</h1>
             <p className="text-sm text-muted-foreground">Gerencie seus dados e configurações</p>
           </div>
         </div>
@@ -203,7 +203,7 @@ export default function Perfil() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Dados Pessoais */}
           <Card className="glass-card border-border/40">
             <CardHeader className="pb-3">
@@ -303,7 +303,7 @@ export default function Perfil() {
           </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Notificações */}
           <Card className="glass-card border-border/40">
             <CardHeader className="pb-3">
