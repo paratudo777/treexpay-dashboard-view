@@ -132,6 +132,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
               );
             }
 
+            const isRanking = item.href === '/ranking';
+
             return (
               <li key={item.name}>
                 <button
@@ -139,12 +141,20 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   className={cn(
                     "flex items-center w-full p-2.5 rounded-lg transition-all duration-200 ease-out group",
                     isActive
-                      ? "gradient-primary text-primary-foreground shadow-md glow-primary-sm"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-1"
+                      ? isRanking
+                        ? "sidebar-golden font-bold shadow-md"
+                        : "gradient-primary text-primary-foreground shadow-md glow-primary-sm"
+                      : isRanking
+                        ? "sidebar-golden font-bold shadow-sm"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-1"
                   )}
                 >
-                  <item.icon className={cn("h-5 w-5 transition-transform duration-200", !isActive && "group-hover:scale-110")} />
-                  <span className="ml-3 font-medium">{item.name}</span>
+                  <item.icon className={cn(
+                    "h-5 w-5 transition-transform duration-200",
+                    !isActive && !isRanking && "group-hover:scale-110",
+                    isRanking && "text-yellow-900"
+                  )} />
+                  <span className={cn("ml-3 font-medium", isRanking && "text-yellow-900 font-bold")}>{item.name}</span>
                 </button>
               </li>
             );
