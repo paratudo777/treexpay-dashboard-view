@@ -586,17 +586,19 @@ export default function CheckoutPublic() {
                 </div>
               )}
 
-              <CardHeader className="text-center space-y-4 pb-4">
-                <div className="space-y-2">
-                  <CardTitle className="text-3xl font-bold">{checkout.title}</CardTitle>
+              <CardHeader className="text-center space-y-5 pb-4">
+                <div className="space-y-3">
+                  <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                    {checkout.title}
+                  </CardTitle>
                   {checkout.description && (
-                    <CardDescription className="text-base leading-relaxed">
+                    <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
                       {checkout.description}
                     </CardDescription>
                   )}
                 </div>
                 <div className="inline-flex items-center justify-center px-6 py-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <span className="text-3xl font-bold text-primary">
+                  <span className="text-3xl font-black tracking-tight text-primary">
                     {formatCurrency(checkout.amount)}
                   </span>
                 </div>
