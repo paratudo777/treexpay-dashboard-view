@@ -22,23 +22,21 @@ export function CopyBlock({ content, label, className }: CopyBlockProps) {
     <div className={cn("relative group", className)}>
       {label && (
         <div className="absolute top-2 left-3 z-10">
-          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">{label}</span>
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</span>
         </div>
       )}
       <pre className={cn(
-        "bg-[hsl(260,20%,8%)] border border-white/[0.06] rounded-xl text-sm font-mono overflow-x-auto select-none",
+        "bg-muted border border-border rounded-xl text-sm font-mono overflow-x-auto text-foreground",
         label ? "pt-8 pb-4 px-4" : "p-4"
       )}>
         {content}
       </pre>
       <Button
         size="sm"
-        variant="ghost"
+        variant="outline"
         onClick={handleCopy}
         className={cn(
-          "absolute top-2 right-2 h-8 px-2.5 rounded-lg transition-all duration-200",
-          "bg-white/[0.06] hover:bg-primary/20 border border-white/[0.08]",
-          "text-muted-foreground hover:text-primary",
+          "absolute top-2 right-2 h-8 px-2.5 rounded-lg text-xs font-medium",
           copied && "bg-green-500/20 text-green-400 border-green-500/30"
         )}
       >
