@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
           webhookUrl: `${supabaseUrl}/functions/v1/api-gateway-webhook`,
           description: description || undefined,
           customer: {
-            name: customer_name || undefined,
+            name: resolvedCustomerName,
             email: resolvedCustomerEmail,
             document: resolvedCustomerDocument,
           },
