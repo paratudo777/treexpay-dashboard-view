@@ -654,6 +654,8 @@ export default function CheckoutPublic() {
                   />
                 </div>
 
+                {/* Payment methods - only show enabled ones */}
+                {(checkout.enable_pix && checkout.enable_card) ? (
                 <div className="space-y-3">
                   <Label className="text-xs font-bold uppercase tracking-wide">Forma de Pagamento</Label>
                   <RadioGroup 
@@ -700,6 +702,7 @@ export default function CheckoutPublic() {
                     </div>
                   </RadioGroup>
                 </div>
+                ) : null}
 
                  {paymentMethod === 'credit_card' && (
                    <CardPaymentErrorBoundary>
