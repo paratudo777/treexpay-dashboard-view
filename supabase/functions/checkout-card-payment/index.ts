@@ -155,31 +155,9 @@ Deno.serve(async (req) => {
       throw new Error('Failed to create payment: ' + paymentError.message);
     }
 
-    // Create transaction if paid
-    if (isPaid) {
-      const transactionCode = 'CRD' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      await supabase.from('transactions').insert({
-        code: transactionCode,
-        user_id: userId,
-        type: 'payment',
-        description: `Venda Cartão: ${publicCheckout.title} - Cliente: ${customerName}`,
-        amount: netAmount,
-        status: 'approved',
-      });
-      // Credit seller balance
-      await supabase.rpc('incrementar_saldo_usuario', { p_user_id: userId, p_amount: netAmount });
-    } else if (!isFailed) {
-      // Pending - create pending transaction (webhook will confirm)
-      const transactionCode = 'CRD' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      await supabase.from('transactions').insert({
-        code: transactionCode,
-        user_id: userId,
-        type: 'payment',
-        description: `Venda Cartão: ${publicCheckout.title} - Cliente: ${customerName} (Aguardando)`,
-        amount: netAmount,
-        status: 'pending',
-      });
-    }
+    // Transaction creation and balance credit are handled by DB triggers:
+    // - process_checkout_card_payment (on INSERT)
+    // - update_checkout_card_payment_status (on UPDATE)
 
     console.log('✅ Pagamento com cartão processado:', payment.id, 'status:', paymentStatus);
 
