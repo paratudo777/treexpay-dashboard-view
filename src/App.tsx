@@ -19,6 +19,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminTransactions from "./pages/AdminTransactions";
 import AdminCreateUser from "./pages/AdminCreateUser";
 import AdminWithdrawals from "./pages/AdminWithdrawals";
+import AdminAcquirers from "./pages/AdminAcquirers";
 import ApiSettings from "./pages/ApiSettings";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -171,6 +172,14 @@ const App = () => {
                     element={
                       <AdminRoute>
                         <AdminWithdrawals />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/adquirentes" 
+                    element={
+                      <AdminRoute>
+                        <AdminAcquirers />
                       </AdminRoute>
                     } 
                   />

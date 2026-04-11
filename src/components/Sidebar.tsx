@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import treexPayLogo from '@/assets/treexpay-logo.png';
-import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart, Code, Users, ArrowRightLeft, UserPlus, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, FileText, Wallet, LogOut, Settings, Trophy, CreditCard, ShoppingCart, Code, Users, ArrowRightLeft, UserPlus, ChevronDown, Landmark } from 'lucide-react';
 
 type NavItem = {
   name: string;
@@ -32,6 +32,7 @@ const navItems: NavItem[] = [
       { name: 'Transações', href: '/admin/transacoes', icon: ArrowRightLeft },
       { name: 'Criar Usuário', href: '/admin/criar-usuario', icon: UserPlus },
       { name: 'Solicitações de Saque', href: '/admin/saques', icon: CreditCard },
+      { name: 'Adquirentes', href: '/admin/adquirentes', icon: Landmark },
     ]
   },
 ];
