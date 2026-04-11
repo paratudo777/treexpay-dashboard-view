@@ -302,109 +302,177 @@ Deno.serve(async (req) => {
         return json({ error: 'Failed to create payment transaction mirror' }, 500)
       }
 
-      // 3. Generate PIX via configured provider for this API key owner
+      // 3. Process payment based on method
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!
       try {
-        const { data: providerData, error: providerError } = await admin.rpc('resolve_user_provider', { p_user_id: user_id })
-        if (providerError) {
-          throw new Error(`Failed to resolve provider: ${providerError.message}`)
-        }
+        if (resolvedPaymentMethod === 'credit_card') {
+          // ── Credit Card via Bestfy (only provider with card support) ──
+          const { card, installments } = body
+          if (!card || !card.number || !card.cvv || !card.month || !card.year) {
+            await admin.from('api_payments').update({ status: 'failed' }).eq('id', payment.id)
+            return json({ error: 'card object is required with: number, cvv, month, year. Optional: firstName, lastName, installments' }, 400)
+          }
+          if (!resolvedCustomerName || !resolvedCustomerDocument) {
+            await admin.from('api_payments').update({ status: 'failed' }).eq('id', payment.id)
+            return json({ error: 'customer.name and customer.document (CPF) are required for credit card payments' }, 400)
+          }
 
-        const providerName = providerData || 'novaera'
-        console.log(`[api-gateway] Resolved provider for user ${user_id}: ${providerName}`)
+          const bestfy = new BestfyProvider()
+          if (!bestfy.isAvailable()) {
+            await admin.from('api_payments').update({ status: 'failed' }).eq('id', payment.id)
+            return json({ error: 'Credit card payments are not available. Bestfy provider is not configured.' }, 503)
+          }
 
-        const pixResult = await createPixWithProvider(providerName, {
-          amount,
-          paymentId: payment.id,
-          webhookUrl: `${supabaseUrl}/functions/v1/api-gateway-webhook`,
-          description: description || undefined,
-          customer: {
-            name: resolvedCustomerName,
-            email: resolvedCustomerEmail,
-            document: resolvedCustomerDocument,
-          },
-          metadata: metadata || undefined,
-        })
+          const nameParts = (card.firstName && card.lastName)
+            ? { firstName: card.firstName, lastName: card.lastName }
+            : (() => { const p = resolvedCustomerName.trim().split(/\s+/); return { firstName: p[0], lastName: p.slice(1).join(' ') || p[0] }; })()
 
-        // 4. Update record with PIX data + provider used
-        await admin
-          .from('api_payments')
-          .update({
+          const cardResult = await bestfy.createCreditCard({
+            amount,
+            paymentId: payment.id,
+            customer: {
+              name: resolvedCustomerName,
+              email: resolvedCustomerEmail || 'noreply@treexpay.site',
+              phone: resolvedCustomerPhone || '5511999999999',
+              document: resolvedCustomerDocument,
+            },
+            card: {
+              number: card.number.replace(/\s/g, ''),
+              cvv: card.cvv,
+              firstName: nameParts.firstName,
+              lastName: nameParts.lastName,
+              month: card.month,
+              year: card.year.length === 2 ? `20${card.year}` : card.year,
+              installments: installments || card.installments || 1,
+            },
+            description: description || undefined,
+            webhookUrl: `${supabaseUrl}/functions/v1/bestfy-webhook`,
+            metadata: { ...(metadata || {}), api_payment_id: payment.id },
+          })
+
+          const rawStatus = (cardResult.raw as any)?.status || cardResult.status || 'PENDING'
+          const isPaid = ['PAID', 'APPROVED'].includes(rawStatus.toUpperCase())
+          const isFailed = ['REJECTED', 'REFUSED', 'DECLINED'].includes(rawStatus.toUpperCase())
+          const finalStatus = isPaid ? 'paid' : isFailed ? 'failed' : 'pending'
+
+          await admin.from('api_payments').update({
+            external_id: cardResult.financialTransactionId,
+            provider: 'bestfy',
+            status: finalStatus,
+            paid_at: isPaid ? new Date().toISOString() : null,
+          }).eq('id', payment.id)
+
+          await admin.from('transactions').update({
+            status: isPaid ? 'approved' : isFailed ? 'denied' : 'pending',
+            description: `Pagamento API Cartão - R$ ${Number(amount).toFixed(2)} (${finalStatus} via bestfy)`,
+            updated_at: new Date().toISOString(),
+          }).eq('code', transactionCode).eq('user_id', user_id)
+
+          if (isPaid) {
+            admin.rpc('incrementar_saldo_usuario', { p_user_id: user_id, p_amount: amount }).then()
+            dispatchWebhooks(admin, user_id, payment.id, { ...payment, amount, paid_at: new Date().toISOString(), webhook_url: resolvedWebhookUrl, webhook_sent: false })
+          }
+
+          const cardResponseBody = {
+            id: payment.id,
+            external_id: cardResult.financialTransactionId,
+            amount: payment.amount,
+            status: finalStatus,
+            payment_method: 'credit_card',
+            description: payment.description,
+            customer_email: payment.customer_email,
+            provider: 'bestfy',
+            created_at: payment.created_at,
+            paid_at: isPaid ? new Date().toISOString() : null,
+          }
+
+          if (idempotencyKey) setIdempotentResponse(`${api_key_id}_${idempotencyKey}`, cardResponseBody, 201)
+          return json(cardResponseBody, 201)
+
+        } else {
+          // ── PIX via provider registry ──
+          const { data: providerData, error: providerError } = await admin.rpc('resolve_user_provider', { p_user_id: user_id })
+          if (providerError) throw new Error(`Failed to resolve provider: ${providerError.message}`)
+
+          const providerName = providerData || 'novaera'
+          console.log(`[api-gateway] Resolved provider for user ${user_id}: ${providerName}`)
+
+          const pixResult = await createPixWithProvider(providerName, {
+            amount,
+            paymentId: payment.id,
+            webhookUrl: `${supabaseUrl}/functions/v1/api-gateway-webhook`,
+            description: description || undefined,
+            customer: {
+              name: resolvedCustomerName,
+              email: resolvedCustomerEmail,
+              document: resolvedCustomerDocument,
+            },
+            metadata: metadata || undefined,
+          })
+
+          await admin.from('api_payments').update({
             external_id: pixResult.external_id,
             pix_code: pixResult.pix_code,
             qr_code: pixResult.qr_code,
             expires_at: pixResult.expires_at,
             provider: pixResult.provider,
-          })
-          .eq('id', payment.id)
+          }).eq('id', payment.id)
 
-        await admin
-          .from('transactions')
-          .update({
+          await admin.from('transactions').update({
             description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (PIX gerado via ${pixResult.provider})`,
             updated_at: new Date().toISOString(),
-          })
-          .eq('code', transactionCode)
-          .eq('user_id', user_id)
+          }).eq('code', transactionCode).eq('user_id', user_id)
 
-        // Dispatch pix.generated webhook
-        try {
-          await fetch(`${supabaseUrl}/functions/v1/dispatch-webhook`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
-            },
-            body: JSON.stringify({
-              user_id,
-              event: 'pix.generated',
-              payload: {
-                payment: { id: payment.id, amount, status: 'pending', pix_code: pixResult.pix_code, provider: pixResult.provider },
+          // Dispatch pix.generated webhook
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/dispatch-webhook`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
               },
-            }),
-          })
-        } catch (_) { /* non-critical */ }
+              body: JSON.stringify({
+                user_id,
+                event: 'pix.generated',
+                payload: { payment: { id: payment.id, amount, status: 'pending', pix_code: pixResult.pix_code, provider: pixResult.provider } },
+              }),
+            })
+          } catch (_) { /* non-critical */ }
 
-        const responseBody = {
-          id: payment.id,
-          external_id: pixResult.external_id,
-          amount: payment.amount,
-          status: 'pending',
-          description: payment.description,
-          customer_email: payment.customer_email,
-          pix_code: pixResult.pix_code,
-          qr_code: pixResult.qr_code,
-          expires_at: pixResult.expires_at,
-          provider: pixResult.provider,
-          created_at: payment.created_at,
+          const responseBody = {
+            id: payment.id,
+            external_id: pixResult.external_id,
+            amount: payment.amount,
+            status: 'pending',
+            payment_method: 'pix',
+            description: payment.description,
+            customer_email: payment.customer_email,
+            pix_code: pixResult.pix_code,
+            qr_code: pixResult.qr_code,
+            expires_at: pixResult.expires_at,
+            provider: pixResult.provider,
+            created_at: payment.created_at,
+          }
+
+          if (idempotencyKey) setIdempotentResponse(`${api_key_id}_${idempotencyKey}`, responseBody, 201)
+          return json(responseBody, 201)
         }
 
-        // Cache idempotent response
-        if (idempotencyKey) {
-          setIdempotentResponse(`${api_key_id}_${idempotencyKey}`, responseBody, 201)
-        }
-
-        return json(responseBody, 201)
-
-      } catch (pixError) {
-        const pixErrorMessage = pixError instanceof Error ? pixError.message : 'Unknown PIX creation error'
-        console.error('PIX creation failed (all providers):', pixError)
+      } catch (paymentError) {
+        const errorMessage = paymentError instanceof Error ? paymentError.message : 'Unknown payment error'
+        console.error('Payment creation failed:', paymentError)
 
         await admin.from('api_payments').update({ status: 'failed' }).eq('id', payment.id)
-        await admin
-          .from('transactions')
-          .update({
-            status: 'denied',
-            description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (Falha ao gerar PIX)`,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('code', transactionCode)
-          .eq('user_id', user_id)
+        await admin.from('transactions').update({
+          status: 'denied',
+          description: `Pagamento API - R$ ${Number(amount).toFixed(2)} (Falha)`,
+          updated_at: new Date().toISOString(),
+        }).eq('code', transactionCode).eq('user_id', user_id)
 
         return json({
-          error: 'Failed to generate PIX payment',
+          error: 'Failed to process payment',
           payment_id: payment.id,
-          details: pixErrorMessage,
+          details: errorMessage,
         }, 502)
       }
     }
