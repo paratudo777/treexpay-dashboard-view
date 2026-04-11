@@ -33,9 +33,9 @@ const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header with balance and period selector */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+        <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Dashboard
             </h1>
             <p className="text-lg text-muted-foreground">

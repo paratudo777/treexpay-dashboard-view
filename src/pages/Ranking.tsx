@@ -14,7 +14,7 @@ export default function Ranking() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto max-w-4xl space-y-6 px-2 md:px-4">
+      <div className="container mx-auto max-w-4xl space-y-4 sm:space-y-6 px-2 md:px-4">
         <RankingHeader />
         <UserNicknameEditor 
           currentUserRanking={currentUserRanking}

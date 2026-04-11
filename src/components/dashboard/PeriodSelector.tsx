@@ -124,7 +124,7 @@ export const PeriodSelector = ({ onPeriodChange }: PeriodSelectorProps) => {
             defaultMonth={selectedDate.from || new Date()}
             selected={getCalendarSelection()}
             onSelect={handleDateRangeSelect}
-            numberOfMonths={2}
+            numberOfMonths={1}
             locale={ptBR}
             className="pointer-events-auto"
             disabled={(date) => date > new Date()}

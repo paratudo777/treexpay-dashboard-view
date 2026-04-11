@@ -44,10 +44,10 @@ export default function Checkouts() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Meus Produtos</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Meus Produtos</h1>
+            <p className="text-sm text-muted-foreground">
               Gerencie seus produtos de checkout ({checkouts.length}/5)
             </p>
           </div>
@@ -155,7 +155,7 @@ export default function Checkouts() {
                         </div>
 
                         {/* Ações */}
-                        <div className="flex md:flex-col gap-2 flex-wrap">
+                        <div className="flex flex-row flex-wrap md:flex-col gap-2">
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>

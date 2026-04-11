@@ -78,10 +78,10 @@ export default function ApiSettings() {
         </div>
 
         <Tabs defaultValue="keys" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="keys" className="flex items-center gap-2"><Key className="h-4 w-4" />Chaves API</TabsTrigger>
-            <TabsTrigger value="webhooks" className="flex items-center gap-2"><Webhook className="h-4 w-4" />Webhooks</TabsTrigger>
-            <TabsTrigger value="docs" className="flex items-center gap-2"><BookOpen className="h-4 w-4" />Documentação</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsTrigger value="keys" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2"><Key className="h-3.5 w-3.5 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Chaves API</span><span className="sm:hidden">Chaves</span></TabsTrigger>
+            <TabsTrigger value="webhooks" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2"><Webhook className="h-3.5 w-3.5 sm:h-4 sm:w-4" />Webhooks</TabsTrigger>
+            <TabsTrigger value="docs" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2"><BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" /><span className="hidden sm:inline">Documentação</span><span className="sm:hidden">Docs</span></TabsTrigger>
           </TabsList>
 
           {/* ── KEYS ── */}
@@ -104,14 +104,14 @@ export default function ApiSettings() {
                   <div>
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">PUBLIC KEY</label>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-muted border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-foreground break-all">{apiKeys.public_key || 'N/A'}</div>
+                      <div className="flex-1 bg-muted border border-border rounded-xl px-3 sm:px-4 py-2.5 font-mono text-xs sm:text-sm text-foreground break-all">{apiKeys.public_key || 'N/A'}</div>
                       <CopyButton text={apiKeys.public_key || ''} label="Public Key" />
                     </div>
                   </div>
                   <div>
                     <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">SECRET KEY</label>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-muted border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-foreground break-all">
+                      <div className="flex-1 bg-muted border border-border rounded-xl px-3 sm:px-4 py-2.5 font-mono text-xs sm:text-sm text-foreground break-all">
                         {showSk ? (apiKeys.secret_key || 'N/A') : maskKey(apiKeys.secret_key || '')}
                       </div>
                       <Button size="icon" variant="outline" onClick={() => setShowSk(!showSk)} className="h-9 w-9">
@@ -120,11 +120,11 @@ export default function ApiSettings() {
                       <CopyButton text={apiKeys.secret_key || ''} label="Secret Key" />
                     </div>
                   </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-4 border-t border-border gap-3">
                     <Badge variant="outline" className="text-green-400 border-green-500/30 bg-green-500/10 text-[10px]">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5 animate-pulse" />Ativa
                     </Badge>
-                    <Button variant="outline" size="sm" onClick={regenerateKeys} disabled={regenerating} className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                    <Button variant="outline" size="sm" onClick={regenerateKeys} disabled={regenerating} className="text-destructive border-destructive/30 hover:bg-destructive/10 w-full sm:w-auto">
                       <RefreshCw className={cn("h-4 w-4 mr-2", regenerating && "animate-spin")} />Regenerar Chaves
                     </Button>
                   </div>
@@ -151,7 +151,7 @@ export default function ApiSettings() {
             <div className="rounded-2xl border border-border bg-card p-5">
               <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">BASE URL DA API</label>
               <div className="flex items-center gap-2">
-                <div className="flex-1 bg-muted border border-border rounded-xl px-4 py-2.5 font-mono text-sm text-foreground">{BASE_URL}</div>
+                <div className="flex-1 bg-muted border border-border rounded-xl px-3 sm:px-4 py-2.5 font-mono text-xs sm:text-sm text-foreground break-all overflow-x-auto">{BASE_URL}</div>
                 <CopyButton text={BASE_URL} label="Base URL" />
               </div>
             </div>
