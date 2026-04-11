@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ interface WithdrawalFormProps {
 }
 
 type WithdrawalMethod = 'pix' | 'btc';
+
+const STORAGE_KEY = 'treexpay_last_withdrawal';
 
 const pixTypes = [
   { value: 'cpf', label: 'CPF', icon: '🪪' },
@@ -33,6 +35,20 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Load last used withdrawal data from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.method) setMethod(data.method);
+        if (data.pixType) setPixType(data.pixType);
+        if (data.pixKey) setPixKey(data.pixKey);
+        if (data.btcWallet) setBtcWallet(data.btcWallet);
+      }
+    } catch {}
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,10 +115,12 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
         description: `Sua solicitação de R$ ${amountValue.toFixed(2)} via ${method === 'pix' ? 'PIX' : 'BTC'} foi enviada para análise`,
       });
       
+      // Save last used key to localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ method, pixType, pixKey: pixKey.trim(), btcWallet: btcWallet.trim() }));
+      } catch {}
+
       setAmount('');
-      setPixType('');
-      setPixKey('');
-      setBtcWallet('');
       onWithdrawalSuccess();
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Erro interno. Tente novamente." });
