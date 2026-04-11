@@ -23,6 +23,7 @@ interface User {
   profile: 'admin' | 'user';
   active: boolean;
   created_at: string;
+  updated_at: string;
   balance: number;
 }
 

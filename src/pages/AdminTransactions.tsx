@@ -36,10 +36,10 @@ export default function AdminTransactions() {
         .limit(200);
 
       if (typeFilter !== 'all') {
-        query = query.eq('type', typeFilter);
+        query = query.eq('type', typeFilter as any);
       }
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        query = query.eq('status', statusFilter as any);
       }
 
       const { data, error } = await query;
