@@ -1,15 +1,16 @@
 import type { PixProvider } from './types.ts'
 import { NovaeraProvider } from './novaera.ts'
+import { BestfyProvider } from './bestfy.ts'
 
 // ── Provider Registry ──
 // To add a new provider:
-//   1. Create a file (e.g. bestfy.ts) implementing PixProvider
+//   1. Create a file implementing PixProvider
 //   2. Import it here
 //   3. Add to providerMap
 
 const providerMap: Record<string, () => PixProvider> = {
   novaera: () => new NovaeraProvider(),
-  // bestfy: () => new BestfyProvider(),  // Ready for Bestfy integration
+  bestfy: () => new BestfyProvider(),
 }
 
 let _cachedProviders: Record<string, PixProvider> = {}
@@ -30,7 +31,6 @@ export function resetProviderCache() {
 
 /**
  * Create a PIX using a specific provider name (resolved from DB).
- * Falls back to the old priority-based approach if no name given.
  */
 export async function createPixWithProvider(
   providerName: string,
@@ -89,4 +89,9 @@ export function getAvailableProviderNames(): string[] {
 /** Get all registered provider names */
 export function getRegisteredProviderNames(): string[] {
   return Object.keys(providerMap)
+}
+
+/** Get a specific provider instance (for card/boleto) */
+export function getProviderInstance(name: string): PixProvider | null {
+  return getProvider(name)
 }
