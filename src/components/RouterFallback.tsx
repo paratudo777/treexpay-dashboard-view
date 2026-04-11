@@ -32,7 +32,8 @@ const RouterFallback = () => {
       '/admin/usuarios',
       '/admin/transacoes',
       '/admin/criar-usuario',
-      '/admin/saques'
+      '/admin/saques',
+      '/admin/adquirentes'
     ];
 
     // Verificar se é uma rota de checkout público

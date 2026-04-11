@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      acquirer_config: {
+        Row: {
+          default_provider: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          default_provider?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          default_provider?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       api_keys: {
         Row: {
           created_at: string
@@ -522,6 +543,30 @@ export type Database = {
           },
         ]
       }
+      user_acquirer_config: {
+        Row: {
+          created_at: string
+          id: string
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_webhooks: {
         Row: {
           created_at: string
@@ -782,6 +827,7 @@ export type Database = {
       }
       reject_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
       reset_monthly_volumes: { Args: never; Returns: undefined }
+      resolve_user_provider: { Args: { p_user_id: string }; Returns: string }
       update_user_profile: {
         Args: { p_active?: boolean; p_profile: string; p_user_id: string }
         Returns: undefined
