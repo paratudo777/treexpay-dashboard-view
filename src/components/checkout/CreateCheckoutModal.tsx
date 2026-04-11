@@ -15,6 +15,11 @@ import {
 import { cn } from '@/lib/utils';
 import { COLOR_THEMES, type ColorTheme, type CheckoutTemplate } from '@/lib/checkoutThemes';
 
+interface CreateCheckoutModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
 export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
