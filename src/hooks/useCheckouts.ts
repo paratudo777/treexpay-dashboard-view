@@ -15,6 +15,12 @@ export interface Checkout {
   active: boolean;
   created_at: string;
   updated_at: string;
+  template: string;
+  color_theme: string;
+  button_text: string;
+  security_message: string;
+  enable_pix: boolean;
+  enable_card: boolean;
 }
 
 export interface CreateCheckoutData {
@@ -23,6 +29,12 @@ export interface CreateCheckoutData {
   amount: number;
   image_url: string;
   notification_email: string;
+  template?: string;
+  color_theme?: string;
+  button_text?: string;
+  security_message?: string;
+  enable_pix?: boolean;
+  enable_card?: boolean;
 }
 
 export const useCheckouts = () => {
@@ -73,7 +85,6 @@ export const useCheckouts = () => {
     if (!user) return false;
 
     try {
-      // Verificar limite de 5 produtos
       if (checkouts.length >= 5) {
         toast({
           variant: "destructive",
@@ -83,7 +94,6 @@ export const useCheckouts = () => {
         return false;
       }
 
-      // Gerar slug único
       const { data: slugData, error: slugError } = await supabase
         .rpc('generate_checkout_slug');
 
@@ -100,7 +110,13 @@ export const useCheckouts = () => {
           amount: checkoutData.amount,
           image_url: checkoutData.image_url,
           notification_email: checkoutData.notification_email,
-          url_slug: slugData
+          url_slug: slugData,
+          template: checkoutData.template || 'modern',
+          color_theme: checkoutData.color_theme || 'purple',
+          button_text: checkoutData.button_text || 'Comprar agora',
+          security_message: checkoutData.security_message || 'Compra 100% segura',
+          enable_pix: checkoutData.enable_pix ?? true,
+          enable_card: checkoutData.enable_card ?? false,
         });
 
       if (error) {
@@ -114,7 +130,7 @@ export const useCheckouts = () => {
 
       await fetchCheckouts();
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating checkout:', error);
       const errorMessage = error.message?.includes('Limite') 
         ? 'Você atingiu o limite de 5 produtos.'
