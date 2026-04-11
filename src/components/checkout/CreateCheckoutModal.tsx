@@ -127,14 +127,14 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={onClose} className="border-foreground/20 text-foreground hover:bg-foreground/10">
               <X className="h-4 w-4 mr-1" /> Cancelar
             </Button>
             <Button 
               size="sm" 
               onClick={() => handleSubmit()} 
-              disabled={isLoading || isLimitReached || !title.trim() || !amount}
-              className="gradient-primary hover:brightness-110"
+              disabled={isLoading || isLimitReached || !title.trim() || !amount || !notificationEmail.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg"
             >
               {isLoading ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Criando...</> : <><Check className="h-4 w-4 mr-1" />Criar Produto</>}
             </Button>

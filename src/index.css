@@ -55,10 +55,10 @@
     --popover: 260 20% 9%;
     --popover-foreground: 260 10% 95%;
 
-    --primary: 263 70% 58%;
+    --primary: 263 80% 65%;
     --primary-foreground: 0 0% 100%;
 
-    --accent-cta: 248 80% 60%;
+    --accent-cta: 250 90% 68%;
     --accent-cta-foreground: 0 0% 100%;
 
     --secondary: 260 25% 15%;
@@ -110,19 +110,19 @@
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(263 70% 58%), hsl(280 80% 65%));
+    background: linear-gradient(135deg, hsl(263 80% 65%), hsl(280 85% 70%));
   }
 
   .gradient-primary-hover {
-    background: linear-gradient(135deg, hsl(263 70% 52%), hsl(280 80% 58%));
+    background: linear-gradient(135deg, hsl(263 80% 58%), hsl(280 85% 63%));
   }
 
   .glow-primary {
-    box-shadow: 0 0 20px hsl(263 70% 58% / 0.3), 0 0 40px hsl(263 70% 58% / 0.1);
+    box-shadow: 0 0 20px hsl(263 80% 65% / 0.3), 0 0 40px hsl(263 80% 65% / 0.1);
   }
 
   .glow-primary-sm {
-    box-shadow: 0 0 10px hsl(263 70% 58% / 0.2);
+    box-shadow: 0 0 10px hsl(263 80% 65% / 0.2);
   }
 
   /* Login animated orbs */
