@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { QrCode, Loader, Copy, CheckCircle, CreditCard, AlertCircle, Clock } from 'lucide-react';
+import { QrCode, Loader, Copy, CheckCircle, CreditCard, AlertCircle, Clock, ShieldCheck, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { qrImage } from '@/utils/pixHelpers';
 import { CardPaymentErrorBoundary } from '@/components/checkout/CardPaymentErrorBoundary';
 import { cn } from '@/lib/utils';
+import { getTheme } from '@/lib/checkoutThemes';
 
 interface CheckoutData {
   id: string;
@@ -20,6 +21,12 @@ interface CheckoutData {
   image_url: string;
   url_slug: string;
   active: boolean;
+  template: string;
+  color_theme: string;
+  button_text: string;
+  security_message: string;
+  enable_pix: boolean;
+  enable_card: boolean;
 }
 
 interface PixData {
@@ -164,7 +171,13 @@ export default function CheckoutPublic() {
         return;
       }
 
-      setCheckout(data);
+      setCheckout(data as CheckoutData);
+      // Set default payment method based on what's enabled
+      if (data.enable_card && !data.enable_pix) {
+        setPaymentMethod('credit_card');
+      } else {
+        setPaymentMethod('pix');
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -566,43 +579,61 @@ export default function CheckoutPublic() {
             </CardContent>
           ) : (
             // Formulário inicial
+            (() => {
+              const theme = getTheme(checkout.color_theme);
+              const isModern = checkout.template === 'modern';
+              return (
             <>
-              {/* Header com imagem */}
-              {checkout.image_url && (
-                <div className="relative w-full aspect-video bg-muted overflow-hidden">
-                  <img 
-                    src={checkout.image_url} 
-                    alt={checkout.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      console.error('❌ Erro ao carregar imagem:', checkout.image_url);
-                      e.currentTarget.style.display = 'none';
-                    }}
-                    onLoad={() => {
-                      console.log('✅ Imagem carregada com sucesso:', checkout.image_url);
-                    }}
-                  />
-                </div>
-              )}
-
-              <CardHeader className="text-center space-y-5 pb-4">
-                <div className="space-y-3">
-                  <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
-                    {checkout.title}
-                  </CardTitle>
-                  {checkout.description && (
-                    <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
-                      {checkout.description}
-                    </CardDescription>
-                  )}
-                </div>
-                <div className="inline-flex items-center justify-center px-6 py-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <span className="text-3xl font-black tracking-tight text-primary">
-                    {formatCurrency(checkout.amount)}
+              {/* Header - Modern template */}
+              {isModern ? (
+                <div className={cn("relative p-8 pb-4 bg-gradient-to-br", theme.preview)}>
+                  <span className={cn("inline-block text-xs font-bold px-3 py-1 rounded-full mb-4 border", theme.accentBg, theme.accent)}>
+                    ✨ Oferta Especial
                   </span>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight mb-2">
+                    {checkout.title}
+                  </h1>
+                  {checkout.description && (
+                    <p className="text-base leading-relaxed text-foreground/65 font-normal mb-4">
+                      {checkout.description}
+                    </p>
+                  )}
+                  {checkout.image_url && (
+                    <div className="rounded-xl overflow-hidden aspect-video border border-border/30 mt-2">
+                      <img src={checkout.image_url} alt={checkout.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-2 mt-5">
+                    <span className={cn("text-4xl font-black tracking-tight", theme.accent)}>{formatCurrency(checkout.amount)}</span>
+                    <span className="text-sm text-foreground/50 font-medium">à vista</span>
+                  </div>
                 </div>
-              </CardHeader>
+              ) : (
+                <>
+                  {checkout.image_url && (
+                    <div className="relative w-full aspect-video bg-muted overflow-hidden">
+                      <img src={checkout.image_url} alt={checkout.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    </div>
+                  )}
+                  <CardHeader className="text-center space-y-5 pb-4">
+                    <div className="space-y-3">
+                      <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                        {checkout.title}
+                      </CardTitle>
+                      {checkout.description && (
+                        <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
+                          {checkout.description}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <div className={cn("inline-flex items-center justify-center px-6 py-3 rounded-lg border", theme.accentBg)}>
+                      <span className={cn("text-3xl font-black tracking-tight", theme.accent)}>
+                        {formatCurrency(checkout.amount)}
+                      </span>
+                    </div>
+                  </CardHeader>
+                </>
+              )}
               
               <CardContent className="space-y-6 p-8">
                 <div className="space-y-2">
@@ -629,6 +660,8 @@ export default function CheckoutPublic() {
                   />
                 </div>
 
+                {/* Payment methods - only show enabled ones */}
+                {(checkout.enable_pix && checkout.enable_card) ? (
                 <div className="space-y-3">
                   <Label className="text-xs font-bold uppercase tracking-wide">Forma de Pagamento</Label>
                   <RadioGroup 
@@ -675,6 +708,7 @@ export default function CheckoutPublic() {
                     </div>
                   </RadioGroup>
                 </div>
+                ) : null}
 
                  {paymentMethod === 'credit_card' && (
                    <CardPaymentErrorBoundary>
@@ -782,35 +816,42 @@ export default function CheckoutPublic() {
                     </CardPaymentErrorBoundary>
                   )}
 
-                <Button 
+                <button 
                   onClick={paymentMethod === 'pix' ? processPixPayment : processCardPayment}
                   disabled={processingPayment || !customerName.trim()}
-                  className="w-full h-12 text-base font-semibold"
-                  size="lg"
+                  className={cn(
+                    "w-full h-12 rounded-xl text-base font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none",
+                    theme.gradientBtn
+                  )}
                 >
                   {processingPayment ? (
                     <>
-                      <Loader className="h-5 w-5 mr-2 animate-spin" />
+                      <Loader className="h-5 w-5 mr-2 animate-spin inline" />
                       Processando...
                     </>
                   ) : paymentMethod === 'pix' ? (
                     <>
-                      <QrCode className="h-5 w-5 mr-2" />
-                      Gerar PIX
+                      <QrCode className="h-5 w-5 mr-2 inline" />
+                      {checkout.button_text || 'Gerar PIX'}
                     </>
                   ) : (
                     <>
-                      <CreditCard className="h-5 w-5 mr-2" />
+                      <CreditCard className="h-5 w-5 mr-2 inline" />
                       Pagar com Cartão
                     </>
                   )}
-                </Button>
+                </button>
                 
-                <p className="text-xs text-center text-muted-foreground">
-                  Pagamento seguro e protegido
-                </p>
+                {checkout.security_message && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-foreground/50">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    {checkout.security_message}
+                  </div>
+                )}
               </CardContent>
             </>
+              );
+            })()
           )}
         </Card>
       </div>
