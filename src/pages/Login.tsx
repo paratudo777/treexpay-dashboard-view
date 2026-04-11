@@ -62,14 +62,8 @@ const Login = () => {
 
   return (
     <div className="min-h-screen dark" style={{ background: 'hsl(260 25% 4%)' }}>
-      {/* Animated orbs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="login-orb login-orb-1" />
-        <div className="login-orb login-orb-2" />
-        <div className="login-orb login-orb-3" />
-        <div className="login-orb login-orb-4" />
-        <div className="login-orb login-orb-5" />
-      </div>
+      {/* Futuristic animated background */}
+      <FuturisticBackground />
 
       {/* Top Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.8)' }}>
