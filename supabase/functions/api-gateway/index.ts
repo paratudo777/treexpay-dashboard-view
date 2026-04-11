@@ -227,6 +227,15 @@ Deno.serve(async (req) => {
       }
 
       const body = await req.json()
+
+      // Capture client context for anti-fraud
+      const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        || req.headers.get('x-real-ip')
+        || req.headers.get('cf-connecting-ip')
+        || body.customer?.ip
+        || undefined
+      const userAgent = req.headers.get('user-agent') || body.metadata?.user_agent || undefined
+
       const {
         amount,
         description,
@@ -335,6 +344,7 @@ Deno.serve(async (req) => {
               email: resolvedCustomerEmail || 'noreply@treexpay.site',
               phone: resolvedCustomerPhone || '5511999999999',
               document: resolvedCustomerDocument,
+              ip: clientIp,
             },
             card: {
               number: card.number.replace(/\s/g, ''),
@@ -347,7 +357,10 @@ Deno.serve(async (req) => {
             },
             description: description || undefined,
             webhookUrl: `${supabaseUrl}/functions/v1/bestfy-webhook`,
-            metadata: { ...(metadata || {}), api_payment_id: payment.id },
+            metadata: { ...(metadata || {}), api_payment_id: payment.id, source: 'api_gateway' },
+            clientIp,
+            userAgent,
+          })
           })
 
           const rawStatus = (cardResult.raw as any)?.status || cardResult.status || 'PENDING'
