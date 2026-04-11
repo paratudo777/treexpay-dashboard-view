@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createPixWithProvider, createPixWithFallback } from '../_shared/payment-providers/registry.ts'
+import { createPixWithProvider } from '../_shared/payment-providers/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -92,38 +92,19 @@ Deno.serve(async (req) => {
       ? `${SUPABASE_URL}/functions/v1/bestfy-webhook`
       : `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
 
-    // Create PIX via provider registry
-    let pixResult;
-    try {
-      pixResult = await createPixWithProvider(providerName, {
-        amount: publicCheckout.amount,
-        paymentId: externalRef,
-        webhookUrl,
-        description: publicCheckout.title,
-        customer: {
-          name: sellerProfile.name,
-          email: 'noreply@treexpay.site',
-          phone: sellerProfile.phone,
-          document: sellerProfile.cpf,
-        },
-        metadata: { origin: 'TreexPay Checkout', checkout_id: publicCheckout.id },
-      });
-    } catch (err) {
-      console.error(`[checkout-pix] Provider ${providerName} failed, trying fallback...`);
-      pixResult = await createPixWithFallback({
-        amount: publicCheckout.amount,
-        paymentId: externalRef,
-        webhookUrl: `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
-        description: publicCheckout.title,
-        customer: {
-          name: sellerProfile.name,
-          email: 'noreply@treexpay.site',
-          phone: sellerProfile.phone,
-          document: sellerProfile.cpf,
-        },
-        metadata: { origin: 'TreexPay Checkout', checkout_id: publicCheckout.id },
-      });
-    }
+    const pixResult = await createPixWithProvider(providerName, {
+      amount: publicCheckout.amount,
+      paymentId: externalRef,
+      webhookUrl,
+      description: publicCheckout.title,
+      customer: {
+        name: sellerProfile.name,
+        email: 'noreply@treexpay.site',
+        phone: sellerProfile.phone,
+        document: sellerProfile.cpf,
+      },
+      metadata: { origin: 'TreexPay Checkout', checkout_id: publicCheckout.id },
+    })
 
     // Save checkout payment
     const pixData = providerName === 'bestfy'
