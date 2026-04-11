@@ -127,7 +127,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={onClose} className="border-foreground/20 text-foreground hover:bg-foreground/10">
               <X className="h-4 w-4 mr-1" /> Cancelar
             </Button>
             <Button 
