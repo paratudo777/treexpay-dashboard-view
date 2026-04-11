@@ -53,7 +53,7 @@ export default function Financeiro() {
 
   return (
     <DashboardLayout>
-      <div className="container mx-auto max-w-6xl space-y-8">
+      <div className="container mx-auto max-w-6xl space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl gradient-primary">
@@ -66,9 +66,9 @@ export default function Financeiro() {
         </div>
 
         {/* Balance & Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
           {/* Saldo Disponível */}
-          <Card className="glass-card col-span-1 md:col-span-2 lg:col-span-1 relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
+          <Card className="glass-card col-span-2 lg:col-span-1 relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
             <div className="absolute inset-0 gradient-primary opacity-[0.04] group-hover:opacity-[0.08] transition-opacity" />
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
@@ -79,7 +79,7 @@ export default function Financeiro() {
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-foreground tracking-tight">
+              <p className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">
                 {balanceLoading ? (
                   <span className="inline-block h-9 w-40 bg-muted animate-pulse rounded-lg" />
                 ) : (
