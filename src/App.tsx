@@ -15,6 +15,9 @@ import Perfil from "./pages/Perfil";
 import Financeiro from "./pages/Financeiro";
 import Ranking from "./pages/Ranking";
 import Admin from "./pages/Admin";
+import AdminUsers from "./pages/AdminUsers";
+import AdminTransactions from "./pages/AdminTransactions";
+import AdminCreateUser from "./pages/AdminCreateUser";
 import AdminWithdrawals from "./pages/AdminWithdrawals";
 import ApiSettings from "./pages/ApiSettings";
 import NotFound from "./pages/NotFound";
@@ -136,6 +139,30 @@ const App = () => {
                     element={
                       <AdminRoute>
                         <Admin />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/usuarios" 
+                    element={
+                      <AdminRoute>
+                        <AdminUsers />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/transacoes" 
+                    element={
+                      <AdminRoute>
+                        <AdminTransactions />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/criar-usuario" 
+                    element={
+                      <AdminRoute>
+                        <AdminCreateUser />
                       </AdminRoute>
                     } 
                   />
