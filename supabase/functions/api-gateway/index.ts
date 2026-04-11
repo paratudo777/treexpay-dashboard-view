@@ -361,7 +361,6 @@ Deno.serve(async (req) => {
             clientIp,
             userAgent,
           })
-          })
 
           const rawStatus = (cardResult.raw as any)?.status || cardResult.status || 'PENDING'
           const isPaid = ['PAID', 'APPROVED'].includes(rawStatus.toUpperCase())
