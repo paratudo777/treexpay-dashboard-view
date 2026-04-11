@@ -398,7 +398,7 @@ export default function CheckoutPublic() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -406,7 +406,7 @@ export default function CheckoutPublic() {
 
   if (!checkout) {
     return (
-      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <h1 className="text-2xl font-bold text-foreground mb-2">
@@ -443,10 +443,10 @@ export default function CheckoutPublic() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    Pagamento Confirmado!
-                  </h3>
-                  <p className="text-base text-muted-foreground">
+                   <h3 className="text-2xl font-extrabold tracking-tight text-emerald-400">
+                     Pagamento Confirmado!
+                   </h3>
+                   <p className="text-base text-foreground/70">
                     Seu pagamento foi processado com sucesso
                   </p>
                   {paymentMethod === 'credit_card' && customerEmail && (
@@ -498,7 +498,7 @@ export default function CheckoutPublic() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  <h3 className="text-2xl font-extrabold tracking-tight text-amber-400">
                     Tempo Esgotado
                   </h3>
                   <p className="text-muted-foreground">
@@ -586,17 +586,19 @@ export default function CheckoutPublic() {
                 </div>
               )}
 
-              <CardHeader className="text-center space-y-4 pb-4">
-                <div className="space-y-2">
-                  <CardTitle className="text-3xl font-bold">{checkout.title}</CardTitle>
+              <CardHeader className="text-center space-y-5 pb-4">
+                <div className="space-y-3">
+                  <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                    {checkout.title}
+                  </CardTitle>
                   {checkout.description && (
-                    <CardDescription className="text-base leading-relaxed">
+                    <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
                       {checkout.description}
                     </CardDescription>
                   )}
                 </div>
                 <div className="inline-flex items-center justify-center px-6 py-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <span className="text-3xl font-bold text-primary">
+                  <span className="text-3xl font-black tracking-tight text-primary">
                     {formatCurrency(checkout.amount)}
                   </span>
                 </div>
