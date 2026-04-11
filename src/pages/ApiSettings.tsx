@@ -169,11 +169,12 @@ export default function ApiSettings() {
                 <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                   <Code className="h-4 w-4 text-primary" />
                 </div>
-                <h2 className="text-base font-bold text-foreground">Documentação da API v2</h2>
+                <h2 className="text-base font-bold text-foreground">Documentação da API v3.1</h2>
               </div>
               <p className="text-sm text-muted-foreground">
-                Ao criar um pagamento via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">POST /payments</code>, a API gera automaticamente uma cobrança PIX real.
-                A resposta inclui o código copia-e-cola e o QR Code. Quando confirmado, seu webhook é notificado e o saldo creditado.
+                A API suporta pagamentos via <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">PIX</code> e{' '}
+                <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">Cartão de Crédito</code>.
+                Use <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">POST /payments</code> com o campo <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">paymentMethod</code> para escolher o método.
               </p>
             </div>
 
@@ -181,29 +182,67 @@ export default function ApiSettings() {
               <CopyBlock content={`x-api-key: sk_live_sua_chave_aqui\n\n// ou\nAuthorization: Bearer sk_live_sua_chave_aqui`} />
             </DocSection>
 
+            {/* PIX */}
             <DocSection title="💳 Criar Pagamento PIX">
               <div className="flex items-center gap-2 mb-3">
                 <Badge className="bg-green-600 text-white border-0 text-[10px]">POST</Badge>
                 <code className="text-sm text-foreground">/payments</code>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">Cria um pagamento e gera um PIX real. Valor em reais.</p>
-              <CopyBlock label="Request" content={`curl -X POST ${BASE_URL}/payments \\\n  -H "x-api-key: ${apiKeys?.secret_key ? apiKeys.secret_key.substring(0, 16) + '...' : 'sk_live_xxx'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "amount": 49.90,\n    "description": "Pedido #123",\n    "customer_email": "cliente@email.com",\n    "webhook_url": "https://seusite.com/webhook"\n  }'`} />
+              <p className="text-sm text-muted-foreground mb-3">Cria um pagamento PIX real. O campo <code className="text-primary">paymentMethod</code> é opcional (padrão: <code>"pix"</code>).</p>
+              <CopyBlock label="Request" content={`curl -X POST ${BASE_URL}/payments \\\n  -H "x-api-key: ${apiKeys?.secret_key ? apiKeys.secret_key.substring(0, 16) + '...' : 'sk_live_xxx'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "amount": 49.90,\n    "paymentMethod": "pix",\n    "description": "Pedido #123",\n    "customer_email": "cliente@email.com",\n    "webhook_url": "https://seusite.com/webhook"\n  }'`} />
               <div className="mt-3">
-                <CopyBlock label="Response 201" content={`{\n  "id": "73a95625-edbe-45c9-9fad-e1d1f277e87c",\n  "external_id": "1055320",\n  "amount": 49.90,\n  "status": "pending",\n  "pix_code": "00020101021226800014br.gov.bcb.pix...",\n  "qr_code": "00020101021226800014br.gov.bcb.pix...",\n  "expires_at": "2026-04-09T19:55:42Z",\n  "provider": "novaera",\n  "created_at": "2026-04-07T19:55:40Z"\n}`} />
+                <CopyBlock label="Response 201" content={`{\n  "id": "73a95625-edbe-45c9-9fad-e1d1f277e87c",\n  "external_id": "1055320",\n  "amount": 49.90,\n  "status": "pending",\n  "payment_method": "pix",\n  "pix_code": "00020101021226800014br.gov.bcb.pix...",\n  "qr_code": "00020101021226800014br.gov.bcb.pix...",\n  "expires_at": "2026-04-09T19:55:42Z",\n  "provider": "novaera",\n  "created_at": "2026-04-07T19:55:40Z"\n}`} />
               </div>
-              <InfoBox title="💡 Campos importantes" items={[
-                { code: 'pix_code', desc: 'Código copia-e-cola para o cliente pagar' },
-                { code: 'qr_code', desc: 'Use para gerar a imagem do QR Code' },
-                { code: 'expires_at', desc: 'Data de expiração do PIX (padrão: 1h)' },
-                { code: 'external_id', desc: 'ID da transação na adquirente' },
-              ]} />
-              <InfoBox title="📋 Parâmetros aceitos" items={[
+              <InfoBox title="📋 Parâmetros PIX" items={[
                 { code: 'amount', desc: 'Valor em reais (obrigatório, máx: 100.000)' },
+                { code: 'paymentMethod', desc: '"pix" (padrão se omitido)' },
                 { code: 'description', desc: 'Descrição do pagamento' },
                 { code: 'customer_email', desc: 'Email do cliente' },
-                { code: 'webhook_url', desc: 'URL para notificação' },
+                { code: 'webhook_url', desc: 'URL para notificação quando pago' },
                 { code: 'metadata', desc: 'Objeto JSON com dados extras' },
               ]} />
+            </DocSection>
+
+            {/* CARTÃO DE CRÉDITO */}
+            <DocSection title="💳 Criar Pagamento com Cartão de Crédito">
+              <div className="flex items-center gap-2 mb-3">
+                <Badge className="bg-green-600 text-white border-0 text-[10px]">POST</Badge>
+                <code className="text-sm text-foreground">/payments</code>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Pagamentos com cartão são processados via <strong>Bestfy</strong>. O campo <code className="text-primary">paymentMethod</code> deve ser <code>"credit_card"</code>.
+                Os objetos <code className="text-primary">card</code> e <code className="text-primary">customer</code> (com CPF) são obrigatórios.
+              </p>
+              <CopyBlock label="Request" content={`curl -X POST ${BASE_URL}/payments \\\n  -H "x-api-key: ${apiKeys?.secret_key ? apiKeys.secret_key.substring(0, 16) + '...' : 'sk_live_xxx'}" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "amount": 150.00,\n    "paymentMethod": "credit_card",\n    "description": "Produto Premium",\n    "installments": 1,\n    "customer": {\n      "name": "João da Silva",\n      "email": "joao@email.com",\n      "document": "11144477735"\n    },\n    "card": {\n      "number": "4111111111111111",\n      "cvv": "123",\n      "month": "12",\n      "year": "2028",\n      "firstName": "JOAO",\n      "lastName": "DA SILVA"\n    },\n    "webhook_url": "https://seusite.com/webhook"\n  }'`} />
+              <div className="mt-3">
+                <CopyBlock label="Response 201" content={`{\n  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",\n  "external_id": "2055421",\n  "amount": 150.00,\n  "status": "paid",\n  "payment_method": "credit_card",\n  "description": "Produto Premium",\n  "provider": "bestfy",\n  "created_at": "2026-04-11T15:30:00Z",\n  "paid_at": "2026-04-11T15:30:02Z"\n}`} />
+              </div>
+              <InfoBox title="💳 Campos do card (obrigatórios)" items={[
+                { code: 'number', desc: 'Número do cartão (sem espaços)' },
+                { code: 'cvv', desc: 'Código de segurança (3-4 dígitos)' },
+                { code: 'month', desc: 'Mês de validade (ex: "12")' },
+                { code: 'year', desc: 'Ano de validade (ex: "2028" ou "28")' },
+                { code: 'firstName', desc: 'Primeiro nome no cartão (opcional, usa customer.name)' },
+                { code: 'lastName', desc: 'Sobrenome no cartão (opcional)' },
+              ]} />
+              <InfoBox title="👤 Campos do customer (obrigatórios p/ cartão)" items={[
+                { code: 'name', desc: 'Nome completo do cliente' },
+                { code: 'document', desc: 'CPF do titular (apenas números)' },
+                { code: 'email', desc: 'E-mail do cliente (opcional)' },
+                { code: 'phone', desc: 'Telefone do cliente (opcional)' },
+              ]} />
+              <InfoBox title="📌 Status possíveis na resposta" items={[
+                { code: 'paid', desc: 'Pagamento aprovado imediatamente' },
+                { code: 'pending', desc: 'Aguardando confirmação (webhook será enviado)' },
+                { code: 'failed', desc: 'Cartão recusado pela operadora' },
+              ]} />
+              <div className="mt-3 rounded-xl border border-border bg-muted/30 p-4">
+                <p className="text-xs font-semibold text-foreground mb-2">💰 Parcelamento</p>
+                <p className="text-xs text-muted-foreground">
+                  Use o campo <code className="text-primary">installments</code> (1 a 12) para pagamentos parcelados.
+                  Se omitido, o padrão é 1 (à vista).
+                </p>
+              </div>
             </DocSection>
 
             <DocSection title="🔍 Consultar Pagamento">
@@ -228,22 +267,56 @@ export default function ApiSettings() {
                 <Badge variant="outline" className="text-[10px]">PATCH</Badge>
                 <code className="text-sm text-foreground">/payments/:id/status</code>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">Status é atualizado automaticamente quando o PIX é pago. Use apenas para override manual.</p>
+              <p className="text-sm text-muted-foreground mb-3">Status é atualizado automaticamente via webhook. Use apenas para override manual.</p>
               <CopyBlock content={`curl -X PATCH ${BASE_URL}/payments/UUID/status \\\n  -H "x-api-key: sk_live_xxx" \\\n  -H "Content-Type: application/json" \\\n  -d '{"status": "canceled"}'`} />
               <p className="text-xs text-muted-foreground mt-2">Status válidos: <code>pending</code>, <code>paid</code>, <code>canceled</code>, <code>expired</code>, <code>failed</code></p>
             </DocSection>
 
-            <DocSection title="🟨 Exemplo JavaScript">
-              <CopyBlock label="JavaScript" content={`const response = await fetch('${BASE_URL}/payments', {\n  method: 'POST',\n  headers: {\n    'x-api-key': 'sk_live_sua_chave',\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    amount: 99.90,\n    description: 'Assinatura mensal',\n    customer_email: 'cliente@email.com',\n    webhook_url: 'https://seusite.com/webhook',\n  }),\n});\n\nconst payment = await response.json();\nconsole.log('PIX Copia e Cola:', payment.pix_code);`} />
+            {/* JS Examples */}
+            <DocSection title="🟨 Exemplo JavaScript — PIX">
+              <CopyBlock label="JavaScript" content={`const response = await fetch('${BASE_URL}/payments', {\n  method: 'POST',\n  headers: {\n    'x-api-key': 'sk_live_sua_chave',\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    amount: 99.90,\n    paymentMethod: 'pix',\n    description: 'Assinatura mensal',\n    customer_email: 'cliente@email.com',\n    webhook_url: 'https://seusite.com/webhook',\n  }),\n});\n\nconst payment = await response.json();\nconsole.log('PIX Copia e Cola:', payment.pix_code);`} />
             </DocSection>
 
-            <DocSection title="🔔 Webhook — Notificação" description="Quando o cliente paga, enviamos um POST:">
-              <CopyBlock label="Webhook Payload" content={`{\n  "event": "payment.paid",\n  "payment": {\n    "id": "73a95625-...",\n    "amount": 49.90,\n    "status": "paid",\n    "paid_at": "2026-04-07T20:01:30Z"\n  }\n}`} />
+            <DocSection title="🟨 Exemplo JavaScript — Cartão">
+              <CopyBlock label="JavaScript" content={`const response = await fetch('${BASE_URL}/payments', {\n  method: 'POST',\n  headers: {\n    'x-api-key': 'sk_live_sua_chave',\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    amount: 250.00,\n    paymentMethod: 'credit_card',\n    installments: 3,\n    customer: {\n      name: 'Maria Souza',\n      document: '22233344455',\n      email: 'maria@email.com',\n    },\n    card: {\n      number: '5111111111111118',\n      cvv: '456',\n      month: '03',\n      year: '2029',\n    },\n  }),\n});\n\nconst payment = await response.json();\nconsole.log('Status:', payment.status);`} />
+            </DocSection>
+
+            <DocSection title="🔔 Webhook — Notificação" description="Quando o pagamento é confirmado (PIX pago ou cartão aprovado), enviamos um POST:">
+              <CopyBlock label="Webhook Payload" content={`{\n  "event": "payment.paid",\n  "payment": {\n    "id": "73a95625-...",\n    "amount": 49.90,\n    "status": "paid",\n    "payment_method": "pix",\n    "paid_at": "2026-04-07T20:01:30Z"\n  }\n}`} />
               <p className="text-xs text-muted-foreground mt-2">Inclui header <code className="text-primary">X-Treex-Signature</code> (HMAC SHA-256).</p>
             </DocSection>
 
             <DocSection title="📊 Fluxo Completo">
-              <CopyBlock content={`Seu Sistema              TreexPay                 Adquirente\n    │                        │                        │\n    ├── POST /payments ─────>│                        │\n    │                        ├── Gera PIX real ──────>│\n    │                        │<── pix_code + qr ─────┤\n    │<── 201 + dados PIX ───┤                        │\n    │                        │                        │\n    │  (cliente paga)        │                        │\n    │                        │<── webhook: pago ─────┤\n    │                        ├── Credita saldo        │\n    │<── webhook: paid ─────┤                        │`} />
+              <CopyBlock content={`Seu Sistema              TreexPay                 Adquirente\n    │                        │                        │\n    ├── POST /payments ─────>│                        │\n    │   (pix ou cartão)      │                        │\n    │                        ├── Processa via ───────>│\n    │                        │   NovaEra (PIX) ou     │\n    │                        │   Bestfy (cartão/PIX)  │\n    │                        │<── resposta ──────────┤\n    │<── 201 + dados ───────┤                        │\n    │                        │                        │\n    │  (pagamento confirmado)│                        │\n    │                        │<── webhook: pago ─────┤\n    │                        ├── Credita saldo        │\n    │<── webhook: paid ─────┤                        │`} />
+            </DocSection>
+
+            <DocSection title="📋 Resumo dos Métodos">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 pr-4 text-muted-foreground font-semibold">Método</th>
+                      <th className="text-left py-2 pr-4 text-muted-foreground font-semibold">paymentMethod</th>
+                      <th className="text-left py-2 pr-4 text-muted-foreground font-semibold">Provedor</th>
+                      <th className="text-left py-2 text-muted-foreground font-semibold">Campos Obrigatórios</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-border/50">
+                      <td className="py-2 pr-4 text-foreground">PIX</td>
+                      <td className="py-2 pr-4"><code className="text-primary">"pix"</code> (padrão)</td>
+                      <td className="py-2 pr-4 text-muted-foreground">NovaEra / Bestfy</td>
+                      <td className="py-2 text-muted-foreground"><code>amount</code></td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 pr-4 text-foreground">Cartão de Crédito</td>
+                      <td className="py-2 pr-4"><code className="text-primary">"credit_card"</code></td>
+                      <td className="py-2 pr-4 text-muted-foreground">Bestfy</td>
+                      <td className="py-2 text-muted-foreground"><code>amount</code>, <code>card</code>, <code>customer</code></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </DocSection>
 
             <DocSection title="🏥 Health Check (público)">
@@ -253,7 +326,7 @@ export default function ApiSettings() {
               </div>
               <CopyBlock content={`curl ${BASE_URL}/health`} />
               <div className="mt-3">
-                <CopyBlock label="Response" content={`{\n  "status": "ok",\n  "service": "TreexPay API Gateway",\n  "version": "2.0.0",\n  "features": ["pix"],\n  "timestamp": "2026-04-07T19:55:30Z"\n}`} />
+                <CopyBlock label="Response" content={`{\n  "status": "ok",\n  "service": "TreexPay API Gateway",\n  "version": "3.1.0",\n  "features": ["pix", "credit_card", "multi-provider", "idempotency"],\n  "timestamp": "2026-04-11T19:55:30Z"\n}`} />
               </div>
             </DocSection>
           </TabsContent>
