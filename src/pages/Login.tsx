@@ -61,12 +61,12 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen dark" style={{ background: 'hsl(260 25% 4%)' }}>
+    <div className="min-h-screen dark select-none" style={{ background: 'hsl(260 25% 4%)' }} onContextMenu={(e) => e.preventDefault()}>
       {/* Futuristic animated background */}
       <FuturisticBackground />
 
       {/* Top Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur-md border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.8)' }}>
+      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.95)' }}>
         <div className="flex items-center gap-3">
           <Button variant="ghost" className="text-[hsl(var(--accent-cta))] hover:text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
             Entrar
