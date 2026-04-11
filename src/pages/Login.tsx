@@ -66,41 +66,41 @@ const Login = () => {
       <FuturisticBackground />
 
       {/* Top Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.95)' }}>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" className="text-[hsl(var(--accent-cta))] hover:text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
+      <nav className="fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-border/20" style={{ background: 'hsl(260 25% 4% / 0.95)' }}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button variant="ghost" size="sm" className="text-[hsl(var(--accent-cta))] hover:text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)] text-xs sm:text-sm px-2 sm:px-4" onClick={() => setShowLoginModal(true)}>
             Entrar
           </Button>
-          <Button className="rounded-xl bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={handleCreateAccount}>
+          <Button size="sm" className="rounded-xl bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))] text-xs sm:text-sm px-3 sm:px-4" onClick={handleCreateAccount}>
             Criar conta
           </Button>
         </div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-primary tracking-tight">TreexPay</h1>
-          <img src={treexpayLogo} alt="TreexPay" className="h-8 w-auto" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <h1 className="text-lg sm:text-2xl font-bold text-primary tracking-tight">TreexPay</h1>
+          <img src={treexpayLogo} alt="TreexPay" className="h-6 sm:h-8 w-auto" />
         </div>
       </nav>
 
       {/* ===== HERO SECTION ===== */}
-      <section className="relative z-10 pt-32 pb-20 px-6">
+      <section className="relative z-10 pt-24 sm:pt-32 pb-12 sm:pb-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium mb-8">
-            <Zap className="w-4 h-4" />
+          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs sm:text-sm font-medium mb-6 sm:mb-8">
+            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             Gateway de Pagamentos PIX
           </div>
-          <h2 className="text-4xl md:text-6xl font-bold text-foreground tracking-tight mb-6 leading-tight">
+          <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-foreground tracking-tight mb-4 sm:mb-6 leading-tight">
             A gateway de pagamentos<br />
             <span className="text-primary">mais simples do Brasil</span>
           </h2>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 sm:mb-10 px-2">
             Receba pagamentos via PIX de forma rápida, segura e com as menores taxas do mercado. 
             Integração em minutos, suporte direto com desenvolvedores.
           </p>
-          <div className="flex items-center justify-center gap-4 mb-16">
-            <Button size="lg" className="rounded-xl text-base px-8 gap-2 bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={() => setShowLoginModal(true)}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-16 px-4 sm:px-0">
+            <Button size="lg" className="rounded-xl text-sm sm:text-base px-6 sm:px-8 gap-2 w-full sm:w-auto bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={() => setShowLoginModal(true)}>
               Acessar Dashboard <ArrowRight className="w-4 h-4" />
             </Button>
-            <Button size="lg" variant="outline" className="rounded-xl text-base px-8 border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={handleCreateAccount}>
+            <Button size="lg" variant="outline" className="rounded-xl text-sm sm:text-base px-6 sm:px-8 w-full sm:w-auto border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={handleCreateAccount}>
               Criar conta
             </Button>
           </div>
@@ -120,9 +120,9 @@ const Login = () => {
       </section>
 
       {/* ===== TAXAS SECTION ===== */}
-      <section className="relative z-10 py-24 px-6">
+      <section className="relative z-10 py-12 sm:py-24 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium mb-6">
               <CreditCard className="w-4 h-4" />
               Taxas competitivas
@@ -166,9 +166,9 @@ const Login = () => {
       </section>
 
       {/* ===== INTEGRAÇÃO SECTION ===== */}
-      <section className="relative z-10 py-24 px-6">
+      <section className="relative z-10 py-12 sm:py-24 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-16 items-center">
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/10 text-primary text-sm font-medium mb-6">
                 <Code2 className="w-4 h-4" />
@@ -206,7 +206,7 @@ const Login = () => {
                 <div className="w-3 h-3 rounded-full bg-green-500/60" />
                 <span className="text-xs text-muted-foreground ml-2 font-mono">criar-pagamento.sh</span>
               </div>
-              <pre className="p-6 text-sm font-mono text-muted-foreground overflow-x-auto leading-relaxed">
+              <pre className="p-4 sm:p-6 text-xs sm:text-sm font-mono text-muted-foreground overflow-x-auto leading-relaxed">
 <span className="text-primary">curl</span> -X POST \{'\n'}
   https://api.treexpay.com/v1/payments \{'\n'}
   -H <span className="text-green-400">"x-api-key: sk_live_..."</span> \{'\n'}
@@ -222,19 +222,19 @@ const Login = () => {
       </section>
 
       {/* ===== CTA FINAL ===== */}
-      <section className="relative z-10 py-24 px-6">
+      <section className="relative z-10 py-12 sm:py-24 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h3 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-6">
+          <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight mb-4 sm:mb-6">
             Pronto para começar?
           </h3>
-          <p className="text-lg text-muted-foreground mb-10">
+          <p className="text-base sm:text-lg text-muted-foreground mb-8 sm:mb-10">
             Crie sua conta agora e comece a receber pagamentos PIX em poucos minutos.
           </p>
-          <div className="flex items-center justify-center gap-4">
-            <Button size="lg" className="rounded-xl text-base px-8 gap-2 bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={handleCreateAccount}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 px-4 sm:px-0">
+            <Button size="lg" className="rounded-xl text-sm sm:text-base px-6 sm:px-8 gap-2 w-full sm:w-auto bg-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.85)] text-[hsl(var(--accent-cta-foreground))]" onClick={handleCreateAccount}>
               Criar conta grátis <ArrowRight className="w-4 h-4" />
             </Button>
-            <Button size="lg" variant="outline" className="rounded-xl text-base px-8 border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
+            <Button size="lg" variant="outline" className="rounded-xl text-sm sm:text-base px-6 sm:px-8 w-full sm:w-auto border-[hsl(var(--accent-cta)/0.5)] text-[hsl(var(--accent-cta))] hover:bg-[hsl(var(--accent-cta)/0.1)]" onClick={() => setShowLoginModal(true)}>
               Já tenho conta
             </Button>
           </div>
@@ -242,7 +242,7 @@ const Login = () => {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-border/20 py-8 px-6">
+      <footer className="relative z-10 border-t border-border/20 py-6 sm:py-8 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">© 2025 TreexPay. Todos os direitos reservados.</p>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
