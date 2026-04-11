@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,7 @@ export const useTransactions = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchTransactions = async (statusFilter?: TransactionStatus) => {
+  const fetchTransactions = useCallback(async (statusFilter?: TransactionStatus) => {
     if (!user) {
       setLoading(false);
       return;
@@ -31,11 +31,7 @@ export const useTransactions = () => {
 
     try {
       setLoading(true);
-      
-      console.log('🔍 Buscando transações para usuário:', user.id);
-      console.log('🎯 Filtro de status:', statusFilter || 'todos');
-      
-      // Enhanced security: Ensure user_id is explicitly set in the query
+
       let query = supabase
         .from('transactions')
         .select('id, code, status, created_at, description, amount, type, deposit_id')
@@ -50,7 +46,6 @@ export const useTransactions = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('❌ Erro ao buscar transações:', error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -59,24 +54,8 @@ export const useTransactions = () => {
         return;
       }
 
-      console.log('📊 Transações encontradas:', data?.length || 0);
-      console.log('📋 Dados das transações:', data);
-
-      // Additional client-side validation to ensure data belongs to user
-      const filteredData = (data || []).filter(transaction => 
-        transaction.amount > 0
-      );
-
-      console.log('✅ Transações após filtro:', filteredData.length);
-      
-      // Mostrar detalhes das transações para debug
-      filteredData.forEach(tx => {
-        console.log(`📝 Transação ${tx.code}: Status=${tx.status}, Valor=${tx.amount}, Descrição=${tx.description}`);
-      });
-      
-      setTransactions(filteredData);
-    } catch (error) {
-      console.error('❌ Erro em fetchTransactions:', error);
+      setTransactions((data || []).filter(t => t.amount > 0));
+    } catch {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -85,25 +64,19 @@ export const useTransactions = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
-  // Função para forçar atualização das transações
-  const refreshTransactions = () => {
-    console.log('🔄 Forçando atualização das transações...');
+  const refreshTransactions = useCallback(() => {
     fetchTransactions();
-  };
+  }, [fetchTransactions]);
 
   useEffect(() => {
-    console.log('🔄 useTransactions: Efeito executado');
     fetchTransactions();
-  }, [user]);
+  }, [fetchTransactions]);
 
-  // Set up real-time listening for transaction updates
   useEffect(() => {
     if (!user) return;
 
-    console.log('🔄 Configurando listener real-time para transações...');
-    
     const channel = supabase
       .channel('transactions-changes')
       .on(
@@ -114,19 +87,14 @@ export const useTransactions = () => {
           table: 'transactions',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
-          console.log('📡 Mudança em transação detectada:', payload);
-          // Atualizar lista quando houver mudanças
-          refreshTransactions();
-        }
+        () => refreshTransactions()
       )
       .subscribe();
 
     return () => {
-      console.log('🛑 Desconectando listener real-time...');
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [user, refreshTransactions]);
 
   return {
     transactions,
