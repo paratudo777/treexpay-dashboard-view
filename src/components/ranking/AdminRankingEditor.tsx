@@ -172,8 +172,9 @@ export function AdminRankingEditor({ ranking, refetch }: AdminRankingEditorProps
                     <TableCell>
                       <Input
                         type="text"
+                        inputMode="decimal"
                         value={edited?.volume ?? user.volume_total_mensal}
-                        onChange={(e) => handleVolumeChange(user.user_id, e.target.value)}
+                        onChange={(e) => handleVolumeChange(user.user_id, e.target.value.replace(/[^0-9.,]/g, ''))}
                         placeholder="Ex: 1500,50"
                         className="max-w-[150px]"
                       />
