@@ -443,10 +443,10 @@ export default function CheckoutPublic() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    Pagamento Confirmado!
-                  </h3>
-                  <p className="text-base text-muted-foreground">
+                   <h3 className="text-2xl font-extrabold tracking-tight text-emerald-400">
+                     Pagamento Confirmado!
+                   </h3>
+                   <p className="text-base text-foreground/70">
                     Seu pagamento foi processado com sucesso
                   </p>
                   {paymentMethod === 'credit_card' && customerEmail && (
@@ -498,7 +498,7 @@ export default function CheckoutPublic() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  <h3 className="text-2xl font-extrabold tracking-tight text-amber-400">
                     Tempo Esgotado
                   </h3>
                   <p className="text-muted-foreground">
