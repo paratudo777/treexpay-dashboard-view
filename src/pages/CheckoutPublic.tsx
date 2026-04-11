@@ -171,7 +171,13 @@ export default function CheckoutPublic() {
         return;
       }
 
-      setCheckout(data);
+      setCheckout(data as CheckoutData);
+      // Set default payment method based on what's enabled
+      if (data.enable_card && !data.enable_pix) {
+        setPaymentMethod('credit_card');
+      } else {
+        setPaymentMethod('pix');
+      }
     } catch (error) {
       toast({
         variant: "destructive",
