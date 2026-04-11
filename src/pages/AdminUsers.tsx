@@ -1,20 +1,32 @@
 
 import { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, UserCheck, UserX, RotateCcw, DollarSign, Eye, Trash2, Loader2, Users } from 'lucide-react';
+import { Search, Loader2, Users, ShieldCheck, UserCheck as UserCheckIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BalanceAdjustmentModal } from '@/components/admin/BalanceAdjustmentModal';
-import { FeeEditInput } from '@/components/admin/FeeEditInput';
-import { NetBalanceDisplay } from '@/components/admin/NetBalanceDisplay';
 import { UserDetailsModal } from '@/components/admin/UserDetailsModal';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { UserCard } from '@/components/admin/UserCard';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface User {
   id: string;
@@ -36,8 +48,11 @@ interface UserWithSettings extends User {
   settings: UserSettings | null;
 }
 
+type FilterType = 'all' | 'admin' | 'user' | 'active' | 'inactive';
+
 export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
@@ -70,10 +85,24 @@ export default function AdminUsers() {
     }
   });
 
-  const filteredUsers = users.filter(u =>
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch =
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    switch (filter) {
+      case 'admin': return u.profile === 'admin';
+      case 'user': return u.profile === 'user';
+      case 'active': return u.active;
+      case 'inactive': return !u.active;
+      default: return true;
+    }
+  });
+
+  const adminCount = users.filter(u => u.profile === 'admin').length;
+  const activeCount = users.filter(u => u.active).length;
 
   const toggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
@@ -156,129 +185,97 @@ export default function AdminUsers() {
     }
   };
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-              <Users className="h-6 w-6 text-primary" />
+            <div className="p-2.5 rounded-xl gradient-primary">
+              <Users className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Gerenciamento de Usuários</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Gerenciamento de Usuários</h1>
               <p className="text-sm text-muted-foreground">{users.length} usuários cadastrados</p>
             </div>
           </div>
 
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou e-mail..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-card/50 border-border/50 focus:border-primary/50"
-            />
+          {/* Stats pills */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="secondary" className="gap-1 px-2.5 py-1">
+              <Users className="h-3 w-3" />
+              {users.length} total
+            </Badge>
+            <Badge className="bg-primary/15 text-primary border-primary/20 gap-1 px-2.5 py-1">
+              <ShieldCheck className="h-3 w-3" />
+              {adminCount} admins
+            </Badge>
+            <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 gap-1 px-2.5 py-1">
+              <UserCheckIcon className="h-3 w-3" />
+              {activeCount} ativos
+            </Badge>
+          </div>
+
+          {/* Search + Filter */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou e-mail..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-card/50 border-border/50 focus:border-primary/50 h-10"
+              />
+            </div>
+            <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+              <SelectTrigger className="w-full sm:w-44 bg-card/50 border-border/50 h-10">
+                <SelectValue placeholder="Filtrar por..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="admin">Administradores</SelectItem>
+                <SelectItem value="user">Usuários</SelectItem>
+                <SelectItem value="active">Ativos</SelectItem>
+                <SelectItem value="inactive">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Users Table */}
-        <Card className="border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-          <CardHeader className="border-b border-border/30 pb-4">
-            <CardTitle className="text-lg">Usuários</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-3 text-muted-foreground">Carregando usuários...</span>
-              </div>
-            ) : filteredUsers.length === 0 ? (
-              <div className="text-center p-12 text-muted-foreground">
-                {searchTerm ? 'Nenhum usuário encontrado para essa busca.' : 'Nenhum usuário cadastrado.'}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/30 hover:bg-transparent">
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Nome</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">E-mail</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Tipo</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Status</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Taxa Dep.</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Taxa Saq.</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Saldo</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Criado em</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user, i) => {
-                      const depositFee = user.settings?.deposit_fee ?? 0;
-                      const withdrawalFee = user.settings?.withdrawal_fee ?? 0;
-                      return (
-                        <TableRow 
-                          key={user.id} 
-                          className="border-border/20 hover:bg-primary/5 transition-colors duration-200"
-                          style={{ animationDelay: `${i * 30}ms` }}
-                        >
-                          <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{user.email}</TableCell>
-                          <TableCell>
-                            <Badge variant={user.profile === 'admin' ? 'default' : 'secondary'} className="text-xs">
-                              {user.profile === 'admin' ? 'Admin' : 'Usuário'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              className={user.active 
-                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-xs' 
-                                : 'bg-red-500/20 text-red-400 border-red-500/30 text-xs'}
-                            >
-                              {user.active ? 'Ativo' : 'Inativo'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <FeeEditInput currentValue={depositFee} onUpdate={(v) => updateUserFee(user.id, 'deposit_fee', v)} feeType="deposit_fee" />
-                          </TableCell>
-                          <TableCell>
-                            <FeeEditInput currentValue={withdrawalFee} onUpdate={(v) => updateUserFee(user.id, 'withdrawal_fee', v)} feeType="withdrawal_fee" />
-                          </TableCell>
-                          <TableCell>
-                            <NetBalanceDisplay userId={user.id} grossBalance={user.balance} depositCount={0} />
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{formatDate(user.created_at)}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => { setUserDetailsTarget(user); setIsUserDetailsModalOpen(true); }} title="Detalhes">
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-emerald-500/10 hover:text-emerald-400" onClick={() => { setSelectedUser(user); setIsBalanceModalOpen(true); }} title="Ajustar saldo">
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-amber-500/10 hover:text-amber-400" onClick={() => toggleUserStatus(user.id, user.active)} title={user.active ? "Desativar" : "Ativar"}>
-                                {user.active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-500/10 hover:text-blue-400" onClick={() => resetPassword(user.id)} title="Resetar senha">
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-500/10 hover:text-red-400" onClick={() => setDeleteTarget(user)} title="Excluir">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* User Cards */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-3 text-muted-foreground">Carregando usuários...</span>
+          </div>
+        ) : filteredUsers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="p-4 rounded-2xl bg-muted/50 mb-4">
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-foreground font-medium">
+              {searchTerm || filter !== 'all' ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {searchTerm ? 'Tente outra busca' : 'Crie o primeiro usuário para começar'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            {filteredUsers.map((user) => (
+              <UserCard
+                key={user.id}
+                user={user}
+                onViewDetails={() => { setUserDetailsTarget(user); setIsUserDetailsModalOpen(true); }}
+                onAdjustBalance={() => { setSelectedUser(user); setIsBalanceModalOpen(true); }}
+                onToggleStatus={() => toggleUserStatus(user.id, user.active)}
+                onResetPassword={() => resetPassword(user.id)}
+                onDelete={() => setDeleteTarget(user)}
+                onUpdateFee={(feeType, value) => updateUserFee(user.id, feeType, value)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Modals */}
         <BalanceAdjustmentModal
