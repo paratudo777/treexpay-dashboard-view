@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { QrCode, Loader, Copy, CheckCircle, CreditCard, AlertCircle, Clock } from 'lucide-react';
+import { QrCode, Loader, Copy, CheckCircle, CreditCard, AlertCircle, Clock, ShieldCheck, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { qrImage } from '@/utils/pixHelpers';
 import { CardPaymentErrorBoundary } from '@/components/checkout/CardPaymentErrorBoundary';
 import { cn } from '@/lib/utils';
+import { getTheme } from '@/lib/checkoutThemes';
 
 interface CheckoutData {
   id: string;
@@ -20,6 +21,12 @@ interface CheckoutData {
   image_url: string;
   url_slug: string;
   active: boolean;
+  template: string;
+  color_theme: string;
+  button_text: string;
+  security_message: string;
+  enable_pix: boolean;
+  enable_card: boolean;
 }
 
 interface PixData {
