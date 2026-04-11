@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { createPixWithProvider, getAvailableProviderNames } from '../_shared/payment-providers/registry.ts'
+import { BestfyProvider } from '../_shared/payment-providers/bestfy.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -196,9 +197,9 @@ Deno.serve(async (req) => {
       return json({
         status: 'ok',
         service: 'TreexPay API Gateway',
-        version: '3.0.0',
+        version: '3.1.0',
         providers: getAvailableProviderNames(),
-        features: ['pix', 'multi-provider', 'fallback', 'idempotency'],
+        features: ['pix', 'credit_card', 'multi-provider', 'idempotency'],
         timestamp: new Date().toISOString(),
       })
     }
@@ -246,6 +247,7 @@ Deno.serve(async (req) => {
       const resolvedCustomerName = customer?.name || customer_name || undefined
       const resolvedCustomerEmail = customer?.email || customer_email || undefined
       const resolvedCustomerDocument = customer?.document || customer_document || undefined
+      const resolvedCustomerPhone = customer?.phone || body.customer_phone || undefined
       const resolvedWebhookUrl = webhook_url || webhookUrl || null
 
       // Validation
@@ -255,8 +257,9 @@ Deno.serve(async (req) => {
       if (amount > 100000) {
         return json({ error: 'amount cannot exceed 100000' }, 400)
       }
-      if (resolvedPaymentMethod !== 'pix') {
-        return json({ error: 'Only pix is currently supported on this endpoint' }, 400)
+      const validMethods = ['pix', 'credit_card']
+      if (!validMethods.includes(resolvedPaymentMethod)) {
+        return json({ error: `paymentMethod must be one of: ${validMethods.join(', ')}` }, 400)
       }
 
       // 1. Create internal record (pending)
