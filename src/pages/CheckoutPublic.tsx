@@ -398,7 +398,7 @@ export default function CheckoutPublic() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
@@ -406,7 +406,7 @@ export default function CheckoutPublic() {
 
   if (!checkout) {
     return (
-      <div className="min-h-screen bg-gray-900 dark flex items-center justify-center">
+      <div className="min-h-screen bg-background dark flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
             <h1 className="text-2xl font-bold text-foreground mb-2">
