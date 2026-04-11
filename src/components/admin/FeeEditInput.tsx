@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Check, X, Edit } from 'lucide-react';
+import { Check, X, Pencil, Loader2 } from 'lucide-react';
 
 interface FeeEditInputProps {
   currentValue: number;
@@ -14,25 +14,29 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(currentValue.toString());
   const [isUpdating, setIsUpdating] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Atualizar tempValue quando currentValue mudar
   useEffect(() => {
     setTempValue(currentValue.toString());
   }, [currentValue]);
 
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
   const handleSave = async () => {
     const numValue = parseFloat(tempValue);
-    
-    // Validação específica por tipo de taxa
+
     if (feeType === 'deposit_fee' && (isNaN(numValue) || numValue < 0 || numValue > 100)) {
-      // Taxa de depósito deve ser percentual entre 0 e 100
       setTempValue(currentValue.toString());
       setIsEditing(false);
       return;
     }
-    
+
     if (feeType === 'withdrawal_fee' && (isNaN(numValue) || numValue < 0)) {
-      // Taxa de saque deve ser valor positivo
       setTempValue(currentValue.toString());
       setIsEditing(false);
       return;
@@ -44,12 +48,9 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
       if (success) {
         setIsEditing(false);
       } else {
-        // Em caso de erro, resetar para o valor original
         setTempValue(currentValue.toString());
       }
-    } catch (error) {
-      console.error('Erro ao salvar taxa:', error);
-      // Resetar para o valor original em caso de erro
+    } catch {
       setTempValue(currentValue.toString());
     } finally {
       setIsUpdating(false);
@@ -61,98 +62,60 @@ export const FeeEditInput = ({ currentValue, onUpdate, feeType }: FeeEditInputPr
     setIsEditing(false);
   };
 
-  const handleEdit = () => {
-    setTempValue(currentValue.toString());
-    setIsEditing(true);
-  };
-
-  const getFeeTypeName = () => {
-    return feeType === 'deposit_fee' ? 'depósito' : 'saque';
-  };
-
-  const formatFeeDisplay = () => {
-    if (feeType === 'deposit_fee') {
-      // Taxa de depósito: percentual + fixo
-      return `${currentValue.toFixed(2)}% + R$ 1,50`;
-    } else {
-      // Taxa de saque: valor fixo
-      return `R$ ${currentValue.toFixed(2)}`;
-    }
-  };
-
-  const getInputPlaceholder = () => {
-    if (feeType === 'deposit_fee') {
-      return 'Ex: 8.99';
-    } else {
-      return 'Ex: 5.00';
-    }
-  };
-
-  const getInputLabel = () => {
-    if (feeType === 'deposit_fee') {
-      return '%';
-    } else {
-      return 'R$';
-    }
-  };
-
   if (!isEditing) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{formatFeeDisplay()}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleEdit}
-          className="h-6 w-6 p-0 hover:bg-gray-100"
-          title={`Editar taxa de ${getFeeTypeName()}`}
-        >
-          <Edit className="h-3 w-3" />
-        </Button>
-      </div>
+      <button
+        onClick={() => { setTempValue(currentValue.toString()); setIsEditing(true); }}
+        className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-border/60 hover:bg-muted/50 transition-all duration-150 cursor-pointer"
+      >
+        <span className="text-sm font-semibold text-foreground">
+          {feeType === 'deposit_fee'
+            ? `${currentValue.toFixed(2)}% + R$ 1,50`
+            : `R$ ${currentValue.toFixed(2)}`
+          }
+        </span>
+        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      </button>
     );
   }
 
   return (
     <div className="flex items-center gap-1">
-      <Input
-        type="number"
-        step="0.01"
-        min="0"
-        max={feeType === 'deposit_fee' ? "100" : undefined}
-        value={tempValue}
-        onChange={(e) => setTempValue(e.target.value)}
-        placeholder={getInputPlaceholder()}
-        className="w-20 h-8 text-xs"
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            handleSave();
-          } else if (e.key === 'Escape') {
-            handleCancel();
-          }
-        }}
-      />
-      <span className="text-xs">{getInputLabel()}</span>
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          value={tempValue}
+          onChange={(e) => setTempValue(e.target.value.replace(/[^0-9.,]/g, ''))}
+          placeholder={feeType === 'deposit_fee' ? '8.99' : '5.00'}
+          className="w-20 h-8 text-xs pr-7 bg-muted/30"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+            else if (e.key === 'Escape') handleCancel();
+          }}
+        />
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-medium">
+          {feeType === 'deposit_fee' ? '%' : 'R$'}
+        </span>
+      </div>
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         onClick={handleSave}
         disabled={isUpdating}
-        className="h-6 w-6 p-0 hover:bg-green-100"
-        title="Salvar"
+        className="h-7 w-7 hover:bg-emerald-500/10"
       >
-        <Check className="h-3 w-3 text-green-600" />
+        {isUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-emerald-500" />}
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="icon"
         onClick={handleCancel}
         disabled={isUpdating}
-        className="h-6 w-6 p-0 hover:bg-red-100"
-        title="Cancelar"
+        className="h-7 w-7 hover:bg-red-500/10"
       >
-        <X className="h-3 w-3 text-red-600" />
+        <X className="h-3 w-3 text-red-500" />
       </Button>
     </div>
   );
