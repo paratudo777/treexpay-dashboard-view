@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -10,9 +10,8 @@ export const useUserBalance = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     if (!user || !isAuthenticated) {
-      console.log('useUserBalance: Usuário não autenticado, aguardando...');
       setLoading(true);
       setBalance(0);
       return;
@@ -20,8 +19,7 @@ export const useUserBalance = () => {
 
     try {
       setLoading(true);
-      console.log('useUserBalance: Buscando saldo para usuário:', user.id);
-      
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('balance')
@@ -29,7 +27,6 @@ export const useUserBalance = () => {
         .single();
 
       if (profileError) {
-        console.error('useUserBalance: Erro ao buscar saldo:', profileError);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -40,16 +37,8 @@ export const useUserBalance = () => {
       }
 
       const validatedBalance = Number(profileData.balance) || 0;
-      console.log('useUserBalance: Saldo carregado:', validatedBalance);
-      
-      if (validatedBalance < 0) {
-        console.warn('useUserBalance: Saldo negativo detectado, definindo como 0');
-        setBalance(0);
-      } else {
-        setBalance(validatedBalance);
-      }
-    } catch (error) {
-      console.error('useUserBalance: Erro na busca do saldo:', error);
+      setBalance(validatedBalance >= 0 ? validatedBalance : 0);
+    } catch {
       toast({
         variant: "destructive",
         title: "Erro",
@@ -59,25 +48,19 @@ export const useUserBalance = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isAuthenticated, toast]);
 
   useEffect(() => {
-    console.log('useUserBalance: Efeito executado, user:', user?.id, 'isAuthenticated:', isAuthenticated);
-    
-    // Aguardar até ter usuário autenticado para buscar dados
     if (isAuthenticated && user) {
       fetchBalance();
     } else {
-      console.log('useUserBalance: Aguardando autenticação completa...');
       setLoading(true);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, fetchBalance]);
 
   useEffect(() => {
     if (!user || !isAuthenticated) return;
 
-    console.log('useUserBalance: Configurando listener real-time para saldo');
-    
     const channel = supabase
       .channel('profile-balance-changes')
       .on(
@@ -89,7 +72,6 @@ export const useUserBalance = () => {
           filter: `id=eq.${user.id}`
         },
         (payload) => {
-          console.log('useUserBalance: Mudança no saldo detectada:', payload);
           const newRecord = payload.new as any;
           if (newRecord && newRecord.id === user.id) {
             const validatedBalance = Number(newRecord.balance) || 0;
@@ -100,7 +82,6 @@ export const useUserBalance = () => {
       .subscribe();
 
     return () => {
-      console.log('useUserBalance: Removendo listener real-time');
       supabase.removeChannel(channel);
     };
   }, [user, isAuthenticated]);
