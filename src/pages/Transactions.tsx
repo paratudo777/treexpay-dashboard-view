@@ -210,7 +210,7 @@ export default function Transactions() {
                         >
                           <TableCell>
                             <span className="font-mono text-sm px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold">
-                              {generateFriendlyCode(index)}
+                              {formatFriendlyCode(transaction.code)}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -254,7 +254,7 @@ export default function Transactions() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold">
-                          {generateFriendlyCode(index)}
+                          {formatFriendlyCode(transaction.code)}
                         </span>
                         <StatusBadge status={transaction.status as any} />
                       </div>
