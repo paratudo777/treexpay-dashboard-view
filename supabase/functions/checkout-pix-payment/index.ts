@@ -1,5 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createPixWithProvider, createPixWithFallback } from '../_shared/payment-providers/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,11 +30,8 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const NOVAERA_BASE_URL = Deno.env.get('NOVAERA_BASE_URL');
-    const NOVAERA_PK = Deno.env.get('NOVAERA_PK');
-    const NOVAERA_SK = Deno.env.get('NOVAERA_SK');
 
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !NOVAERA_BASE_URL || !NOVAERA_PK || !NOVAERA_SK) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Missing required environment variables');
     }
 
@@ -42,136 +40,96 @@ Deno.serve(async (req) => {
 
     const { checkoutSlug, customerName, customerEmail } = body;
 
-    if (!checkoutSlug) {
-      throw new Error('Checkout slug is required');
-    }
-
+    if (!checkoutSlug) throw new Error('Checkout slug is required');
     if (!customerName || !customerName.trim() || customerName.trim().length < 3) {
       throw new Error('Nome do cliente deve ter pelo menos 3 caracteres');
     }
 
-    // Buscar checkout usando view pública primeiro para validar
+    // Fetch checkout (public view)
     const { data: publicCheckout, error: publicCheckoutError } = await supabase
       .from('public_checkouts')
       .select('*')
       .eq('url_slug', checkoutSlug)
       .single();
 
-    if (publicCheckoutError || !publicCheckout) {
-      throw new Error('Checkout not found or inactive');
-    }
+    if (publicCheckoutError || !publicCheckout) throw new Error('Checkout not found or inactive');
 
-    // Agora buscar dados completos do checkout usando service role
-    const { data: checkout, error: checkoutError } = await supabase
+    // Fetch owner
+    const { data: checkout } = await supabase
       .from('checkouts')
       .select('user_id')
       .eq('id', publicCheckout.id)
       .single();
 
-    if (checkoutError) {
-      throw new Error('Failed to load checkout details');
-    }
+    if (!checkout) throw new Error('Failed to load checkout details');
 
-    // Combinar dados públicos com user_id
-    const fullCheckout = { ...publicCheckout, user_id: checkout.user_id };
+    const userId = checkout.user_id;
 
-    // Buscar informações do vendedor (dono do checkout)
-    const { data: sellerProfile, error: sellerError } = await supabase
+    // Fetch seller profile
+    const { data: sellerProfile } = await supabase
       .from('profiles')
       .select('id, name, email, phone, cpf')
-      .eq('id', fullCheckout.user_id)
+      .eq('id', userId)
       .single();
 
-    if (sellerError || !sellerProfile) {
-      throw new Error('Seller profile not found');
-    }
+    if (!sellerProfile) throw new Error('Seller profile not found');
+    if (!sellerProfile.cpf) throw new Error('Vendedor não possui CPF cadastrado');
+    if (!sellerProfile.phone) throw new Error('Vendedor não possui telefone cadastrado');
+    if (!isValidCpf(sellerProfile.cpf)) throw new Error('CPF do vendedor é inválido');
 
-    // Validar dados obrigatórios do vendedor
-    if (!sellerProfile.cpf) {
-      throw new Error('Vendedor não possui CPF cadastrado');
-    }
+    // Resolve provider for this user
+    const { data: providerData } = await supabase.rpc('resolve_user_provider', { p_user_id: userId });
+    const providerName = providerData || 'novaera';
+    console.log(`[checkout-pix] Resolved provider for user ${userId}: ${providerName}`);
 
-    if (!sellerProfile.phone) {
-      throw new Error('Vendedor não possui telefone cadastrado');
-    }
-
-    // Validar CPF do vendedor
-    if (!isValidCpf(sellerProfile.cpf)) {
-      throw new Error('CPF do vendedor é inválido');
-    }
-
-    const amountInCents = Math.round(publicCheckout.amount * 100);
-
-    // Configurar taxa da plataforma (3% padrão)
-    const platformFeePercent = 3; // 3%
+    const platformFeePercent = 3;
     const platformFeeAmount = (publicCheckout.amount * platformFeePercent) / 100;
     const netAmount = publicCheckout.amount - platformFeeAmount;
 
-    // Preparar autenticação Basic
-    const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`);
-    const authHeader = `Basic ${credentials}`;
-
     const externalRef = `checkout_${publicCheckout.id}_${Date.now()}`;
 
-    // URL corrigida para o webhook de checkout
-    const postbackUrl = `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
+    const webhookUrl = providerName === 'bestfy'
+      ? `${SUPABASE_URL}/functions/v1/bestfy-webhook`
+      : `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`;
 
-    // Usar email genérico para evitar envio de notificações desnecessárias
-    // Se customerEmail foi fornecido, usar ele apenas para fins de registro interno
-    const pixPayload = {
-      amount: amountInCents,
-      paymentMethod: "pix",
-      externalRef: externalRef,
-      postbackUrl: postbackUrl,
-      customer: {
-        name: sellerProfile.name,
-        email: "noreply@treexpay.site", // Email genérico para evitar notificações
-        phone: sellerProfile.phone,
-        document: {
-          type: "cpf",
-          number: sellerProfile.cpf
-        }
-      },
-      pix: {
-        pixKey: "treex@tecnologia.com.br",
-        pixKeyType: "email",
-        expiresInSeconds: 3600
-      },
-      items: [
-        { 
-          title: publicCheckout.title, 
-          quantity: 1, 
-          tangible: false, 
-          unitPrice: amountInCents 
-        }
-      ],
-      metadata: "{\"origin\":\"TreexPay Checkout\"}",
-      traceable: false,
-      // IMPORTANTE: Desabilitar notificações automáticas
-      notifications: {
-        email: false,
-        sms: false
-      }
-    };
-
-    // Usar o mesmo endpoint que funciona no depósito: /transactions
-    const novaEraResponse = await fetch(`${NOVAERA_BASE_URL}/transactions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(pixPayload)
-    });
-
-    if (!novaEraResponse.ok) {
-      const errorText = await novaEraResponse.text();
-      throw new Error(`Failed to create PIX payment: ${errorText}`);
+    // Create PIX via provider registry
+    let pixResult;
+    try {
+      pixResult = await createPixWithProvider(providerName, {
+        amount: publicCheckout.amount,
+        paymentId: externalRef,
+        webhookUrl,
+        description: publicCheckout.title,
+        customer: {
+          name: sellerProfile.name,
+          email: 'noreply@treexpay.site',
+          phone: sellerProfile.phone,
+          document: sellerProfile.cpf,
+        },
+        metadata: { origin: 'TreexPay Checkout', checkout_id: publicCheckout.id },
+      });
+    } catch (err) {
+      console.error(`[checkout-pix] Provider ${providerName} failed, trying fallback...`);
+      pixResult = await createPixWithFallback({
+        amount: publicCheckout.amount,
+        paymentId: externalRef,
+        webhookUrl: `${SUPABASE_URL}/functions/v1/checkout-pix-webhook`,
+        description: publicCheckout.title,
+        customer: {
+          name: sellerProfile.name,
+          email: 'noreply@treexpay.site',
+          phone: sellerProfile.phone,
+          document: sellerProfile.cpf,
+        },
+        metadata: { origin: 'TreexPay Checkout', checkout_id: publicCheckout.id },
+      });
     }
 
-    const novaEraData = await novaEraResponse.json();
+    // Save checkout payment
+    const pixData = providerName === 'bestfy'
+      ? { financialTransactionId: pixResult.external_id, qrCode: pixResult.qr_code, qrCodeText: pixResult.pix_code, provider: 'bestfy' }
+      : pixResult.raw;
 
-    // Salvar pagamento no banco
     const { data: payment, error: paymentError } = await supabase
       .from('checkout_payments')
       .insert({
@@ -182,64 +140,45 @@ Deno.serve(async (req) => {
         platform_fee: platformFeeAmount,
         net_amount: netAmount,
         status: 'pending',
-        pix_data: novaEraData
+        pix_data: pixData,
       })
       .select()
       .single();
 
-    if (paymentError) {
-      throw new Error('Failed to create payment record');
-    }
+    if (paymentError) throw new Error('Failed to create payment record');
 
-    // Criar transação PENDENTE no banco para o vendedor
+    // Create pending transaction
     const transactionCode = 'CHK' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    await supabase.from('transactions').insert({
+      code: transactionCode,
+      user_id: userId,
+      type: 'payment',
+      description: `Venda Checkout: ${publicCheckout.title} - Cliente: ${customerName} (Aguardando pagamento)`,
+      amount: netAmount,
+      status: 'pending',
+      deposit_id: null,
+    });
 
-    const { error: createTransactionError } = await supabase
-      .from('transactions')
-      .insert({
-        code: transactionCode,
-        user_id: fullCheckout.user_id,
-        type: 'payment',
-        description: `Venda Checkout: ${publicCheckout.title} - Cliente: ${customerName} (Aguardando pagamento)`,
-        amount: netAmount,
-        status: 'pending',
-        deposit_id: null
-      });
-
-    if (createTransactionError) {
-      // Não falha o processo, apenas loga o erro
-    }
-
-    // Retornar dados no formato esperado pela página de checkout
     return new Response(
       JSON.stringify({
         success: true,
         payment,
-        checkout: publicCheckout, // Retornar apenas dados públicos
+        checkout: publicCheckout,
         externalRef,
+        provider: pixResult.provider,
         pix: {
-          qrcode: novaEraData.data.pix.qrcode,
-          qrcodeText: novaEraData.data.pix.qrcode,
-          expiresAt: novaEraData.data.pix.expirationDate,
-          expirationDate: novaEraData.data.pix.expirationDate
-        }
+          qrcode: pixResult.qr_code,
+          qrcodeText: pixResult.pix_code,
+          expiresAt: pixResult.expires_at,
+          expirationDate: pixResult.expires_at,
+        },
       }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

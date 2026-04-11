@@ -11,7 +11,7 @@ export interface AcquirerOption {
 
 export const AVAILABLE_ACQUIRERS: AcquirerOption[] = [
   { id: 'novaera', name: 'novaera', label: 'NovaEra', available: true },
-  { id: 'bestfy', name: 'bestfy', label: 'Bestfy', available: false },
+  { id: 'bestfy', name: 'bestfy', label: 'Bestfy', available: true },
 ];
 
 export interface UserAcquirerRow {
