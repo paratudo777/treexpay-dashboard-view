@@ -134,15 +134,36 @@ Deno.serve(async (req) => {
     // Search through transactions that might have bestfy reference in description
     // For now, handle via checkout_payments too
 
-    // 3. Check checkout_payments
-    const { data: checkoutPayment } = await supabase
+    // 3. Check checkout_payments (PIX via pix_data OR Card via card_data)
+    let checkoutPayment = null
+    let checkoutSource = ''
+
+    // Try pix_data first
+    const { data: pixCheckout } = await supabase
       .from('checkout_payments')
       .select('*, checkouts!checkout_payments_checkout_id_fkey(user_id)')
       .filter('pix_data->>financialTransactionId', 'eq', transactionId)
       .maybeSingle()
 
+    if (pixCheckout) {
+      checkoutPayment = pixCheckout
+      checkoutSource = 'pix'
+    } else {
+      // Try card_data (card payments store bestfy_transaction_id)
+      const { data: cardCheckout } = await supabase
+        .from('checkout_payments')
+        .select('*, checkouts!checkout_payments_checkout_id_fkey(user_id)')
+        .filter('card_data->>bestfy_transaction_id', 'eq', transactionId)
+        .maybeSingle()
+
+      if (cardCheckout) {
+        checkoutPayment = cardCheckout
+        checkoutSource = 'card'
+      }
+    }
+
     if (checkoutPayment) {
-      console.log('📋 Found checkout payment:', checkoutPayment.id)
+      console.log(`📋 Found checkout payment (${checkoutSource}):`, checkoutPayment.id)
       const checkoutUserId = (checkoutPayment as any).checkouts?.user_id
 
       if (checkoutPayment.status === 'paid') {
@@ -152,6 +173,8 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
+
+      const isCancelled = ['cancelled', 'denied'].includes(internalStatus)
 
       if (isPaid && checkoutUserId) {
         await supabase
@@ -168,12 +191,35 @@ Deno.serve(async (req) => {
           .from('transactions')
           .update({ status: 'approved', updated_at: new Date().toISOString() })
           .eq('user_id', checkoutUserId)
-          .eq('type', 'payment')
           .eq('status', 'pending')
           .gte('created_at', new Date(Date.now() - 86400000).toISOString())
           .like('description', `%${(checkoutPayment as any).customer_name || ''}%`)
 
         console.log('✅ Checkout payment processed, balance updated:', netAmount)
+      } else if (isCancelled && checkoutUserId) {
+        // Payment was refused/cancelled by gateway
+        await supabase
+          .from('checkout_payments')
+          .update({ status: 'failed' })
+          .eq('id', checkoutPayment.id)
+
+        // Update related transaction to denied/cancelled
+        const txStatus = internalStatus === 'denied' ? 'denied' : 'cancelled'
+        await supabase
+          .from('transactions')
+          .update({ status: txStatus, updated_at: new Date().toISOString() })
+          .eq('user_id', checkoutUserId)
+          .eq('status', 'pending')
+          .gte('created_at', new Date(Date.now() - 86400000).toISOString())
+          .like('description', `%${(checkoutPayment as any).customer_name || ''}%`)
+
+        console.log(`❌ Checkout payment ${checkoutPayment.id} marked as ${txStatus}`)
+      } else {
+        // Other status updates (refunded, etc.)
+        await supabase
+          .from('checkout_payments')
+          .update({ status: internalStatus === 'approved' ? 'paid' : internalStatus })
+          .eq('id', checkoutPayment.id)
       }
 
       processedEvents.add(eventKey)
