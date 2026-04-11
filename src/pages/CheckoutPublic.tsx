@@ -573,43 +573,61 @@ export default function CheckoutPublic() {
             </CardContent>
           ) : (
             // Formulário inicial
+            (() => {
+              const theme = getTheme(checkout.color_theme);
+              const isModern = checkout.template === 'modern';
+              return (
             <>
-              {/* Header com imagem */}
-              {checkout.image_url && (
-                <div className="relative w-full aspect-video bg-muted overflow-hidden">
-                  <img 
-                    src={checkout.image_url} 
-                    alt={checkout.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                    onError={(e) => {
-                      console.error('❌ Erro ao carregar imagem:', checkout.image_url);
-                      e.currentTarget.style.display = 'none';
-                    }}
-                    onLoad={() => {
-                      console.log('✅ Imagem carregada com sucesso:', checkout.image_url);
-                    }}
-                  />
-                </div>
-              )}
-
-              <CardHeader className="text-center space-y-5 pb-4">
-                <div className="space-y-3">
-                  <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
-                    {checkout.title}
-                  </CardTitle>
-                  {checkout.description && (
-                    <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
-                      {checkout.description}
-                    </CardDescription>
-                  )}
-                </div>
-                <div className="inline-flex items-center justify-center px-6 py-3 bg-primary/10 rounded-lg border border-primary/20">
-                  <span className="text-3xl font-black tracking-tight text-primary">
-                    {formatCurrency(checkout.amount)}
+              {/* Header - Modern template */}
+              {isModern ? (
+                <div className={cn("relative p-8 pb-4 bg-gradient-to-br", theme.preview)}>
+                  <span className={cn("inline-block text-xs font-bold px-3 py-1 rounded-full mb-4 border", theme.accentBg, theme.accent)}>
+                    ✨ Oferta Especial
                   </span>
+                  <h1 className="text-3xl font-extrabold tracking-tight text-foreground leading-tight mb-2">
+                    {checkout.title}
+                  </h1>
+                  {checkout.description && (
+                    <p className="text-base leading-relaxed text-foreground/65 font-normal mb-4">
+                      {checkout.description}
+                    </p>
+                  )}
+                  {checkout.image_url && (
+                    <div className="rounded-xl overflow-hidden aspect-video border border-border/30 mt-2">
+                      <img src={checkout.image_url} alt={checkout.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-2 mt-5">
+                    <span className={cn("text-4xl font-black tracking-tight", theme.accent)}>{formatCurrency(checkout.amount)}</span>
+                    <span className="text-sm text-foreground/50 font-medium">à vista</span>
+                  </div>
                 </div>
-              </CardHeader>
+              ) : (
+                <>
+                  {checkout.image_url && (
+                    <div className="relative w-full aspect-video bg-muted overflow-hidden">
+                      <img src={checkout.image_url} alt={checkout.title} className="w-full h-full object-cover" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    </div>
+                  )}
+                  <CardHeader className="text-center space-y-5 pb-4">
+                    <div className="space-y-3">
+                      <CardTitle className="text-3xl font-extrabold tracking-tight text-foreground leading-tight">
+                        {checkout.title}
+                      </CardTitle>
+                      {checkout.description && (
+                        <CardDescription className="text-base leading-relaxed text-foreground/65 font-normal">
+                          {checkout.description}
+                        </CardDescription>
+                      )}
+                    </div>
+                    <div className={cn("inline-flex items-center justify-center px-6 py-3 rounded-lg border", theme.accentBg)}>
+                      <span className={cn("text-3xl font-black tracking-tight", theme.accent)}>
+                        {formatCurrency(checkout.amount)}
+                      </span>
+                    </div>
+                  </CardHeader>
+                </>
+              )}
               
               <CardContent className="space-y-6 p-8">
                 <div className="space-y-2">
