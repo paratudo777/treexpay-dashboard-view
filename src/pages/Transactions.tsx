@@ -24,9 +24,26 @@ interface CombinedTransaction {
   amount: number;
 }
 
-// Generate a friendly visual code based on index
-const generateFriendlyCode = (index: number) => {
-  return `TXN${String(index + 1).padStart(4, '0')}`;
+// Format the real DB code into a friendly display version
+const formatFriendlyCode = (code: string) => {
+  if (!code) return '—';
+  // API-xxxxxxxx-... → API-XXXXXX
+  if (code.startsWith('API-')) {
+    return 'API-' + code.slice(4, 10).toUpperCase();
+  }
+  // TXN20260407268435 → TXN-268435
+  if (code.startsWith('TXN')) {
+    return 'TXN-' + code.slice(-6);
+  }
+  // WTH20260407123456 → WTH-123456
+  if (code.startsWith('WTH')) {
+    return 'WTH-' + code.slice(-6);
+  }
+  // CHK20260407123456 → CHK-123456
+  if (code.startsWith('CHK')) {
+    return 'CHK-' + code.slice(-6);
+  }
+  return code.slice(0, 12);
 };
 
 const formatAmount = (amount: number) =>
