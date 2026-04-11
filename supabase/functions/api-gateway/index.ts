@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createPixWithFallback, getAvailableProviderNames } from '../_shared/payment-providers/registry.ts'
+import { createPixWithProvider, getAvailableProviderNames } from '../_shared/payment-providers/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -276,10 +276,18 @@ Deno.serve(async (req) => {
         return json({ error: 'Failed to create payment transaction mirror' }, 500)
       }
 
-      // 3. Generate PIX via provider registry (with automatic fallback)
+      // 3. Generate PIX via configured provider for this API key owner
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!
       try {
-        const pixResult = await createPixWithFallback({
+        const { data: providerData, error: providerError } = await admin.rpc('resolve_user_provider', { p_user_id: user_id })
+        if (providerError) {
+          throw new Error(`Failed to resolve provider: ${providerError.message}`)
+        }
+
+        const providerName = providerData || 'novaera'
+        console.log(`[api-gateway] Resolved provider for user ${user_id}: ${providerName}`)
+
+        const pixResult = await createPixWithProvider(providerName, {
           amount,
           paymentId: payment.id,
           webhookUrl: `${supabaseUrl}/functions/v1/api-gateway-webhook`,
@@ -292,7 +300,7 @@ Deno.serve(async (req) => {
           metadata: metadata || undefined,
         })
 
-        // 4. Update record with PIX data + actual provider used
+        // 4. Update record with PIX data + provider used
         await admin
           .from('api_payments')
           .update({

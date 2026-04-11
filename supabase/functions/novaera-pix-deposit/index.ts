@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { createPixWithProvider, createPixWithFallback } from '../_shared/payment-providers/registry.ts'
+import { createPixWithProvider } from '../_shared/payment-providers/registry.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -82,39 +82,19 @@ Deno.serve(async (req) => {
       ? `${SUPABASE_URL}/functions/v1/bestfy-webhook`
       : `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`;
 
-    // Use the provider registry to create the PIX
-    let pixResult;
-    try {
-      pixResult = await createPixWithProvider(providerName, {
-        amount: Number(amount),
-        paymentId: depositData.id,
-        webhookUrl,
-        description: 'Depósito TreexPay',
-        customer: {
-          name: userName,
-          email: userEmail || 'noreply@treexpay.site',
-          phone: userPhone || '5511999999999',
-          document: cpfToValidate,
-        },
-        metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
-      });
-    } catch (providerError) {
-      console.error(`[deposit] Provider ${providerName} failed, trying fallback...`);
-      // Fallback to any available provider
-      pixResult = await createPixWithFallback({
-        amount: Number(amount),
-        paymentId: depositData.id,
-        webhookUrl: `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`,
-        description: 'Depósito TreexPay',
-        customer: {
-          name: userName,
-          email: userEmail || 'noreply@treexpay.site',
-          phone: userPhone || '5511999999999',
-          document: cpfToValidate,
-        },
-        metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
-      });
-    }
+    const pixResult = await createPixWithProvider(providerName, {
+      amount: Number(amount),
+      paymentId: depositData.id,
+      webhookUrl,
+      description: 'Depósito TreexPay',
+      customer: {
+        name: userName,
+        email: userEmail || 'noreply@treexpay.site',
+        phone: userPhone || '5511999999999',
+        document: cpfToValidate,
+      },
+      metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
+    });
 
     // Store QR code (and bestfy transactionId for webhook matching)
     const qrCodeValue = providerName === 'bestfy'
