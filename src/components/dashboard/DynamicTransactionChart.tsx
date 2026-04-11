@@ -63,7 +63,7 @@ export const DynamicTransactionChart = ({ data, loading }: DynamicTransactionCha
   const total = data.reduce((sum, d) => sum + (d.deposits || 0), 0);
 
   return (
-    <Card className="col-span-4 border-border bg-card overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+    <Card className="col-span-1 lg:col-span-4 border-border bg-card overflow-hidden hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
       <CardHeader className="p-5 pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
