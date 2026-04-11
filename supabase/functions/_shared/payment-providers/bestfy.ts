@@ -96,6 +96,7 @@ export class BestfyProvider implements PixProvider {
       email: string
       phone: string
       document: string
+      ip?: string
     }
     card: {
       number: string
@@ -109,6 +110,8 @@ export class BestfyProvider implements PixProvider {
     description?: string
     webhookUrl?: string
     metadata?: Record<string, unknown>
+    clientIp?: string
+    userAgent?: string
   }): Promise<{
     financialTransactionId: string
     status: string
@@ -138,6 +141,7 @@ export class BestfyProvider implements PixProvider {
         email: params.customer.email,
         phone: params.customer.phone.replace(/\D/g, ''),
         cpfOrCnpj: params.customer.document.replace(/\D/g, ''),
+        ...(params.clientIp || params.customer.ip ? { ip: params.clientIp || params.customer.ip } : {}),
       },
       creditCard: {
         number: params.card.number.replace(/\s/g, ''),
@@ -151,6 +155,8 @@ export class BestfyProvider implements PixProvider {
       metadata: JSON.stringify({
         origin: 'TreexPay',
         payment_id: params.paymentId,
+        source: 'checkout_web',
+        ...(params.userAgent ? { user_agent: params.userAgent } : {}),
         ...(params.metadata || {}),
       }),
       postbackUrl: params.webhookUrl || `${SUPABASE_URL}/functions/v1/bestfy-webhook`,
@@ -158,13 +164,18 @@ export class BestfyProvider implements PixProvider {
 
     console.log(`[${this.name}] Creating credit card payment...`)
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'User-Agent': params.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+      'x-api-key': this.apiKey,
+    }
+    if (params.clientIp || params.customer.ip) {
+      headers['X-Forwarded-For'] = params.clientIp || params.customer.ip!
+    }
+
     const response = await fetch('https://api.bestfy.io/payment', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'TreexPay',
-        'x-api-key': this.apiKey,
-      },
+      headers,
       body: JSON.stringify(body),
     })
 
