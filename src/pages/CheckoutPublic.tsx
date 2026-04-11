@@ -810,35 +810,42 @@ export default function CheckoutPublic() {
                     </CardPaymentErrorBoundary>
                   )}
 
-                <Button 
+                <button 
                   onClick={paymentMethod === 'pix' ? processPixPayment : processCardPayment}
                   disabled={processingPayment || !customerName.trim()}
-                  className="w-full h-12 text-base font-semibold"
-                  size="lg"
+                  className={cn(
+                    "w-full h-12 rounded-xl text-base font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none",
+                    theme.gradientBtn
+                  )}
                 >
                   {processingPayment ? (
                     <>
-                      <Loader className="h-5 w-5 mr-2 animate-spin" />
+                      <Loader className="h-5 w-5 mr-2 animate-spin inline" />
                       Processando...
                     </>
                   ) : paymentMethod === 'pix' ? (
                     <>
-                      <QrCode className="h-5 w-5 mr-2" />
-                      Gerar PIX
+                      <QrCode className="h-5 w-5 mr-2 inline" />
+                      {checkout.button_text || 'Gerar PIX'}
                     </>
                   ) : (
                     <>
-                      <CreditCard className="h-5 w-5 mr-2" />
+                      <CreditCard className="h-5 w-5 mr-2 inline" />
                       Pagar com Cartão
                     </>
                   )}
-                </Button>
+                </button>
                 
-                <p className="text-xs text-center text-muted-foreground">
-                  Pagamento seguro e protegido
-                </p>
+                {checkout.security_message && (
+                  <div className="flex items-center justify-center gap-1.5 text-xs text-foreground/50">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    {checkout.security_message}
+                  </div>
+                )}
               </CardContent>
             </>
+              );
+            })()
           )}
         </Card>
       </div>
