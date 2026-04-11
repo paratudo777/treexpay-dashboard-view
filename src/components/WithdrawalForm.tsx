@@ -115,10 +115,12 @@ export const WithdrawalForm = ({ balance, onWithdrawalSuccess }: WithdrawalFormP
         description: `Sua solicitação de R$ ${amountValue.toFixed(2)} via ${method === 'pix' ? 'PIX' : 'BTC'} foi enviada para análise`,
       });
       
+      // Save last used key to localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ method, pixType, pixKey: pixKey.trim(), btcWallet: btcWallet.trim() }));
+      } catch {}
+
       setAmount('');
-      setPixType('');
-      setPixKey('');
-      setBtcWallet('');
       onWithdrawalSuccess();
     } catch (error) {
       toast({ variant: "destructive", title: "Erro", description: "Erro interno. Tente novamente." });
