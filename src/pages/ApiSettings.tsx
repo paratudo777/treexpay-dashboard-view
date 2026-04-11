@@ -230,6 +230,12 @@ export default function ApiSettings() {
                 { code: 'document', desc: 'CPF do titular (apenas números)' },
                 { code: 'email', desc: 'E-mail do cliente (opcional)' },
                 { code: 'phone', desc: 'Telefone do cliente (opcional)' },
+                { code: 'ip', desc: 'IP real do cliente — reduz rejeições por antifraude (opcional)' },
+              ]} />
+              <InfoBox title="🛡️ Campos anti-fraude (opcionais, recomendados)" items={[
+                { code: 'customer.ip', desc: 'IP real do cliente (x-forwarded-for). Aumenta taxa de aprovação.' },
+                { code: 'metadata.user_agent', desc: 'User-Agent do navegador do cliente. Diferencia humano de bot.' },
+                { code: 'metadata.source', desc: 'Origem do pagamento (ex: "checkout_web", "app_mobile")' },
               ]} />
               <InfoBox title="📌 Status possíveis na resposta" items={[
                 { code: 'paid', desc: 'Pagamento aprovado imediatamente' },
