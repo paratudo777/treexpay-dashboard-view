@@ -230,6 +230,12 @@ export default function ApiSettings() {
                 { code: 'document', desc: 'CPF do titular (apenas números)' },
                 { code: 'email', desc: 'E-mail do cliente (opcional)' },
                 { code: 'phone', desc: 'Telefone do cliente (opcional)' },
+                { code: 'ip', desc: 'IP real do cliente — reduz rejeições por antifraude (opcional)' },
+              ]} />
+              <InfoBox title="🛡️ Campos anti-fraude (opcionais, recomendados)" items={[
+                { code: 'customer.ip', desc: 'IP real do cliente (x-forwarded-for). Aumenta taxa de aprovação.' },
+                { code: 'metadata.user_agent', desc: 'User-Agent do navegador do cliente. Diferencia humano de bot.' },
+                { code: 'metadata.source', desc: 'Origem do pagamento (ex: "checkout_web", "app_mobile")' },
               ]} />
               <InfoBox title="📌 Status possíveis na resposta" items={[
                 { code: 'paid', desc: 'Pagamento aprovado imediatamente' },
@@ -278,7 +284,7 @@ export default function ApiSettings() {
             </DocSection>
 
             <DocSection title="🟨 Exemplo JavaScript — Cartão">
-              <CopyBlock label="JavaScript" content={`const response = await fetch('${BASE_URL}/payments', {\n  method: 'POST',\n  headers: {\n    'x-api-key': 'sk_live_sua_chave',\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    amount: 250.00,\n    paymentMethod: 'credit_card',\n    installments: 3,\n    customer: {\n      name: 'Maria Souza',\n      document: '22233344455',\n      email: 'maria@email.com',\n    },\n    card: {\n      number: '5111111111111118',\n      cvv: '456',\n      month: '03',\n      year: '2029',\n    },\n  }),\n});\n\nconst payment = await response.json();\nconsole.log('Status:', payment.status);`} />
+              <CopyBlock label="JavaScript" content={`const response = await fetch('${BASE_URL}/payments', {\n  method: 'POST',\n  headers: {\n    'x-api-key': 'sk_live_sua_chave',\n    'Content-Type': 'application/json',\n  },\n  body: JSON.stringify({\n    amount: 250.00,\n    paymentMethod: 'credit_card',\n    installments: 3,\n    customer: {\n      name: 'Maria Souza',\n      document: '22233344455',\n      email: 'maria@email.com',\n      phone: '11999998888',\n      ip: clientIP, // IP real do cliente\n    },\n    card: {\n      number: '5111111111111118',\n      cvv: '456',\n      month: '03',\n      year: '2029',\n    },\n    metadata: {\n      user_agent: navigator.userAgent,\n      source: 'checkout_web',\n    },\n  }),\n});\n\nconst payment = await response.json();\nconsole.log('Status:', payment.status);`} />
             </DocSection>
 
             <DocSection title="🔔 Webhook — Notificação" description="Quando o pagamento é confirmado (PIX pago ou cartão aprovado), enviamos um POST:">
