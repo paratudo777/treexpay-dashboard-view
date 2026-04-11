@@ -25,15 +25,22 @@ export default function AdminTransactions() {
   const { toast } = useToast();
 
   const { data: transactions = [], isLoading, refetch } = useQuery({
-    queryKey: ['admin-transactions', dateFrom, dateTo, typeFilter, statusFilter, userFilter],
+    queryKey: ['admin-transactions', dateFrom, dateTo, typeFilter, statusFilter, userFilter, searchId],
     queryFn: async () => {
+      // Se tem busca por ID, ignora filtro de datas
+      const isSearchingById = searchId.trim().length > 0;
+
       let query = supabase
         .from('transactions')
         .select('*, profiles!transactions_user_id_fkey(name, email)')
-        .gte('created_at', `${dateFrom}T00:00:00`)
-        .lte('created_at', `${dateTo}T23:59:59`)
         .order('created_at', { ascending: false })
         .limit(200);
+
+      if (!isSearchingById) {
+        query = query
+          .gte('created_at', `${dateFrom}T00:00:00`)
+          .lte('created_at', `${dateTo}T23:59:59`);
+      }
 
       if (typeFilter !== 'all') {
         query = query.eq('type', typeFilter as any);
