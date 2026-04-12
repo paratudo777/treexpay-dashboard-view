@@ -20,9 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
 
-  const isAdmin = user?.email === 'manomassa717@gmail.com' || 
-                  user?.email === 'admin@treexpay.com' ||
-                  profile?.profile === 'admin';
+  const isAdmin = profile?.profile === 'admin';
 
   useEffect(() => {
     let mounted = true;
