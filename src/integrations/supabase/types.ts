@@ -846,6 +846,17 @@ export type Database = {
       reject_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
       reset_monthly_volumes: { Args: never; Returns: undefined }
       resolve_user_provider: { Args: { p_user_id: string }; Returns: string }
+      safe_update_profile: {
+        Args: {
+          p_cpf?: string
+          p_name?: string
+          p_notifications_enabled?: boolean
+          p_onesignal_player_id?: string
+          p_phone?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       update_user_profile: {
         Args: { p_active?: boolean; p_profile: string; p_user_id: string }
         Returns: undefined
