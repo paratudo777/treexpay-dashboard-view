@@ -797,6 +797,24 @@ export type Database = {
         }
         Relationships: []
       }
+      public_ranking: {
+        Row: {
+          apelido: string | null
+          ultima_venda_em: string | null
+          volume_total_mensal: number | null
+        }
+        Insert: {
+          apelido?: string | null
+          ultima_venda_em?: string | null
+          volume_total_mensal?: number | null
+        }
+        Update: {
+          apelido?: string | null
+          ultima_venda_em?: string | null
+          volume_total_mensal?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_withdrawal: { Args: { withdrawal_id: string }; Returns: Json }
