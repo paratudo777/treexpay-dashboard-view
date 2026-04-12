@@ -44,7 +44,7 @@ const Login = () => {
   };
 
   const handleCreateAccount = () => {
-    window.open('https://wa.me/5518991913165', '_blank');
+    window.open('https://wa.me/+447467913968', '_blank');
   };
 
   if (loading || isAuthenticated) {
