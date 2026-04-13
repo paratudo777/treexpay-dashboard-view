@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { qrImage } from '@/utils/pixHelpers';
 import { CardPaymentErrorBoundary } from '@/components/checkout/CardPaymentErrorBoundary';
+import CustomerAddressForm, {
+  CustomerAddress, isAddressFormValid, validateName, validateEmail, validateCpfCnpj
+} from '@/components/checkout/CustomerAddressForm';
 import { cn } from '@/lib/utils';
 import { getTheme } from '@/lib/checkoutThemes';
+import { sanitizeInput } from '@/utils/inputValidation';
 
 interface CheckoutData {
   id: string;
@@ -35,11 +39,18 @@ interface PixData {
   expiresAt: string;
 }
 
+const emptyAddress: CustomerAddress = {
+  cep: '', bairro: '', numero: '', cidade: '', estado: '', endereco: '', phone: '',
+};
+
 export default function CheckoutPublic() {
   const { slug } = useParams<{ slug: string }>();
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
+  const [customerCpf, setCustomerCpf] = useState('');
+  const [customerAddress, setCustomerAddress] = useState<CustomerAddress>({ ...emptyAddress });
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix');
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -54,8 +65,19 @@ export default function CheckoutPublic() {
   const [cardNumber, setCardNumber] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCpf, setCardCpf] = useState('');
   const [cardName, setCardName] = useState('');
+
+  const handleBlur = useCallback((field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  }, []);
+
+  const cardFormValid = paymentMethod === 'credit_card'
+    ? cardNumber.replace(/\s/g, '').length >= 13 && cardCvv.length >= 3 && cardExpiry.length === 5 && cardName.trim().length > 0
+    : true;
+
+  const isFormValid = paymentMethod === 'credit_card'
+    ? isAddressFormValid(customerName, customerEmail, customerCpf, customerAddress) && cardFormValid
+    : customerName.trim().length >= 3;
 
   useEffect(() => {
     if (slug) fetchCheckout();
@@ -153,8 +175,13 @@ export default function CheckoutPublic() {
 
   const processCardPayment = async () => {
     if (!checkout) return;
-    if (!customerName.trim() || !cardNumber || !cardCvv || !cardExpiry || !cardCpf || !cardName) {
-      toast({ variant: "destructive", title: "Dados incompletos", description: "Preencha todos os campos do cartão." });
+
+    // Mark all fields as touched
+    const allFields = ['name', 'email', 'cpf', 'phone', 'cep', 'bairro', 'numero', 'cidade', 'estado', 'endereco'];
+    setTouched(allFields.reduce((a, f) => ({ ...a, [f]: true }), {}));
+
+    if (!isFormValid) {
+      toast({ variant: "destructive", title: "Dados incompletos", description: "Preencha todos os campos obrigatórios corretamente." });
       return;
     }
 
@@ -165,14 +192,24 @@ export default function CheckoutPublic() {
       const { data, error } = await supabase.functions.invoke('checkout-card-payment', {
         body: {
           checkoutSlug: slug,
-          customerName: customerName.trim(),
-          customerEmail: customerEmail.trim() || null,
+          customerName: sanitizeInput(customerName.trim()),
+          customerEmail: sanitizeInput(customerEmail.trim()),
+          customerPhone: customerAddress.phone.replace(/\D/g, ''),
+          customerDocument: customerCpf.replace(/\D/g, ''),
+          customerAddress: {
+            cep: customerAddress.cep.replace(/\D/g, ''),
+            street: sanitizeInput(customerAddress.endereco.trim()),
+            number: sanitizeInput(customerAddress.numero.trim()),
+            neighborhood: sanitizeInput(customerAddress.bairro.trim()),
+            city: sanitizeInput(customerAddress.cidade.trim()),
+            state: sanitizeInput(customerAddress.estado.trim()),
+          },
           cardData: {
             number: cardNumber.replace(/\s/g, ''),
             cvv: cardCvv,
             expiry: cardExpiry,
             name: cardName,
-            cpf: cardCpf,
+            cpf: customerCpf,
           }
         }
       });
@@ -193,7 +230,6 @@ export default function CheckoutPublic() {
             description: "O cartão foi recusado. Verifique os dados ou tente outro cartão.",
           });
         } else {
-          // Pending - waiting for webhook
           setPaymentId(data.payment.id);
           toast({ title: "Pagamento em análise", description: "Aguardando confirmação da operadora." });
         }
@@ -224,10 +260,12 @@ export default function CheckoutPublic() {
     setPaymentId('');
     setCustomerName('');
     setCustomerEmail('');
+    setCustomerCpf('');
+    setCustomerAddress({ ...emptyAddress });
+    setTouched({});
     setCardNumber('');
     setCardCvv('');
     setCardExpiry('');
-    setCardCpf('');
     setCardName('');
   };
 
@@ -239,16 +277,6 @@ export default function CheckoutPublic() {
     if (!value) return '';
     const cleaned = String(value).replace(/\D/g, '').slice(0, 16);
     return cleaned.replace(/(\d{4})/g, '$1 ').trim();
-  };
-
-  const formatCpf = (value: string) => {
-    if (!value) return '';
-    return String(value)
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-      .replace(/(-\d{2})\d+?$/, '$1');
   };
 
   if (loading) {
@@ -414,15 +442,6 @@ export default function CheckoutPublic() {
                   )}
 
                   <CardContent className="space-y-6 p-8">
-                    <div className="space-y-2">
-                      <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wide">Nome Completo *</Label>
-                      <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Digite seu nome completo" required className="h-11" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="customerEmail" className="text-xs font-bold uppercase tracking-wide">E-mail (opcional)</Label>
-                      <Input id="customerEmail" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="seu@email.com" className="h-11" />
-                    </div>
-
                     {checkout.enable_pix && checkout.enable_card && (
                       <div className="space-y-3">
                         <Label className="text-xs font-bold uppercase tracking-wide">Forma de Pagamento</Label>
@@ -449,9 +468,36 @@ export default function CheckoutPublic() {
                       </div>
                     )}
 
+                    {paymentMethod === 'pix' ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wide">Nome Completo *</Label>
+                          <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Digite seu nome completo" required className="h-11" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="customerEmail" className="text-xs font-bold uppercase tracking-wide">E-mail (opcional)</Label>
+                          <Input id="customerEmail" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} placeholder="seu@email.com" className="h-11" />
+                        </div>
+                      </>
+                    ) : (
+                      <CustomerAddressForm
+                        address={customerAddress}
+                        onChange={setCustomerAddress}
+                        customerName={customerName}
+                        onNameChange={setCustomerName}
+                        customerEmail={customerEmail}
+                        onEmailChange={setCustomerEmail}
+                        cpf={customerCpf}
+                        onCpfChange={setCustomerCpf}
+                        touched={touched}
+                        onBlur={handleBlur}
+                      />
+                    )}
+
                     {paymentMethod === 'credit_card' && (
                       <CardPaymentErrorBoundary>
                         <div className="space-y-4 p-6 border border-border rounded-lg bg-muted/30">
+                          <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Dados do Cartão</h3>
                           <div className="space-y-2">
                             <Label htmlFor="cardNumber" className="text-xs font-bold uppercase tracking-wide">Número do Cartão *</Label>
                             <Input id="cardNumber" value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value || ''))} placeholder="0000 0000 0000 0000" maxLength={19} required className="h-11 font-mono" />
@@ -474,17 +520,13 @@ export default function CheckoutPublic() {
                             <Label htmlFor="cardName" className="text-xs font-bold uppercase tracking-wide">Nome no Cartão *</Label>
                             <Input id="cardName" value={cardName} onChange={(e) => setCardName((e.target.value || '').toUpperCase())} placeholder="NOME COMO ESTÁ NO CARTÃO" required className="h-11" />
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cardCpf" className="text-xs font-bold uppercase tracking-wide">CPF do Titular *</Label>
-                            <Input id="cardCpf" value={cardCpf} onChange={(e) => setCardCpf(formatCpf(e.target.value || ''))} placeholder="000.000.000-00" maxLength={14} required className="h-11 font-mono" />
-                          </div>
                         </div>
                       </CardPaymentErrorBoundary>
                     )}
 
                     <button
                       onClick={paymentMethod === 'pix' ? processPixPayment : processCardPayment}
-                      disabled={processingPayment || !customerName.trim()}
+                      disabled={processingPayment || !isFormValid}
                       className={cn(
                         "w-full h-12 rounded-xl text-base font-bold text-white shadow-lg transition-all duration-200 hover:brightness-110 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none",
                         theme.gradientBtn
