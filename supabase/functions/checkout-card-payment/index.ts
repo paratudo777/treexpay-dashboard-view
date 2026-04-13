@@ -121,8 +121,8 @@ Deno.serve(async (req) => {
       customer: {
         name: cardData.name,
         email: customerEmail || 'noreply@treexpay.site',
-        phone: customerPhone || '5511999999999',
-        document: cardData.cpf.replace(/\D/g, ''),
+        phone: customerPhone || phoneDigits || '5511999999999',
+        document: docDigits,
         ip: clientIp,
       },
       card: {
