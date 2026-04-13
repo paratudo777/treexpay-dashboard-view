@@ -143,7 +143,7 @@ export default function CustomerAddressForm({
       <div className="space-y-1.5">
         <Label htmlFor="customerName" className="text-xs font-bold uppercase tracking-wide">Nome Completo *</Label>
         <Input id="customerName" value={customerName} onChange={e => onNameChange(e.target.value)}
-          onBlur={() => onBlur('name')} placeholder="CLEBER OLIVEIRA SOUZA"
+          onBlur={() => onBlur('name')} placeholder="Nome completo"
           className={inputCls('name', validateName(customerName))} />
         <FieldError show={touched.name && !validateName(customerName)} msg="Informe nome e sobrenome" />
       </div>
