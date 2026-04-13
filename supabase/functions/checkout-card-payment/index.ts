@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       throw new Error('Invalid JSON in request body');
     }
 
-    const { checkoutSlug, customerName, customerEmail, cardData, customerPhone } = body;
+    const { checkoutSlug, customerName, customerEmail, cardData, customerPhone, customerDocument, customerAddress } = body;
 
     // Capture client context for anti-fraud
     const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -43,6 +43,32 @@ Deno.serve(async (req) => {
     }
     if (!cardData || !cardData.number || !cardData.cvv || !cardData.expiry || !cardData.name || !cardData.cpf) {
       throw new Error('Missing required card fields: number, cvv, expiry, name, cpf');
+    }
+
+    // Backend validation of required customer fields
+    const nameParts_ = (customerName || '').trim().split(/\s+/).filter(Boolean);
+    if (nameParts_.length < 2) {
+      throw new Error('Nome completo deve conter pelo menos nome e sobrenome');
+    }
+    if (!customerEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      throw new Error('E-mail inválido');
+    }
+    const docDigits = (customerDocument || cardData.cpf || '').replace(/\D/g, '');
+    if (docDigits.length !== 11 && docDigits.length !== 14) {
+      throw new Error('CPF/CNPJ inválido');
+    }
+    const phoneDigits = (customerPhone || '').replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+      throw new Error('Telefone inválido');
+    }
+    if (customerAddress) {
+      const { cep, street, number, neighborhood, city, state } = customerAddress;
+      if (!cep || cep.replace(/\D/g, '').length !== 8) throw new Error('CEP inválido');
+      if (!street || !number || !neighborhood || !city || !state) {
+        throw new Error('Endereço incompleto: todos os campos são obrigatórios');
+      }
+    } else {
+      throw new Error('Dados de endereço são obrigatórios');
     }
 
     console.log('💳 Processando pagamento com cartão via Bestfy... IP:', clientIp || 'unknown');
