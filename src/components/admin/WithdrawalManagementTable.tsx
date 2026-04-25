@@ -92,11 +92,11 @@ export const WithdrawalManagementTable = ({
               <TableCell className="font-semibold text-primary">
                 {formatCurrency(request.amount)}
               </TableCell>
-              <TableCell className="max-w-[240px]">
+              <TableCell className="max-w-[360px]">
                 {(() => {
                   const isBtc = request.pixKeyType?.toLowerCase() === 'btc';
                   return (
-                    <div className="text-sm">
+                    <div className="text-sm space-y-1">
                       <div className="flex items-center gap-1.5 font-medium">
                         {isBtc ? (
                           <Bitcoin className="h-3.5 w-3.5 text-amber-500" />
@@ -105,11 +105,23 @@ export const WithdrawalManagementTable = ({
                         )}
                         {isBtc ? 'Bitcoin (BTC)' : request.pixKeyType}
                       </div>
-                      <div
-                        className={`text-muted-foreground truncate ${isBtc ? 'font-mono text-xs' : ''}`}
-                        title={request.pixKey}
-                      >
-                        {request.pixKey}
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-muted-foreground break-all ${isBtc ? 'font-mono text-xs' : ''}`}
+                          title={request.pixKey}
+                        >
+                          {request.pixKey}
+                        </span>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => handleCopy(request.pixKey, isBtc ? 'Endereço BTC' : 'Chave PIX')}
+                          title="Copiar"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
                   );
