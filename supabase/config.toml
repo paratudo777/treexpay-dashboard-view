@@ -73,3 +73,7 @@ verify_jwt = false
 
 [functions.bestfy-webhook]
 verify_jwt = false
+
+[functions.arkama-webhook]
+verify_jwt = false
+
