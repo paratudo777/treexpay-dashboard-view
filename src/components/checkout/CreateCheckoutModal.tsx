@@ -217,7 +217,8 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
                   <Label className="text-xs font-bold uppercase tracking-wide text-foreground/80">Valor (R$) *</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">R$</span>
-                    <Input type="number" min="1" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" className="pl-10 bg-background/50" />
+                    <Input type="number" min="3" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="3,00" className="pl-10 bg-background/50" />
+                    <p className="text-xs text-muted-foreground mt-1">Valor mínimo: R$ 3,00</p>
                   </div>
                 </div>
               </CardContent>

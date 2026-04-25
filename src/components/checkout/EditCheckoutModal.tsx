@@ -106,7 +106,8 @@ export const EditCheckoutModal = ({ checkout, open, onClose }: EditCheckoutModal
 
           <div>
             <Label htmlFor="amount" className="text-foreground/80">PREÇO (R$) *</Label>
-            <Input id="amount" type="number" min="1" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" required />
+            <Input id="amount" type="number" min="3" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="3,00" required />
+            <p className="text-xs text-muted-foreground">Valor mínimo: R$ 3,00</p>
             <p className="text-xs text-muted-foreground mt-1">Valor mínimo: R$ 1,00</p>
           </div>
 
