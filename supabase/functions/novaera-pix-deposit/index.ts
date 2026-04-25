@@ -80,7 +80,9 @@ Deno.serve(async (req) => {
     // Determine webhook URL based on provider
     const webhookUrl = providerName === 'bestfy'
       ? `${SUPABASE_URL}/functions/v1/bestfy-webhook`
-      : `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`;
+      : providerName === 'arkama'
+        ? `${SUPABASE_URL}/functions/v1/arkama-webhook`
+        : `${SUPABASE_URL}/functions/v1/novaera-pix-webhook`;
 
     const pixResult = await createPixWithProvider(providerName, {
       amount: Number(amount),

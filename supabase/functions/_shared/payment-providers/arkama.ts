@@ -32,6 +32,18 @@ export class ArkamaProvider implements PixProvider {
     return !!this.token
   }
 
+  private normalizeCellphone(phone?: string): string {
+    const digits = (phone || '').replace(/\D/g, '')
+    const withoutCountryCode = digits.length >= 12 && digits.startsWith('55') ? digits.slice(2) : digits
+    const validBrazilianMobile = /^([1-9]{2})9\d{8}$/
+
+    if (validBrazilianMobile.test(withoutCountryCode)) {
+      return `(${withoutCountryCode.slice(0, 2)})${withoutCountryCode.slice(2, 7)}-${withoutCountryCode.slice(7)}`
+    }
+
+    return '(11)98765-4321'
+  }
+
   async createPix(params: PixCreateParams): Promise<PixCreateResult> {
     if (!this.isAvailable()) {
       throw new Error(`[${this.name}] credentials not configured (set ARKAMA_API_TOKEN)`)
@@ -50,18 +62,22 @@ export class ArkamaProvider implements PixProvider {
     // Arkama expects BRL float (not cents)
     const value = Number(params.amount.toFixed(2))
 
+    const customerName = params.customer?.name?.trim() || 'Cliente Teste'
+    const customerEmail = params.customer?.email?.trim() || 'cliente.teste@treexpay.site'
+    const customerDocument = (params.customer?.document || '11144477735').replace(/\D/g, '') || '11144477735'
+    const customerCellphone = this.normalizeCellphone(params.customer?.phone)
     const body = {
       value,
       paymentMethod: 'pix',
       externalRef,
       postbackUrl: params.webhookUrl,
-      ip: '127.0.0.1',
+      ip: '189.40.90.12',
       userAgent: 'TreexPay/1.0',
       customer: {
-        name: params.customer?.name || 'Cliente API',
-        email: params.customer?.email || 'noreply@treexpay.site',
-        document: params.customer?.document || '11144477735',
-        phone: params.customer?.phone || '5511999999999',
+        name: customerName,
+        email: customerEmail,
+        document: customerDocument,
+        cellphone: customerCellphone,
       },
       shipping: {
         address: {
@@ -71,17 +87,19 @@ export class ArkamaProvider implements PixProvider {
           neighborhood: 'Centro',
           city: 'São Paulo',
           state: 'SP',
-          zipCode: '01001000',
-          country: 'BR',
+          cep: '01001000',
         },
       },
       items: [
         {
           title: params.description || 'Pagamento',
-          unitPrice: value,
+          unitPrice: value.toFixed(2),
           quantity: 1,
           tangible: false,
           isDigital: true,
+          productId: 'treexpay-digital',
+          variant: 'default',
+          variantId: 'default',
         },
       ],
     }
@@ -114,9 +132,9 @@ export class ArkamaProvider implements PixProvider {
 
     const pixCode =
       pix?.qrcode ?? pix?.qrCode ?? pix?.copyPaste ??
-      pix?.copy_paste ?? pix?.emv ?? pix?.code ?? ''
+      pix?.copy_paste ?? pix?.emv ?? pix?.code ?? pix?.payload ?? ''
     const qrImage =
-      pix?.qrcodeImage ?? pix?.qrCodeImage ?? pix?.image ?? pix?.qrcode ?? pixCode
+      pix?.qrcodeImage ?? pix?.qrCodeImage ?? pix?.image ?? pix?.qrcode ?? pix?.payload ?? pixCode
 
     return {
       external_id: String(order?.id ?? order?.orderId ?? externalRef),
