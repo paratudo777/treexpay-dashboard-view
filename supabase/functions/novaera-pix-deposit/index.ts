@@ -97,9 +97,7 @@ Deno.serve(async (req) => {
     });
 
     // Store QR code with provider transaction ID suffix for later verification
-    const qrCodeValue = providerName === 'bestfy'
-      ? `${pixResult.qr_code}|bestfy:${pixResult.external_id}`
-      : `${pixResult.qr_code}|novaera:${pixResult.external_id}`;
+    const qrCodeValue = `${pixResult.qr_code}|${pixResult.provider}:${pixResult.external_id}`;
 
     await supabase
       .from('deposits')

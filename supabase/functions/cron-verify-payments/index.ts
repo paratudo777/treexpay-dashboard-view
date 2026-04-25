@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const PAID_STATUSES_BESTFY = ['PAID', 'paid', 'APPROVED', 'approved']
 const PAID_STATUSES_NOVAERA = ['paid', 'approved', 'PAID', 'APPROVED']
+const PAID_STATUSES_ARKAMA = ['PAID', 'paid', 'APPROVED', 'approved']
 const FAILED_STATUSES = ['REFUSED', 'REJECTED', 'CANCELED', 'CANCELLED', 'EXPIRED', 'refused', 'rejected', 'canceled', 'cancelled', 'expired']
 
 /**
@@ -26,6 +27,8 @@ Deno.serve(async (req) => {
     const NOVAERA_BASE_URL = Deno.env.get('NOVAERA_BASE_URL') || ''
     const NOVAERA_PK = Deno.env.get('NOVAERA_PK') || ''
     const NOVAERA_SK = Deno.env.get('NOVAERA_SK') || ''
+    const ARKAMA_BASE_URL = (Deno.env.get('ARKAMA_BASE_URL') || 'https://app.arkama.com.br/api/v1').replace(/\/$/, '')
+    const ARKAMA_TOKEN = Deno.env.get('ARKAMA_API_TOKEN') || ''
 
     const supabase = createClient(SUPABASE_URL, SRK)
 
@@ -44,7 +47,7 @@ Deno.serve(async (req) => {
     for (const d of deposits || []) {
       stats.deposits_checked++
       try {
-        let provider: 'bestfy' | 'novaera' | null = null
+        let provider: 'bestfy' | 'novaera' | 'arkama' | null = null
         let externalId: string | null = null
         if (d.qr_code?.includes('|bestfy:')) {
           provider = 'bestfy'
@@ -52,6 +55,9 @@ Deno.serve(async (req) => {
         } else if (d.qr_code?.includes('|novaera:')) {
           provider = 'novaera'
           externalId = d.qr_code.split('|novaera:')[1]
+        } else if (d.qr_code?.includes('|arkama:')) {
+          provider = 'arkama'
+          externalId = d.qr_code.split('|arkama:')[1]
         } else {
           continue // legacy, skip
         }
@@ -64,7 +70,7 @@ Deno.serve(async (req) => {
           })
           const j = await r.json().catch(() => ({} as any))
           providerStatus = j?.status || j?.transaction?.status
-        } else {
+        } else if (provider === 'novaera') {
           if (!NOVAERA_BASE_URL || !NOVAERA_PK || !NOVAERA_SK) continue
           const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`)
           const r = await fetch(`${NOVAERA_BASE_URL.replace(/\/$/, '')}/transactions/${externalId}`, {
@@ -73,13 +79,24 @@ Deno.serve(async (req) => {
           const j = await r.json().catch(() => ({} as any))
           const tx = j?.data ?? j
           providerStatus = tx?.status || tx?.paymentStatus
+        } else {
+          // arkama
+          if (!ARKAMA_TOKEN) continue
+          const r = await fetch(`${ARKAMA_BASE_URL}/orders/${externalId}`, {
+            headers: { 'Authorization': `Bearer ${ARKAMA_TOKEN}`, 'Content-Type': 'application/json' },
+          })
+          const j = await r.json().catch(() => ({} as any))
+          const tx = j?.data ?? j?.order ?? j
+          providerStatus = tx?.status
         }
 
         if (!providerStatus) continue
 
         const isPaid = provider === 'bestfy'
           ? PAID_STATUSES_BESTFY.includes(providerStatus)
-          : PAID_STATUSES_NOVAERA.includes(providerStatus)
+          : provider === 'novaera'
+            ? PAID_STATUSES_NOVAERA.includes(providerStatus)
+            : PAID_STATUSES_ARKAMA.includes(providerStatus)
         const isFailed = FAILED_STATUSES.includes(providerStatus)
 
         if (isPaid) {
