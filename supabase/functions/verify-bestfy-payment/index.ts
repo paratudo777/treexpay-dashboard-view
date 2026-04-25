@@ -134,17 +134,21 @@ Deno.serve(async (req) => {
     const { data: pendingDeposits } = await dpQuery.order('created_at', { ascending: false }).limit(50)
 
     for (const d of pendingDeposits || []) {
-      // Detect provider from qr_code (Bestfy stores |bestfy:<id> suffix)
+      // Detect provider and provider transaction id from qr_code suffix.
+      // Format: "<qr>|bestfy:<id>" or "<qr>|novaera:<id>"
       let provider: 'bestfy' | 'novaera' = 'novaera'
       let externalId: string | null = null
 
       if (d.qr_code && d.qr_code.includes('|bestfy:')) {
         provider = 'bestfy'
         externalId = d.qr_code.split('|bestfy:')[1]
-      } else {
-        // NovaEra: externalRef is `deposit_<deposit_id>`. Use NovaEra API to query by externalRef.
+      } else if (d.qr_code && d.qr_code.includes('|novaera:')) {
         provider = 'novaera'
-        externalId = `deposit_${d.id}`
+        externalId = d.qr_code.split('|novaera:')[1]
+      } else {
+        // Legacy deposit without provider id stored. Cannot query NovaEra (no list endpoint).
+        results.push({ source: 'deposit', id: d.id, skipped: 'legacy deposit without provider id (waiting for webhook)' })
+        continue
       }
 
       let providerStatus: string | null = null
@@ -167,18 +171,17 @@ Deno.serve(async (req) => {
           results.push({ source: 'deposit', id: d.id, skipped: 'no novaera credentials' })
           continue
         }
-        // Search NovaEra by externalRef
         const credentials = btoa(`${NOVAERA_SK}:${NOVAERA_PK}`)
-        const url = `${NOVAERA_BASE_URL.replace(/\/$/, '')}/transactions?externalRef=${encodeURIComponent(externalId!)}`
+        const url = `${NOVAERA_BASE_URL.replace(/\/$/, '')}/transactions/${encodeURIComponent(externalId!)}`
         const resp = await fetch(url, {
           headers: { 'Authorization': `Basic ${credentials}`, 'Content-Type': 'application/json' },
         })
         const txt = await resp.text()
         try { raw = JSON.parse(txt) } catch { raw = txt }
-        // NovaEra returns { data: [tx] } or { data: tx } — try both
-        const tx = Array.isArray(raw?.data) ? raw.data[0] : raw?.data
+        // NovaEra response: { data: { id, status, ... } }
+        const tx = raw?.data ?? raw
         providerStatus = tx?.status || tx?.paymentStatus
-        console.log(`NovaEra /transactions?externalRef=${externalId} → ${resp.status} status=${providerStatus}`)
+        console.log(`NovaEra /transactions/${externalId} → ${resp.status} status=${providerStatus}`)
       }
 
       if (!providerStatus) {
