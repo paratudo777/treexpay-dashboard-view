@@ -50,18 +50,22 @@ export class ArkamaProvider implements PixProvider {
     // Arkama expects BRL float (not cents)
     const value = Number(params.amount.toFixed(2))
 
+    const customerName = params.customer?.name?.trim() || 'Cliente Teste'
+    const customerEmail = params.customer?.email?.trim() || 'cliente.teste@treexpay.site'
+    const customerDocument = (params.customer?.document || '11144477735').replace(/\D/g, '') || '11144477735'
+    const customerCellphone = (params.customer?.phone || '11999999999').replace(/\D/g, '') || '11999999999'
     const body = {
       value,
       paymentMethod: 'pix',
       externalRef,
       postbackUrl: params.webhookUrl,
-      ip: '127.0.0.1',
+      ip: '189.40.90.12',
       userAgent: 'TreexPay/1.0',
       customer: {
-        name: params.customer?.name || 'Cliente API',
-        email: params.customer?.email || 'noreply@treexpay.site',
-        document: params.customer?.document || '11144477735',
-        phone: params.customer?.phone || '5511999999999',
+        name: customerName,
+        email: customerEmail,
+        document: customerDocument,
+        cellphone: customerCellphone,
       },
       shipping: {
         address: {
@@ -71,17 +75,19 @@ export class ArkamaProvider implements PixProvider {
           neighborhood: 'Centro',
           city: 'São Paulo',
           state: 'SP',
-          zipCode: '01001000',
-          country: 'BR',
+          cep: '01001000',
         },
       },
       items: [
         {
           title: params.description || 'Pagamento',
-          unitPrice: value,
+          unitPrice: value.toFixed(2),
           quantity: 1,
           tangible: false,
           isDigital: true,
+          productId: 'treexpay-digital',
+          variant: 'default',
+          variantId: 'default',
         },
       ],
     }
