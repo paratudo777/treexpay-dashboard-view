@@ -67,7 +67,7 @@ export const WithdrawalManagementTable = ({
             <TableHead>Usuário</TableHead>
             <TableHead>E-mail</TableHead>
             <TableHead>Valor</TableHead>
-            <TableHead>Chave PIX</TableHead>
+            <TableHead>Método / Destino</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Ações</TableHead>
