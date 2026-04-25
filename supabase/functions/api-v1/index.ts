@@ -290,8 +290,8 @@ Deno.serve(async (req) => {
           throw new Error('Internal server configuration error');
         }
 
-        if (!amount || amount <= 0 || amount > 50000) {
-          return new Response(JSON.stringify({ error: 'Invalid amount. Must be between 0.01 and 50000.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        if (!amount || amount < 3 || amount > 50000) {
+          return new Response(JSON.stringify({ error: 'Invalid amount. Must be between 3.00 and 50000.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 
         const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('name, email, cpf, phone').eq('id', user_id).single();

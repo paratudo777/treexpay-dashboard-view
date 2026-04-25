@@ -53,6 +53,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (publicCheckoutError || !publicCheckout) throw new Error('Checkout not found or inactive');
+    if (Number(publicCheckout.amount) < 3) throw new Error('Valor mínimo do checkout é R$ 3,00');
 
     // Fetch owner
     const { data: checkout } = await supabase

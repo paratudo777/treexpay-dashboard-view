@@ -242,9 +242,9 @@ Deno.serve(async (req) => {
         const { amount } = validation.sanitizedData!;
 
         // Enhanced amount validation
-        if (!amount || typeof amount !== 'number' || amount <= 0 || amount > 50000) {
+        if (!amount || typeof amount !== 'number' || amount < 3 || amount > 50000) {
           return new Response(
-            JSON.stringify({ error: 'Invalid amount. Must be between 0.01 and 50000.' }),
+            JSON.stringify({ error: 'Invalid amount. Must be between 3.00 and 50000.' }),
             { 
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               status: 400

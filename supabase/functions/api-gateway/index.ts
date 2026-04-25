@@ -260,8 +260,8 @@ Deno.serve(async (req) => {
       const resolvedWebhookUrl = webhook_url || webhookUrl || null
 
       // Validation
-      if (!amount || typeof amount !== 'number' || amount <= 0) {
-        return json({ error: 'amount is required and must be a positive number' }, 400)
+      if (!amount || typeof amount !== 'number' || amount < 3) {
+        return json({ error: 'amount must be at least 3.00 (minimum payment)' }, 400)
       }
       if (amount > 100000) {
         return json({ error: 'amount cannot exceed 100000' }, 400)

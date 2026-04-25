@@ -37,8 +37,8 @@ Deno.serve(async (req) => {
       throw new Error('Supabase credentials not configured');
     }
 
-    if (!amount || amount <= 0 || amount > 50000) {
-      throw new Error('Valor inválido');
+    if (!amount || amount < 3 || amount > 50000) {
+      throw new Error('Valor mínimo de depósito é R$ 3,00');
     }
 
     if (!userId || !userName) {
