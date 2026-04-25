@@ -2,8 +2,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Bitcoin, QrCode } from "lucide-react";
+import { Check, X, Bitcoin, QrCode, Copy } from "lucide-react";
 import { Withdrawal } from "@/hooks/useWithdrawals";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminWithdrawalsTableProps {
   withdrawals: Withdrawal[];
@@ -18,6 +19,16 @@ export const AdminWithdrawalsTable = ({
   onReject, 
   loading 
 }: AdminWithdrawalsTableProps) => {
+  const { toast } = useToast();
+
+  const handleCopy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: 'Copiado!', description: `${label} copiado para a área de transferência.` });
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível copiar.' });
+    }
+  };
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -115,11 +126,25 @@ export const AdminWithdrawalsTable = ({
                   <span>{formatPixKeyType(withdrawal.pix_key_type)}</span>
                 </div>
               </TableCell>
-              <TableCell
-                className={`max-w-[220px] truncate ${isBtc(withdrawal.pix_key_type) ? 'font-mono text-xs' : ''}`}
-                title={withdrawal.pix_key}
-              >
-                {withdrawal.pix_key}
+              <TableCell className="max-w-[360px]">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`break-all ${isBtc(withdrawal.pix_key_type) ? 'font-mono text-xs' : ''}`}
+                    title={withdrawal.pix_key}
+                  >
+                    {withdrawal.pix_key}
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => handleCopy(withdrawal.pix_key, isBtc(withdrawal.pix_key_type) ? 'Endereço BTC' : 'Chave PIX')}
+                    title="Copiar"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </TableCell>
               <TableCell>
                 {getStatusBadge(withdrawal.status)}
