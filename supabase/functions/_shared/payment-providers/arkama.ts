@@ -63,12 +63,25 @@ export class ArkamaProvider implements PixProvider {
         document: params.customer?.document || '11144477735',
         phone: params.customer?.phone || '5511999999999',
       },
+      shipping: {
+        address: {
+          street: 'Rua Digital',
+          number: '0',
+          complement: '',
+          neighborhood: 'Centro',
+          city: 'São Paulo',
+          state: 'SP',
+          zipCode: '01001000',
+          country: 'BR',
+        },
+      },
       items: [
         {
           title: params.description || 'Pagamento',
           unitPrice: value,
           quantity: 1,
           tangible: false,
+          isDigital: true,
         },
       ],
     }
