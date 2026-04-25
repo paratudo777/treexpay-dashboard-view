@@ -56,11 +56,11 @@ serve(async (req) => {
     }
 
     // Validate productValue
-    if (typeof productValue !== 'number' || productValue <= 0) {
+    if (typeof productValue !== 'number' || productValue < 3) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'productValue must be a positive number' 
+          error: 'productValue must be at least 3.00 (minimum allowed)' 
         }),
         { 
           status: 400, 
