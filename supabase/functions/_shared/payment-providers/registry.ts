@@ -1,6 +1,7 @@
 import type { PixProvider } from './types.ts'
 import { NovaeraProvider } from './novaera.ts'
 import { BestfyProvider } from './bestfy.ts'
+import { ArkamaProvider } from './arkama.ts'
 
 // ── Provider Registry ──
 // To add a new provider:
@@ -11,6 +12,7 @@ import { BestfyProvider } from './bestfy.ts'
 const providerMap: Record<string, () => PixProvider> = {
   novaera: () => new NovaeraProvider(),
   bestfy: () => new BestfyProvider(),
+  arkama: () => new ArkamaProvider(),
 }
 
 let _cachedProviders: Record<string, PixProvider> = {}

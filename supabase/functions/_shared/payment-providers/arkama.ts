@@ -1,0 +1,117 @@
+import type { PixProvider, PixCreateParams, PixCreateResult } from './types.ts'
+
+/**
+ * Arkama PIX Provider
+ * Docs: https://arkama.readme.io
+ *
+ * Endpoints:
+ *   POST {baseUrl}/orders                 → create
+ *   GET  {baseUrl}/orders/{id}            → fetch
+ *   POST {baseUrl}/orders/{id}/refund     → refund
+ *
+ * Auth: Authorization: Bearer ARKAMA_API_TOKEN
+ *
+ * Body fields used:
+ *   value (float, BRL — NOT cents), paymentMethod ("pix"|"credit_card"),
+ *   customer { name, email, document, phone? },
+ *   items[] { title, unitPrice, quantity, tangible },
+ *   ip, externalRef, postbackUrl
+ */
+export class ArkamaProvider implements PixProvider {
+  name = 'arkama'
+
+  private baseUrl: string
+  private token: string
+
+  constructor() {
+    this.baseUrl = (Deno.env.get('ARKAMA_BASE_URL') || 'https://app.arkama.com.br/api/v1').replace(/\/$/, '')
+    this.token = Deno.env.get('ARKAMA_API_TOKEN') || ''
+  }
+
+  isAvailable(): boolean {
+    return !!this.token
+  }
+
+  async createPix(params: PixCreateParams): Promise<PixCreateResult> {
+    if (!this.isAvailable()) {
+      throw new Error(`[${this.name}] credentials not configured (set ARKAMA_API_TOKEN)`)
+    }
+
+    const meta = (params.metadata || {}) as Record<string, unknown>
+    let externalRef: string
+    if (meta.deposit_id) {
+      externalRef = `deposit_${meta.deposit_id}`
+    } else if (meta.checkout_id) {
+      externalRef = `checkout_${meta.checkout_id}_${Date.now()}`
+    } else {
+      externalRef = `api_payment_${params.paymentId}`
+    }
+
+    // Arkama expects BRL float (not cents)
+    const value = Number(params.amount.toFixed(2))
+
+    const body = {
+      value,
+      paymentMethod: 'pix',
+      externalRef,
+      postbackUrl: params.webhookUrl,
+      ip: '127.0.0.1',
+      userAgent: 'TreexPay/1.0',
+      customer: {
+        name: params.customer?.name || 'Cliente API',
+        email: params.customer?.email || 'noreply@treexpay.site',
+        document: params.customer?.document || '11144477735',
+        phone: params.customer?.phone || '5511999999999',
+      },
+      items: [
+        {
+          title: params.description || 'Pagamento',
+          unitPrice: value,
+          quantity: 1,
+          tangible: false,
+        },
+      ],
+    }
+
+    const response = await fetch(`${this.baseUrl}/orders`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'TreexPay',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    const raw = await response.text()
+    let data: any
+    try { data = JSON.parse(raw) } catch { data = { raw } }
+
+    if (!response.ok) {
+      console.error(`[${this.name}] PIX creation failed (${response.status}):`, raw)
+      throw new Error(`[${this.name}] PIX creation failed: ${response.status} ${raw.slice(0, 300)}`)
+    }
+
+    console.log(`[${this.name}] PIX created OK`)
+
+    // Arkama may nest pix data under data.pix or data.order.pix — try several shapes
+    const order = data?.data ?? data?.order ?? data
+    const pix = order?.pix ?? order?.pixData ?? order?.qrcode_data ?? {}
+
+    const pixCode =
+      pix?.qrcode ?? pix?.qrCode ?? pix?.copyPaste ??
+      pix?.copy_paste ?? pix?.emv ?? pix?.code ?? ''
+    const qrImage =
+      pix?.qrcodeImage ?? pix?.qrCodeImage ?? pix?.image ?? pix?.qrcode ?? pixCode
+
+    return {
+      external_id: String(order?.id ?? order?.orderId ?? externalRef),
+      pix_code: pixCode,
+      qr_code: qrImage,
+      expires_at: pix?.expiresAt ?? pix?.expirationDate ?? new Date(Date.now() + 3600_000).toISOString(),
+      provider: this.name,
+      raw: data,
+    }
+  }
+}
