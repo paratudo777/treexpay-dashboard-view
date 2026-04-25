@@ -32,6 +32,18 @@ export class ArkamaProvider implements PixProvider {
     return !!this.token
   }
 
+  private normalizeCellphone(phone?: string): string {
+    const digits = (phone || '').replace(/\D/g, '')
+    const withoutCountryCode = digits.length >= 12 && digits.startsWith('55') ? digits.slice(2) : digits
+    const validBrazilianMobile = /^([1-9]{2})9\d{8}$/
+
+    if (validBrazilianMobile.test(withoutCountryCode)) {
+      return withoutCountryCode
+    }
+
+    return '11987654321'
+  }
+
   async createPix(params: PixCreateParams): Promise<PixCreateResult> {
     if (!this.isAvailable()) {
       throw new Error(`[${this.name}] credentials not configured (set ARKAMA_API_TOKEN)`)
@@ -53,7 +65,7 @@ export class ArkamaProvider implements PixProvider {
     const customerName = params.customer?.name?.trim() || 'Cliente Teste'
     const customerEmail = params.customer?.email?.trim() || 'cliente.teste@treexpay.site'
     const customerDocument = (params.customer?.document || '11144477735').replace(/\D/g, '') || '11144477735'
-    const customerCellphone = (params.customer?.phone || '11999999999').replace(/\D/g, '') || '11999999999'
+    const customerCellphone = this.normalizeCellphone(params.customer?.phone)
     const body = {
       value,
       paymentMethod: 'pix',
