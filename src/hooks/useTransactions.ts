@@ -78,7 +78,7 @@ export const useTransactions = () => {
     if (!user) return;
 
     const channel = supabase
-      .channel('transactions-changes')
+      .channel(`transactions-changes-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -87,14 +87,30 @@ export const useTransactions = () => {
           table: 'transactions',
           filter: `user_id=eq.${user.id}`,
         },
-        () => refreshTransactions()
+        (payload) => {
+          // Patch local instantâneo (sub-segundo), sem refetch
+          const newRow = payload.new as Transaction | undefined;
+          const oldRow = payload.old as Transaction | undefined;
+
+          if (payload.eventType === 'INSERT' && newRow && newRow.amount > 0) {
+            setTransactions((prev) =>
+              prev.some((t) => t.id === newRow.id) ? prev : [newRow, ...prev]
+            );
+          } else if (payload.eventType === 'UPDATE' && newRow) {
+            setTransactions((prev) =>
+              prev.map((t) => (t.id === newRow.id ? { ...t, ...newRow } : t))
+            );
+          } else if (payload.eventType === 'DELETE' && oldRow) {
+            setTransactions((prev) => prev.filter((t) => t.id !== oldRow.id));
+          }
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, refreshTransactions]);
+  }, [user]);
 
   return {
     transactions,
