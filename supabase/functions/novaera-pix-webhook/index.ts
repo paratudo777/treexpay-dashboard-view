@@ -128,8 +128,11 @@ Deno.serve(async (req) => {
 
     // Verificar se é transação de depósito válida
     if (!transactionRef.startsWith('deposit_')) {
-      console.log('❌ Formato de referência de depósito inválido:', transactionRef);
-      throw new Error('Invalid deposit reference format: ' + transactionRef);
+      console.log('ℹ️ Referência não corresponde a depósito, ignorando:', transactionRef);
+      return new Response(
+        JSON.stringify({ success: true, message: 'Reference ignored (not a deposit)', transactionRef }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const statusValue = body?.status || body?.transaction?.status || body?.payment?.status || body?.data?.status;
