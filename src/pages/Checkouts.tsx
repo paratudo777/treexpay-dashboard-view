@@ -3,11 +3,12 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, ExternalLink, Edit, Trash2, Power, PowerOff, Copy, Package, Mail } from 'lucide-react';
+import { Plus, ExternalLink, Edit, Trash2, Power, PowerOff, Copy, Package, Mail, RefreshCw } from 'lucide-react';
 import { useCheckouts } from '@/hooks/useCheckouts';
 import { CreateCheckoutModal } from '@/components/checkout/CreateCheckoutModal';
 import { EditCheckoutModal } from '@/components/checkout/EditCheckoutModal';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -15,7 +16,30 @@ export default function Checkouts() {
   const { checkouts, loading, toggleCheckoutStatus, deleteCheckout } = useCheckouts();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCheckout, setEditingCheckout] = useState<any>(null);
+  const [verifying, setVerifying] = useState(false);
   const { toast } = useToast();
+
+  const handleVerifyPayments = async () => {
+    setVerifying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-bestfy-payment', {
+        body: {},
+      });
+      if (error) throw error;
+      const paid = (data?.results || []).filter((r: any) => r.action === 'marked_paid').length;
+      const failed = (data?.results || []).filter((r: any) => r.action === 'marked_failed').length;
+      const stillPending = (data?.results || []).filter((r: any) => r.action === 'still_pending').length;
+      toast({
+        title: 'Verificação concluída',
+        description: `Verificados: ${data?.checked || 0} • Aprovados: ${paid} • Recusados: ${failed} • Aguardando: ${stillPending}`,
+      });
+      if (paid > 0) setTimeout(() => window.location.reload(), 1500);
+    } catch (e: any) {
+      toast({ title: 'Erro ao verificar', description: e.message || 'Falha na verificação', variant: 'destructive' });
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const isLimitReached = checkouts.length >= 5;
 
