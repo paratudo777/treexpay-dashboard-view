@@ -96,10 +96,10 @@ Deno.serve(async (req) => {
       metadata: { origin: 'TreexPay Deposit', deposit_id: depositData.id },
     });
 
-    // Store QR code (and bestfy transactionId for webhook matching)
+    // Store QR code with provider transaction ID suffix for later verification
     const qrCodeValue = providerName === 'bestfy'
       ? `${pixResult.qr_code}|bestfy:${pixResult.external_id}`
-      : pixResult.qr_code;
+      : `${pixResult.qr_code}|novaera:${pixResult.external_id}`;
 
     await supabase
       .from('deposits')
