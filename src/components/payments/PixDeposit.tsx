@@ -54,8 +54,8 @@ export const PixDeposit = () => {
     }
 
     const amountValue = parseFloat(amount);
-    if (!amount || isNaN(amountValue) || amountValue <= 0) {
-      toast({ title: "Valor inválido", description: "Por favor, insira um valor válido para depósito.", variant: "destructive" });
+    if (!amount || isNaN(amountValue) || amountValue < 3) {
+      toast({ title: "Valor inválido", description: "O depósito mínimo é R$ 3,00.", variant: "destructive" });
       return;
     }
 
@@ -103,8 +103,8 @@ export const PixDeposit = () => {
         {!pixData ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Valor do depósito (R$)</Label>
-              <Input id="amount" type="number" placeholder="0,00" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Label htmlFor="amount">Valor do depósito (R$) — mínimo R$ 3,00</Label>
+              <Input id="amount" type="number" placeholder="3,00" min="3" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
             <Button onClick={generatePix} disabled={isLoading} className="w-full">
               {isLoading ? (<><Loader className="h-4 w-4 mr-2 animate-spin" />Gerando PIX...</>) : "Gerar PIX"}

@@ -108,8 +108,8 @@ export const PixDepositWithProfile = () => {
       return;
     }
     const amountValue = parseFloat(amount);
-    if (!amount || isNaN(amountValue) || amountValue <= 0 || amountValue > 50000) {
-      toast({ title: "Valor inválido", description: "Insira um valor entre R$ 0,01 e R$ 50.000,00.", variant: "destructive" });
+    if (!amount || isNaN(amountValue) || amountValue < 3 || amountValue > 50000) {
+      toast({ title: "Valor inválido", description: "O depósito mínimo é R$ 3,00 e o máximo R$ 50.000,00.", variant: "destructive" });
       return;
     }
     if (!userProfile.phone || !userProfile.cpf) {
@@ -210,8 +210,8 @@ export const PixDepositWithProfile = () => {
           {!pixData ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Valor do depósito (R$)</Label>
-                <Input id="amount" type="number" placeholder="0,00" min="0.01" max="50000" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <Label htmlFor="amount">Valor do depósito (R$) — mínimo R$ 3,00</Label>
+                <Input id="amount" type="number" placeholder="3,00" min="3" max="50000" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
               <Button onClick={generatePix} disabled={isLoading || !isProfileComplete} className="w-full">
                 {isLoading ? (<><Loader className="h-4 w-4 mr-2 animate-spin" />Gerando PIX...</>) : "Gerar PIX"}

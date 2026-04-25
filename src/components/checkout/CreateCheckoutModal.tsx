@@ -52,7 +52,7 @@ export const CreateCheckoutModal = ({ open, onClose }: CreateCheckoutModalProps)
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!title.trim() || title.length < 3) return;
-    if (!amount || parseFloat(amount) < 1) return;
+    if (!amount || parseFloat(amount) < 3) return;
     if (imageUrl && !validateUrl(imageUrl)) return;
     if (!notificationEmail) return;
 

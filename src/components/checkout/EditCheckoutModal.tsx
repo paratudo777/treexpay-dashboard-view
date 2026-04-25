@@ -61,7 +61,7 @@ export const EditCheckoutModal = ({ checkout, open, onClose }: EditCheckoutModal
     e.preventDefault();
     if (!title.trim() || title.length < 3 || title.length > 120) return;
     if (!description.trim() || description.length < 10) return;
-    if (!amount || parseFloat(amount) < 1) return;
+    if (!amount || parseFloat(amount) < 3) return;
     if (imageUrl && !validateUrl(imageUrl)) return;
     if (notificationEmail && !validateGmail(notificationEmail)) return;
 
