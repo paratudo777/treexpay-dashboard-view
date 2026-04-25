@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, CreditCard } from "lucide-react";
+import { Check, X, CreditCard, Bitcoin, QrCode } from "lucide-react";
 import { WithdrawalRequest } from "@/types/withdrawal";
 
 interface WithdrawalManagementTableProps {
