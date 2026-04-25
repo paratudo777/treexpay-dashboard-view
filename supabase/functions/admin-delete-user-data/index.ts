@@ -71,10 +71,12 @@ serve(async (req) => {
     console.log('Deleting all data for user:', userId);
 
     // Delete from all related tables
+    const { data: userCheckouts } = await supabaseAdmin.from('checkouts').select('id').eq('user_id', userId);
+    const checkoutIds = (userCheckouts || []).map((c: any) => c.id);
+    if (checkoutIds.length > 0) {
+      await supabaseAdmin.from('checkout_payments').delete().in('checkout_id', checkoutIds);
+    }
     await supabaseAdmin.from('checkouts').delete().eq('user_id', userId);
-    await supabaseAdmin.from('checkout_payments').delete().in('checkout_id', 
-      supabaseAdmin.from('checkouts').select('id').eq('user_id', userId)
-    );
     await supabaseAdmin.from('deposits').delete().eq('user_id', userId);
     await supabaseAdmin.from('withdrawals').delete().eq('user_id', userId);
     await supabaseAdmin.from('transactions').delete().eq('user_id', userId);
@@ -105,7 +107,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in admin-delete-user-data:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Erro interno do servidor' }),
+      JSON.stringify({ error: (error as any)?.message || 'Erro interno do servidor' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

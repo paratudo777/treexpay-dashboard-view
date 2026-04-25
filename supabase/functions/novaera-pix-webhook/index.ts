@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const transactionRef = body?.externalRef || body?.data?.externalRef || body?.externalId || body?.data?.externalId;
+    const transactionRef = body?.externalRef || body?.data?.externalRef || body?.transaction?.externalRef || body?.externalId || body?.data?.externalId || body?.transaction?.externalId;
 
     if (!transactionRef) {
       console.log('❌ Referência da transação não encontrada');
