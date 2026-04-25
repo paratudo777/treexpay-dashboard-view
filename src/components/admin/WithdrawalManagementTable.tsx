@@ -19,6 +19,16 @@ export const WithdrawalManagementTable = ({
   onDeny, 
   onConfirmPayment 
 }: WithdrawalManagementTableProps) => {
+  const { toast } = useToast();
+
+  const handleCopy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: 'Copiado!', description: `${label} copiado.` });
+    } catch {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível copiar.' });
+    }
+  };
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
