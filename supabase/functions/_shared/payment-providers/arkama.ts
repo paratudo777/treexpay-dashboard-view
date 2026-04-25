@@ -38,10 +38,10 @@ export class ArkamaProvider implements PixProvider {
     const validBrazilianMobile = /^([1-9]{2})9\d{8}$/
 
     if (validBrazilianMobile.test(withoutCountryCode)) {
-      return withoutCountryCode
+      return `(${withoutCountryCode.slice(0, 2)})${withoutCountryCode.slice(2, 7)}-${withoutCountryCode.slice(7)}`
     }
 
-    return '11987654321'
+    return '(11)98765-4321'
   }
 
   async createPix(params: PixCreateParams): Promise<PixCreateResult> {
