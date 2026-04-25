@@ -105,8 +105,20 @@ export const AdminWithdrawalsTable = ({
               <TableCell className="font-semibold text-primary">
                 {formatCurrency(withdrawal.amount)}
               </TableCell>
-              <TableCell>{formatPixKeyType(withdrawal.pix_key_type)}</TableCell>
-              <TableCell className="max-w-[200px] truncate" title={withdrawal.pix_key}>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  {isBtc(withdrawal.pix_key_type) ? (
+                    <Bitcoin className="h-3.5 w-3.5 text-amber-500" />
+                  ) : (
+                    <QrCode className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  <span>{formatPixKeyType(withdrawal.pix_key_type)}</span>
+                </div>
+              </TableCell>
+              <TableCell
+                className={`max-w-[220px] truncate ${isBtc(withdrawal.pix_key_type) ? 'font-mono text-xs' : ''}`}
+                title={withdrawal.pix_key}
+              >
                 {withdrawal.pix_key}
               </TableCell>
               <TableCell>
