@@ -76,8 +76,20 @@ Deno.serve(async (req) => {
     const transactionRef = body?.externalRef || body?.data?.externalRef || body?.transaction?.externalRef || body?.externalId || body?.data?.externalId || body?.transaction?.externalId;
 
     if (!transactionRef) {
-      console.log('❌ Referência da transação não encontrada');
-      throw new Error('Transaction reference not found');
+      console.log('ℹ️ Webhook recebido sem referência (provavelmente teste do painel) - respondendo OK');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Webhook received (no transaction reference)' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Webhook de teste do painel da NovaEra
+    if (transactionRef === 'webhook-test' || transactionRef.startsWith('test')) {
+      console.log('ℹ️ Webhook de teste detectado - respondendo OK');
+      return new Response(
+        JSON.stringify({ success: true, message: 'Test webhook acknowledged', transactionRef }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Prevent duplicate processing
