@@ -14,15 +14,8 @@ Deno.serve(async (req) => {
     const NOVAERA_PK = Deno.env.get('NOVAERA_PK')!
     const NOVAERA_SK = Deno.env.get('NOVAERA_SK')!
     const supabase = createClient(SUPABASE_URL, SRK)
+    void supabase
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return new Response(JSON.stringify({ error: 'no auth' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (!user) return new Response(JSON.stringify({ error: 'unauth' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-
-    // Only allow admin
-    const { data: prof } = await supabase.from('profiles').select('profile').eq('id', user.id).single()
-    if (prof?.profile !== 'admin') return new Response(JSON.stringify({ error: 'admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
     const body = await req.json().catch(() => ({}))
     const externalRef: string = body?.externalRef || ''
