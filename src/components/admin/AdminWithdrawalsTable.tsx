@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Check, X, Bitcoin, QrCode } from "lucide-react";
 import { Withdrawal } from "@/hooks/useWithdrawals";
 
 interface AdminWithdrawalsTableProps {
@@ -55,10 +55,13 @@ export const AdminWithdrawalsTable = ({
       'phone': 'Telefone',
       'cpf': 'CPF',
       'cnpj': 'CNPJ',
-      'random_key': 'Chave Aleatória'
+      'random_key': 'Chave Aleatória',
+      'btc': 'Bitcoin (BTC)',
     };
     return types[type as keyof typeof types] || type;
   };
+
+  const isBtc = (type: string) => type === 'btc';
 
   if (loading) {
     return (
@@ -85,8 +88,8 @@ export const AdminWithdrawalsTable = ({
             <TableHead>Usuário</TableHead>
             <TableHead>E-mail</TableHead>
             <TableHead>Valor</TableHead>
-            <TableHead>Tipo PIX</TableHead>
-            <TableHead>Chave PIX</TableHead>
+            <TableHead>Método</TableHead>
+            <TableHead>Chave / Endereço</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Ações</TableHead>
@@ -102,8 +105,20 @@ export const AdminWithdrawalsTable = ({
               <TableCell className="font-semibold text-primary">
                 {formatCurrency(withdrawal.amount)}
               </TableCell>
-              <TableCell>{formatPixKeyType(withdrawal.pix_key_type)}</TableCell>
-              <TableCell className="max-w-[200px] truncate" title={withdrawal.pix_key}>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  {isBtc(withdrawal.pix_key_type) ? (
+                    <Bitcoin className="h-3.5 w-3.5 text-amber-500" />
+                  ) : (
+                    <QrCode className="h-3.5 w-3.5 text-primary" />
+                  )}
+                  <span>{formatPixKeyType(withdrawal.pix_key_type)}</span>
+                </div>
+              </TableCell>
+              <TableCell
+                className={`max-w-[220px] truncate ${isBtc(withdrawal.pix_key_type) ? 'font-mono text-xs' : ''}`}
+                title={withdrawal.pix_key}
+              >
                 {withdrawal.pix_key}
               </TableCell>
               <TableCell>

@@ -2,7 +2,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, CreditCard } from "lucide-react";
+import { Check, X, CreditCard, Bitcoin, QrCode } from "lucide-react";
 import { WithdrawalRequest } from "@/types/withdrawal";
 
 interface WithdrawalManagementTableProps {
@@ -67,7 +67,7 @@ export const WithdrawalManagementTable = ({
             <TableHead>Usuário</TableHead>
             <TableHead>E-mail</TableHead>
             <TableHead>Valor</TableHead>
-            <TableHead>Chave PIX</TableHead>
+            <TableHead>Método / Destino</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Ações</TableHead>
@@ -81,13 +81,28 @@ export const WithdrawalManagementTable = ({
               <TableCell className="font-semibold text-primary">
                 {formatCurrency(request.amount)}
               </TableCell>
-              <TableCell className="max-w-[200px]">
-                <div className="text-sm">
-                  <div className="font-medium">{request.pixKeyType}</div>
-                  <div className="text-muted-foreground truncate" title={request.pixKey}>
-                    {request.pixKey}
-                  </div>
-                </div>
+              <TableCell className="max-w-[240px]">
+                {(() => {
+                  const isBtc = request.pixKeyType?.toLowerCase() === 'btc';
+                  return (
+                    <div className="text-sm">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {isBtc ? (
+                          <Bitcoin className="h-3.5 w-3.5 text-amber-500" />
+                        ) : (
+                          <QrCode className="h-3.5 w-3.5 text-primary" />
+                        )}
+                        {isBtc ? 'Bitcoin (BTC)' : request.pixKeyType}
+                      </div>
+                      <div
+                        className={`text-muted-foreground truncate ${isBtc ? 'font-mono text-xs' : ''}`}
+                        title={request.pixKey}
+                      >
+                        {request.pixKey}
+                      </div>
+                    </div>
+                  );
+                })()}
               </TableCell>
               <TableCell>
                 {getStatusBadge(request.status)}
