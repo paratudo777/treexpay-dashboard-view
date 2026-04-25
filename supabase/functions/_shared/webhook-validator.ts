@@ -41,17 +41,15 @@ export const validateWebhookPayload = (body: any): WebhookValidationResult => {
     return { valid: false, error: 'Invalid payload format' };
   }
 
-  const requiredFields = ['status', 'externalRef'];
-  for (const field of requiredFields) {
-    if (!body[field] && !body.data?.[field]) {
-      return { valid: false, error: `Missing required field: ${field}` };
-    }
-  }
+  // Accept status from any common location used by acquirers
+  const status =
+    body.status ?? body.data?.status ?? body.transaction?.status ?? body.payment?.status;
+  const externalRef =
+    body.externalRef ?? body.data?.externalRef ?? body.transaction?.externalRef ??
+    body.externalId ?? body.data?.externalId ?? body.transaction?.externalId;
 
-  const amount = body.amount || body.data?.amount;
-  if (amount && (typeof amount !== 'number' || amount <= 0)) {
-    return { valid: false, error: 'Invalid amount value' };
-  }
+  if (!status) return { valid: false, error: 'Missing required field: status' };
+  if (!externalRef) return { valid: false, error: 'Missing required field: externalRef' };
 
   return { valid: true, data: body };
 };
