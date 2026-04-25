@@ -23,7 +23,16 @@ export class NovaeraProvider implements PixProvider {
     }
 
     const credentials = btoa(`${this.sk}:${this.pk}`)
-    const externalRef = `api_payment_${params.paymentId}`
+    // Decide externalRef prefix from metadata so the correct webhook handler can route it.
+    const meta = (params.metadata || {}) as Record<string, unknown>
+    let externalRef: string
+    if (meta.deposit_id) {
+      externalRef = `deposit_${meta.deposit_id}`
+    } else if (meta.checkout_id) {
+      externalRef = `checkout_${meta.checkout_id}_${Date.now()}`
+    } else {
+      externalRef = `api_payment_${params.paymentId}`
+    }
     const amountCents = Math.round(params.amount * 100)
 
     const response = await fetch(`${this.baseUrl}/transactions`, {

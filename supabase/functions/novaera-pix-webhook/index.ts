@@ -120,13 +120,14 @@ Deno.serve(async (req) => {
       throw new Error('Invalid deposit reference format: ' + transactionRef);
     }
 
-    const isApproved = body?.status === "approved" || 
-                      body?.transaction?.status === "approved" || 
-                      body?.payment?.status === "approved" ||
-                      body?.status === "Compra Aprovada" ||
-                      body?.data?.status === "paid";
+    const statusValue = body?.status || body?.transaction?.status || body?.payment?.status || body?.data?.status;
+    const isApproved = statusValue === "approved" ||
+                      statusValue === "paid" ||
+                      statusValue === "PAID" ||
+                      statusValue === "APPROVED" ||
+                      statusValue === "Compra Aprovada";
 
-    console.log('💳 Status do pagamento aprovado:', isApproved);
+    console.log('💳 Status recebido:', statusValue, '→ aprovado:', isApproved);
 
     if (!isApproved) {
       console.log('⏳ Pagamento não aprovado, ignorando webhook');
@@ -309,7 +310,7 @@ Deno.serve(async (req) => {
             };
             const payloadString = JSON.stringify(payload);
             
-            const requestHeaders = { 'Content-Type': 'application/json' };
+            const requestHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
             
             if (webhookConfig.secret) {
                 const encoder = new TextEncoder();
@@ -379,12 +380,12 @@ Deno.serve(async (req) => {
       }
     );
 
-  } catch (error) {
-    console.log('❌ Erro no webhook:', error.message);
+  } catch (error: any) {
+    console.log('❌ Erro no webhook:', error?.message || error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message 
+        error: error?.message || String(error)
       }),
       { 
         status: 500,
