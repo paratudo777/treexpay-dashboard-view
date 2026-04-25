@@ -55,10 +55,13 @@ export const AdminWithdrawalsTable = ({
       'phone': 'Telefone',
       'cpf': 'CPF',
       'cnpj': 'CNPJ',
-      'random_key': 'Chave Aleatória'
+      'random_key': 'Chave Aleatória',
+      'btc': 'Bitcoin (BTC)',
     };
     return types[type as keyof typeof types] || type;
   };
+
+  const isBtc = (type: string) => type === 'btc';
 
   if (loading) {
     return (
