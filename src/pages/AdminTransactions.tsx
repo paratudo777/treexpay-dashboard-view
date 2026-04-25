@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, ArrowRightLeft, Loader2, Filter, Calendar } from 'lucide-react';
+import { Search, ArrowRightLeft, Loader2, Filter, Calendar, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -23,6 +23,25 @@ export default function AdminTransactions() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [userFilter, setUserFilter] = useState('');
   const { toast } = useToast();
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const handleApprove = async (tx: any) => {
+    if (!confirm(`Aprovar manualmente esta transação de R$ ${Number(tx.amount).toFixed(2)} e creditar o saldo do usuário?`)) return;
+    try {
+      setApprovingId(tx.id);
+      const { data, error } = await supabase.functions.invoke('admin-approve-deposit', {
+        body: tx.deposit_id ? { depositId: tx.deposit_id } : { transactionId: tx.id },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: 'Transação aprovada', description: `Saldo creditado: R$ ${(data as any)?.credited?.toFixed?.(2) ?? ''}` });
+      refetch();
+    } catch (e: any) {
+      toast({ title: 'Erro', description: e?.message || 'Falha ao aprovar', variant: 'destructive' });
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   const { data: transactions = [], isLoading, refetch } = useQuery({
     queryKey: ['admin-transactions', dateFrom, dateTo, typeFilter, statusFilter, userFilter, searchId],
@@ -187,6 +206,7 @@ export default function AdminTransactions() {
                       <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Valor</TableHead>
                       <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Descrição</TableHead>
                       <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Data</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -208,6 +228,23 @@ export default function AdminTransactions() {
                         <TableCell className="font-semibold text-sm">R$ {Number(tx.amount).toFixed(2)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{tx.description}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatDate(tx.created_at)}</TableCell>
+                        <TableCell>
+                          {tx.status === 'pending' && tx.type === 'deposit' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={approvingId === tx.id}
+                              onClick={() => handleApprove(tx)}
+                              className="h-8 px-2 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                            >
+                              {approvingId === tx.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <><CheckCircle2 className="h-3 w-3 mr-1" /> Aprovar</>
+                              )}
+                            </Button>
+                          ) : null}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
