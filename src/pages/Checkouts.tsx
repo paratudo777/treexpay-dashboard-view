@@ -75,26 +75,36 @@ export default function Checkouts() {
               Gerencie seus produtos de checkout ({checkouts.length}/5)
             </p>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button 
-                    onClick={() => setShowCreateModal(true)}
-                    disabled={isLimitReached}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Produto
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {isLimitReached && (
-                <TooltipContent>
-                  <p>Limite de 5 produtos atingido</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={handleVerifyPayments}
+              disabled={verifying}
+            >
+              <RefreshCw className={cn("h-4 w-4 mr-2", verifying && "animate-spin")} />
+              {verifying ? 'Verificando...' : 'Verificar pagamentos'}
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Button 
+                      onClick={() => setShowCreateModal(true)}
+                      disabled={isLimitReached}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Produto
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {isLimitReached && (
+                  <TooltipContent>
+                    <p>Limite de 5 produtos atingido</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
         {loading ? (
