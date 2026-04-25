@@ -88,8 +88,8 @@ export const AdminWithdrawalsTable = ({
             <TableHead>Usuário</TableHead>
             <TableHead>E-mail</TableHead>
             <TableHead>Valor</TableHead>
-            <TableHead>Tipo PIX</TableHead>
-            <TableHead>Chave PIX</TableHead>
+            <TableHead>Método</TableHead>
+            <TableHead>Chave / Endereço</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Ações</TableHead>
