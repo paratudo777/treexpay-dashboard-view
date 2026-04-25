@@ -67,3 +67,9 @@ verify_jwt = false
 
 [functions.send-checkout-notification]
 verify_jwt = true
+
+[functions.cron-verify-payments]
+verify_jwt = false
+
+[functions.bestfy-webhook]
+verify_jwt = false
