@@ -13,6 +13,7 @@ export const AVAILABLE_ACQUIRERS: AcquirerOption[] = [
   { id: 'novaera', name: 'novaera', label: 'NovaEra', available: true },
   { id: 'bestfy', name: 'bestfy', label: 'Bestfy', available: true },
   { id: 'arkama', name: 'arkama', label: 'Arkama', available: true },
+  { id: 'stripe', name: 'stripe', label: 'Stripe (Cartão)', available: true },
 ];
 
 export interface UserAcquirerRow {

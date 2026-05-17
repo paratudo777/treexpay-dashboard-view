@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { BestfyProvider } from '../_shared/payment-providers/bestfy.ts'
+import { StripeProvider } from '../_shared/payment-providers/stripe.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
       throw new Error('Dados de endereço são obrigatórios');
     }
 
-    console.log('💳 Processando pagamento com cartão via Bestfy... IP:', clientIp || 'unknown');
+    console.log('💳 Processando pagamento com cartão... IP:', clientIp || 'unknown');
 
     // Fetch checkout via public view
     const { data: publicCheckout, error: publicCheckoutError } = await supabase
@@ -108,17 +109,21 @@ Deno.serve(async (req) => {
     const firstName = nameParts[0] || 'NOME';
     const lastName = nameParts.slice(1).join(' ') || 'SOBRENOME';
 
-    // Create real card payment via Bestfy
-    const bestfy = new BestfyProvider();
-    if (!bestfy.isAvailable()) {
-      throw new Error('Bestfy provider is not configured. Credit card payments require Bestfy.');
+    // Resolve provider for this user (card)
+    const { data: providerData } = await supabase.rpc('resolve_user_provider', { p_user_id: userId });
+    let providerName = (providerData as string) || 'bestfy';
+    // Apenas bestfy e stripe suportam cartão. Se cair em novaera/arkama, usa bestfy.
+    if (providerName !== 'bestfy' && providerName !== 'stripe') {
+      console.log(`[checkout-card] Provider '${providerName}' não suporta cartão. Usando 'bestfy'.`);
+      providerName = 'bestfy';
     }
+    console.log(`[checkout-card] Provider resolvido: ${providerName}`);
 
     const platformFeePercent = 3;
     const platformFeeAmount = (publicCheckout.amount * platformFeePercent) / 100;
     const netAmount = publicCheckout.amount - platformFeeAmount;
 
-    const result = await bestfy.createCreditCard({
+    const cardParams = {
       amount: publicCheckout.amount,
       paymentId: `checkout_card_${publicCheckout.id}_${Date.now()}`,
       customer: {
@@ -138,19 +143,37 @@ Deno.serve(async (req) => {
         installments: cardData.installments || 1,
       },
       description: publicCheckout.title,
-      webhookUrl: `${SUPABASE_URL}/functions/v1/bestfy-webhook`,
-      metadata: { origin: 'TreexPay Checkout Card', checkout_id: publicCheckout.id, source: 'checkout_web' },
+      metadata: { checkout_id: publicCheckout.id },
       clientIp,
       userAgent,
-    });
+    };
 
-    console.log('💳 Bestfy card response:', JSON.stringify(result));
+    let result: { financialTransactionId: string; status: string; provider: string; raw: unknown };
 
-    // Determine status from Bestfy response
-    // Bestfy may return immediate approval or pending (webhook will update)
-    const rawStatus = (result.raw as any)?.status || result.status || 'PENDING';
-    const isPaid = ['PAID', 'APPROVED', 'approved'].includes(rawStatus);
-    const isFailed = ['REJECTED', 'REFUSED', 'DECLINED', 'refused', 'declined'].includes(rawStatus);
+    if (providerName === 'stripe') {
+      const stripe = new StripeProvider();
+      if (!stripe.isAvailable()) {
+        throw new Error('Stripe provider is not configured. Set STRIPE_SECRET_KEY.');
+      }
+      result = await stripe.createCreditCard(cardParams);
+    } else {
+      const bestfy = new BestfyProvider();
+      if (!bestfy.isAvailable()) {
+        throw new Error('Bestfy provider is not configured.');
+      }
+      result = await bestfy.createCreditCard({
+        ...cardParams,
+        webhookUrl: `${SUPABASE_URL}/functions/v1/bestfy-webhook`,
+        metadata: { origin: 'TreexPay Checkout Card', checkout_id: publicCheckout.id, source: 'checkout_web' },
+      });
+    }
+
+    console.log(`💳 ${providerName} card response status:`, result.status);
+
+    // Normalize status across providers
+    const rawStatus = (result.raw as any)?.status || result.status || 'pending';
+    const isPaid = ['PAID', 'APPROVED', 'approved', 'succeeded'].includes(rawStatus);
+    const isFailed = ['REJECTED', 'REFUSED', 'DECLINED', 'refused', 'declined', 'canceled', 'requires_payment_method'].includes(rawStatus);
 
     const paymentStatus = isPaid ? 'paid' : isFailed ? 'failed' : 'pending';
     const paidAt = isPaid ? new Date().toISOString() : null;
@@ -171,7 +194,8 @@ Deno.serve(async (req) => {
           last4: cardData.number.replace(/\s/g, '').slice(-4),
           brand: detectCardBrand(cardData.number.replace(/\s/g, '')),
           installments: cardData.installments || 1,
-          bestfy_transaction_id: result.financialTransactionId,
+          provider: providerName,
+          provider_transaction_id: result.financialTransactionId,
         },
         paid_at: paidAt,
         expires_at: new Date(Date.now() + 600000).toISOString(),
@@ -198,7 +222,7 @@ Deno.serve(async (req) => {
           status: paymentStatus,
           amount: payment.amount,
         },
-        provider: 'bestfy',
+        provider: providerName,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

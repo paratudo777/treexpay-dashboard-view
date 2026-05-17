@@ -80,7 +80,12 @@ Deno.serve(async (req) => {
 
     // Resolve provider for this user
     const { data: providerData } = await supabase.rpc('resolve_user_provider', { p_user_id: userId });
-    const providerName = providerData || 'novaera';
+    let providerName = providerData || 'novaera';
+    // Stripe não suporta PIX — usa NovaEra como fallback PIX-capable
+    if (providerName === 'stripe') {
+      console.log(`[checkout-pix] Provider 'stripe' não suporta PIX. Usando 'novaera'.`);
+      providerName = 'novaera';
+    }
     console.log(`[checkout-pix] Resolved provider for user ${userId}: ${providerName}`);
 
     const platformFeePercent = 3;
